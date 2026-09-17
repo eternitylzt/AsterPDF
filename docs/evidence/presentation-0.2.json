@@ -1,0 +1,11 @@
+{
+  "passed": true,
+  "reading_frames": 8,
+  "presentation_frames": 8,
+  "original_play_button_clicked": true,
+  "page_turn_pauses_previous_page": true,
+  "escape_exits": true,
+  "base_ready_seconds": 0.906,
+  "errors": [],
+  "elapsed_seconds": 3.03
+}

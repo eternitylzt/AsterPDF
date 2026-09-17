@@ -1,0 +1,12 @@
+{
+  "passed": true,
+  "original_buttons": [
+    "PlayPauseRight",
+    "Plus",
+    "Minus",
+    "Reset",
+    "PlayPauseLeft"
+  ],
+  "reverse_frames_observed": 7,
+  "errors": []
+}

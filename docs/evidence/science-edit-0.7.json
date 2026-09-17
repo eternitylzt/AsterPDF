@@ -1,0 +1,42 @@
+{
+  "original_sha256": "2654771cab6eb798e70c237b666aa5e8696f616f7dab77c3c74f75894291b96d",
+  "pages": [
+    {
+      "page": 1,
+      "characters": 3399,
+      "enter_seconds": 0.3460505999973975,
+      "mapping_cold_seconds": 9.859999408945441e-05,
+      "mapping_200_cached_seconds": 0.00853259998257272,
+      "copied": "Full ",
+      "preview_seconds": 0.5331031999958213,
+      "commit_seconds": 1.0793099000002258,
+      "notice": "新输入使用：Arial"
+    },
+    {
+      "page": 7,
+      "characters": 8794,
+      "enter_seconds": 0.5634883999882732,
+      "mapping_cold_seconds": 0.0013913000002503395,
+      "mapping_200_cached_seconds": 0.009003600018331781,
+      "copied": "Resea",
+      "preview_seconds": 0.9608272000041325,
+      "commit_seconds": 0.8506114000047091,
+      "notice": "局部 PDF 预览 · 应用后写入文档"
+    }
+  ],
+  "errors": [],
+  "roundtrip": [
+    {
+      "page": 1,
+      "save_reopen_render": true,
+      "original_stream_block_preserved": true,
+      "unchanged_original_glyphs": 4119
+    },
+    {
+      "page": 7,
+      "save_reopen_render": true,
+      "original_stream_block_preserved": true,
+      "unchanged_original_glyphs": 8765
+    }
+  ]
+}

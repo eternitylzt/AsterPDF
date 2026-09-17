@@ -1,0 +1,22 @@
+{
+  "frozen": true,
+  "elapsed_seconds": 4.06,
+  "passed": true,
+  "documents": [
+    {
+      "pages": 3,
+      "rendered_pages": 0,
+      "animation_frames": 54,
+      "video_frames": 0,
+      "media_position_ms": 0
+    },
+    {
+      "pages": 1,
+      "rendered_pages": 1,
+      "animation_frames": 0,
+      "video_frames": 74,
+      "media_position_ms": 3041
+    }
+  ],
+  "errors": []
+}

@@ -1,0 +1,35 @@
+{
+  "catalog_families": 2001,
+  "downloaded": [
+    "Lato-Black.ttf",
+    "Lato-BlackItalic.ttf",
+    "Lato-Bold.ttf",
+    "Lato-BoldItalic.ttf",
+    "Lato-ExtraBold.ttf",
+    "Lato-ExtraBoldItalic.ttf",
+    "Lato-ExtraLight.ttf",
+    "Lato-ExtraLightItalic.ttf",
+    "Lato-Italic.ttf",
+    "Lato-Light.ttf",
+    "Lato-LightItalic.ttf",
+    "Lato-Medium.ttf",
+    "Lato-MediumItalic.ttf",
+    "Lato-Regular.ttf",
+    "Lato-SemiBold.ttf",
+    "Lato-SemiBoldItalic.ttf",
+    "Lato-Thin.ttf",
+    "Lato-ThinItalic.ttf"
+  ],
+  "registered_families": [
+    "Lato",
+    "Lato Black",
+    "Lato ExtraBold",
+    "Lato ExtraLight",
+    "Lato Light",
+    "Lato Medium",
+    "Lato SemiBold",
+    "Lato Thin"
+  ],
+  "embedded_font_bytes": 656568,
+  "substitute_helvetica": "Arimo"
+}

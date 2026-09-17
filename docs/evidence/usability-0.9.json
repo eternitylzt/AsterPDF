@@ -1,0 +1,45 @@
+{
+  "private_open_seconds": 1.187000000005355,
+  "private_pages": 78,
+  "initial_editor_width": 8,
+  "chinese_directions": [
+    [
+      1.0,
+      0.0
+    ]
+  ],
+  "rotated_directions": [
+    [
+      0.7071068286895752,
+      0.7071068286895752
+    ]
+  ],
+  "private_source_unchanged": true,
+  "screens": [
+    {
+      "dpr": 2.5,
+      "geometry": "PySide6.QtCore.QRect(0, 0, 1536, 816)",
+      "text_panel_width": 225,
+      "overview_height": 408
+    },
+    {
+      "dpr": 1.0,
+      "geometry": "PySide6.QtCore.QRect(3840, 0, 2560, 1392)",
+      "text_panel_width": 225,
+      "overview_height": 411
+    },
+    {
+      "dpr": 1.0,
+      "geometry": "PySide6.QtCore.QRect(6400, 0, 1440, 2512)",
+      "text_panel_width": 225,
+      "overview_height": 411
+    }
+  ],
+  "errors": [],
+  "interface_font_tiers": [
+    "small",
+    "medium",
+    "large"
+  ],
+  "theme_switch_and_tab_alignment": true
+}

@@ -1,0 +1,48 @@
+{
+  "startup": {
+    "working_mb": 189.93,
+    "private_mb": 126.88,
+    "mupdf_store_mb": null
+  },
+  "cycles": [
+    {
+      "cycle": 1,
+      "before_close": {
+        "working_mb": 318.29,
+        "private_mb": 254.54,
+        "mupdf_store_mb": null
+      },
+      "after_close": {
+        "working_mb": 242.48,
+        "private_mb": 171.75,
+        "mupdf_store_mb": null
+      }
+    },
+    {
+      "cycle": 2,
+      "before_close": {
+        "working_mb": 332.0,
+        "private_mb": 265.21,
+        "mupdf_store_mb": null
+      },
+      "after_close": {
+        "working_mb": 258.59,
+        "private_mb": 186.79,
+        "mupdf_store_mb": null
+      }
+    },
+    {
+      "cycle": 3,
+      "before_close": {
+        "working_mb": 339.06,
+        "private_mb": 272.07,
+        "mupdf_store_mb": null
+      },
+      "after_close": {
+        "working_mb": 273.02,
+        "private_mb": 204.48,
+        "mupdf_store_mb": null
+      }
+    }
+  ]
+}

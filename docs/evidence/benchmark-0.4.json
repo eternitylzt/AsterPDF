@@ -1,0 +1,33 @@
+{
+  "startup": {
+    "working_mb": 189.55,
+    "private_mb": 126.25,
+    "mupdf_store_mb": null
+  },
+  "ten_open": {
+    "working_mb": 331.69,
+    "private_mb": 265.61,
+    "mupdf_store_mb": null
+  },
+  "forward": {
+    "frames": 90,
+    "seconds": 5.01
+  },
+  "reverse": {
+    "frames": 89,
+    "seconds": 5.02
+  },
+  "after_playback": {
+    "working_mb": 477.25,
+    "private_mb": 435.9,
+    "mupdf_store_mb": null
+  },
+  "all_closed": {
+    "working_mb": 240.11,
+    "private_mb": 171.62,
+    "mupdf_store_mb": null
+  },
+  "live_python_wrappers": 10,
+  "live_qt_document_tabs": 0,
+  "errors": []
+}

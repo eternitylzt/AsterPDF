@@ -1,0 +1,28 @@
+{
+  "pages": [
+    {
+      "page": 1,
+      "objects": 375,
+      "discover_seconds": 4.025
+    },
+    {
+      "page": 2,
+      "objects": 179,
+      "discover_seconds": 0.824
+    },
+    {
+      "page": 3,
+      "objects": 179,
+      "discover_seconds": 0.792
+    }
+  ],
+  "move_seconds": 0.08,
+  "palette_seconds": 0.077,
+  "palette_colors": 64,
+  "recolor_seconds": 0.317,
+  "reopen_text_preserved": true,
+  "reopen_pages": 3,
+  "rasterized_page": false,
+  "original_unchanged": true,
+  "two_megapixel_two_pairs_seconds": 0.057
+}

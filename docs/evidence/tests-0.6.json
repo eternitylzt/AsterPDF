@@ -1,0 +1,8 @@
+{
+  "platform": "Windows 11 x64 build 26200",
+  "full_tests": 44,
+  "full_seconds": 528.93,
+  "final_control_tests": 4,
+  "control_seconds": 13.36,
+  "frozen_passed": true
+}

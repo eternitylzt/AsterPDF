@@ -1,0 +1,92 @@
+{
+  "screens": [
+    {
+      "screen": 0,
+      "screen_dpr": 2.5,
+      "canvas_dpr": 2.5,
+      "screen_logical_size": [
+        1536,
+        816
+      ],
+      "tile_dprs": [
+        2.5
+      ],
+      "tiles": 3
+    },
+    {
+      "screen": 1,
+      "screen_dpr": 1.0,
+      "canvas_dpr": 1.0,
+      "screen_logical_size": [
+        2560,
+        1392
+      ],
+      "tile_dprs": [
+        1.0
+      ],
+      "tiles": 2
+    },
+    {
+      "screen": 2,
+      "screen_dpr": 1.0,
+      "canvas_dpr": 1.0,
+      "screen_logical_size": [
+        1440,
+        2512
+      ],
+      "tile_dprs": [
+        1.0
+      ],
+      "tiles": 2
+    }
+  ],
+  "source_frames": 180,
+  "distinct_frame_renders": 180,
+  "adjacent_identical": 0,
+  "declared_fps": 18.0,
+  "runs": [
+    {
+      "speed": 0.5,
+      "direction": 1,
+      "seconds": 4.0,
+      "displayed_frames": 36,
+      "timeline_advance": 35,
+      "skipped_frames": 0,
+      "play_width_pixels": 1280,
+      "expected_advance": 36
+    },
+    {
+      "speed": 1,
+      "direction": 1,
+      "seconds": 4.0,
+      "displayed_frames": 72,
+      "timeline_advance": 71,
+      "skipped_frames": 0,
+      "play_width_pixels": 1280,
+      "expected_advance": 72
+    },
+    {
+      "speed": 2,
+      "direction": 1,
+      "seconds": 4.031,
+      "displayed_frames": 45,
+      "timeline_advance": 141,
+      "skipped_frames": 97,
+      "play_width_pixels": 1280,
+      "expected_advance": 145
+    },
+    {
+      "speed": 1,
+      "direction": -1,
+      "seconds": 10.0,
+      "displayed_frames": 180,
+      "timeline_advance": 179,
+      "skipped_frames": 0,
+      "play_width_pixels": 1280,
+      "expected_advance": 180
+    }
+  ],
+  "presentation_original_button": true,
+  "page_turn_escape": true,
+  "errors": []
+}

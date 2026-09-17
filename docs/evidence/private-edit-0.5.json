@@ -1,0 +1,10 @@
+{
+  "source_sha256": "add246f1c7b278c3cbe499c3e4ec5d4009dbf2275f239ab7c95a7d29796c159d",
+  "objects": 8,
+  "scan_seconds": 0.046999999991385266,
+  "partial_delete_seconds": 0.2340000000112923,
+  "annotation_seconds": 0.125,
+  "font_color_size_preserved": true,
+  "unchanged_animation_streams": 180,
+  "original_untouched": true
+}

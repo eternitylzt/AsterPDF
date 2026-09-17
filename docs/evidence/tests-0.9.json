@@ -1,0 +1,12 @@
+{
+  "full_suite": {
+    "passed": 68,
+    "seconds": 239.81
+  },
+  "final_affected_ui_suite": {
+    "passed": 16,
+    "seconds": 56.95
+  },
+  "platform": "Windows 11 x64",
+  "version": "0.9.0"
+}

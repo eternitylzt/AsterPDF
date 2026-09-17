@@ -1,0 +1,23 @@
+{
+  "handbook_pages": 30,
+  "screens": [
+    {
+      "dpr": 2.5,
+      "overview_scale": 5.0,
+      "columns": 2
+    },
+    {
+      "dpr": 1.0,
+      "overview_scale": 5.0,
+      "columns": 2
+    },
+    {
+      "dpr": 1.0,
+      "overview_scale": 5.0,
+      "columns": 2
+    }
+  ],
+  "organizer_drop_accepted": true,
+  "source_unchanged": true,
+  "errors": []
+}

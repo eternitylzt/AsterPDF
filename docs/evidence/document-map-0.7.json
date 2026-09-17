@@ -1,0 +1,44 @@
+{
+  "pages": 30,
+  "outline_entries": 23,
+  "outline_row_heights": [
+    32
+  ],
+  "screens": [
+    {
+      "name": "\\\\.\\DISPLAY1",
+      "dpr": 2.5,
+      "map": [
+        148,
+        370
+      ],
+      "cache_bytes": 894704
+    },
+    {
+      "name": "PHL 276C8",
+      "dpr": 1.0,
+      "map": [
+        148,
+        370
+      ],
+      "cache_bytes": 144640
+    },
+    {
+      "name": "PHL 275B1",
+      "dpr": 1.0,
+      "map": [
+        148,
+        370
+      ],
+      "cache_bytes": 144640
+    }
+  ],
+  "jump_page": 13,
+  "within_page_fraction": 0.4999625849527437,
+  "preview_scale_range": [
+    0.5,
+    20
+  ],
+  "errors": [],
+  "source_unchanged": true
+}

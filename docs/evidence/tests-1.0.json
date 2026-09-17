@@ -1,0 +1,15 @@
+{
+  "unique_cases_passed": 73,
+  "full_run": {
+    "passed": 72,
+    "failed": 1,
+    "seconds": 235.49,
+    "failure": "Old test searched for Apply inside the scrolling form; Apply now lives in the fixed footer."
+  },
+  "after_locator_update": {
+    "passed": 6,
+    "failed": 0,
+    "seconds": 16.81
+  },
+  "duplicate_cases_not_added": true
+}

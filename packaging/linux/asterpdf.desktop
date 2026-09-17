@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=AsterPDF
+GenericName=Scientific PDF reader and editor
+Comment=Read, edit, animate, annotate and extract scientific PDFs
+Exec=asterpdf %F
+Icon=asterpdf
+Terminal=false
+Type=Application
+Categories=Office;Viewer;Science;
+MimeType=application/pdf;
+StartupWMClass=AsterPDF

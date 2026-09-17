@@ -1,0 +1,91 @@
+{
+  "screens": [
+    {
+      "screen": "\\\\.\\DISPLAY1",
+      "dpr": 2.5,
+      "checks": [
+        {
+          "maximized": false,
+          "screen": "\\\\.\\DISPLAY1",
+          "same": true
+        },
+        {
+          "maximized": false,
+          "screen": "\\\\.\\DISPLAY1",
+          "same": true
+        },
+        {
+          "maximized": true,
+          "screen": "\\\\.\\DISPLAY1",
+          "same": true
+        },
+        {
+          "maximized": true,
+          "screen": "\\\\.\\DISPLAY1",
+          "same": true
+        }
+      ]
+    },
+    {
+      "screen": "PHL 276C8",
+      "dpr": 1.0,
+      "checks": [
+        {
+          "maximized": false,
+          "screen": "PHL 276C8",
+          "same": true
+        },
+        {
+          "maximized": false,
+          "screen": "PHL 276C8",
+          "same": true
+        },
+        {
+          "maximized": true,
+          "screen": "PHL 276C8",
+          "same": true
+        },
+        {
+          "maximized": true,
+          "screen": "PHL 276C8",
+          "same": true
+        }
+      ]
+    },
+    {
+      "screen": "PHL 275B1",
+      "dpr": 1.0,
+      "checks": [
+        {
+          "maximized": false,
+          "screen": "PHL 275B1",
+          "same": true
+        },
+        {
+          "maximized": false,
+          "screen": "PHL 275B1",
+          "same": true
+        },
+        {
+          "maximized": true,
+          "screen": "PHL 275B1",
+          "same": true
+        },
+        {
+          "maximized": true,
+          "screen": "PHL 275B1",
+          "same": true
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "screenshots": [
+    "text-editing",
+    "text-saved",
+    "annotations",
+    "transparent-toolbar",
+    "customize",
+    "english"
+  ]
+}

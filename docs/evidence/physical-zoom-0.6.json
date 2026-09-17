@@ -1,0 +1,23 @@
+[
+  {
+    "screen": "\\\\.\\DISPLAY1",
+    "dpr": 2.5,
+    "reported_physical_dpi": 113.56086275454872,
+    "scale_at_100_percent": 1.5772342049242878,
+    "correct": true
+  },
+  {
+    "screen": "PHL 276C8",
+    "dpr": 1.0,
+    "reported_physical_dpi": 108.88753290260826,
+    "scale_at_100_percent": 1.5123268458695591,
+    "correct": true
+  },
+  {
+    "screen": "PHL 275B1",
+    "dpr": 1.0,
+    "reported_physical_dpi": 108.88753290260826,
+    "scale_at_100_percent": 1.5123268458695591,
+    "correct": true
+  }
+]

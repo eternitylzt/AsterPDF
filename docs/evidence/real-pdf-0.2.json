@@ -1,0 +1,63 @@
+{
+  "source_sha256": "add246f1c7b278c3cbe499c3e4ec5d4009dbf2275f239ab7c95a7d29796c159d",
+  "source_bytes": 89588667,
+  "frames": 180,
+  "fps": 18.0,
+  "sampled_frames": [
+    0,
+    30,
+    90,
+    179
+  ],
+  "distinct_frame_samples": 4,
+  "prepare_seconds": 0.149,
+  "all_frame_streams_unchanged_after_save": true,
+  "original_file_unchanged": true,
+  "official_manual": [
+    {
+      "page": 1,
+      "frames": 4,
+      "fps": 8.0,
+      "distinct_endpoints": true
+    },
+    {
+      "page": 4,
+      "frames": 2,
+      "fps": 1.0,
+      "distinct_endpoints": true
+    },
+    {
+      "page": 18,
+      "frames": 9,
+      "fps": 4.0,
+      "distinct_endpoints": true
+    },
+    {
+      "page": 19,
+      "frames": 101,
+      "fps": 12.0,
+      "distinct_endpoints": true
+    },
+    {
+      "page": 21,
+      "frames": 29,
+      "fps": 12.0,
+      "distinct_endpoints": true
+    },
+    {
+      "page": 22,
+      "frames": 191,
+      "fps": 10.0,
+      "distinct_endpoints": true
+    },
+    {
+      "page": 24,
+      "frames": 26,
+      "fps": 25.0,
+      "distinct_endpoints": true
+    }
+  ],
+  "manual_media": [
+    "click.mp3"
+  ]
+}

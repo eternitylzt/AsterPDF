@@ -1,0 +1,53 @@
+{
+  "screens": [
+    {
+      "name": "\\\\.\\DISPLAY1",
+      "dpr": 2.5,
+      "dpi": 113.56086275454872,
+      "window": [
+        1320,
+        756
+      ],
+      "toolbar_height": 36,
+      "sidebar_width": 238,
+      "tabs_hint": 228,
+      "tiles": 4,
+      "scale": 0.7434679334916865
+    },
+    {
+      "name": "PHL 276C8",
+      "dpr": 1.0,
+      "dpi": 108.88753290260826,
+      "window": [
+        1336,
+        929
+      ],
+      "toolbar_height": 36,
+      "sidebar_width": 238,
+      "tabs_hint": 228,
+      "tiles": 1,
+      "scale": 0.9489311163895487
+    },
+    {
+      "name": "PHL 275B1",
+      "dpr": 1.0,
+      "dpi": 108.88753290260826,
+      "window": [
+        1320,
+        880
+      ],
+      "toolbar_height": 36,
+      "sidebar_width": 238,
+      "tabs_hint": 228,
+      "tiles": 1,
+      "scale": 0.8907363420427553
+    }
+  ],
+  "errors": [],
+  "ghostscript": "Locally installed Ghostscript 9.05 (not bundled)",
+  "eps_test": {
+    "text": "EPS vector",
+    "drawings": 1,
+    "images": 0
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "frozen": true,
+  "elapsed_seconds": 19.7,
+  "print": {
+    "started": true,
+    "done": true,
+    "passed": true,
+    "pages": 3
+  },
+  "passed": true,
+  "navigation": [
+    {
+      "check": "single-page Right key",
+      "passed": true
+    },
+    {
+      "check": "presentation Left key",
+      "passed": true
+    },
+    {
+      "check": "presentation Escape",
+      "passed": true
+    },
+    {
+      "check": "single-page Right key",
+      "passed": true
+    },
+    {
+      "check": "presentation Left key",
+      "passed": true
+    },
+    {
+      "check": "presentation Escape",
+      "passed": true
+    }
+  ],
+  "text_edit": {
+    "done": true,
+    "passed": true,
+    "system_font_edit_save_reopen": true
+  },
+  "documents": [
+    {
+      "pages": 3,
+      "rendered_pages": 6,
+      "animation_frames": 22,
+      "video_frames": 0,
+      "media_position_ms": 0
+    },
+    {
+      "pages": 1,
+      "rendered_pages": 6,
+      "animation_frames": 0,
+      "video_frames": 54,
+      "media_position_ms": 2166
+    }
+  ],
+  "errors": []
+}
