@@ -3,7 +3,7 @@ from collections import OrderedDict
 from bisect import bisect_right
 from PySide6.QtCore import Qt, QRectF, QPointF, QTimer
 from PySide6.QtGui import QColor, QPainter, QPen, QPixmap
-from PySide6.QtWidgets import QWidget, QMenu, QInputDialog, QGraphicsOpacityEffect
+from PySide6.QtWidgets import QWidget, QMenu, QInputDialog, QGraphicsOpacityEffect, QScrollBar
 from .i18n import L
 
 
@@ -25,6 +25,8 @@ class DocumentMap(QWidget):
         self.opacity=settings.value('minimap/opacity',80,type=int)
         effect=QGraphicsOpacityEffect(self);effect.setOpacity(self.opacity/100);self.setGraphicsEffect(effect)
         self.offset = 0.
+        self.rail=QScrollBar(Qt.Vertical,self);self.rail.setStyleSheet('QScrollBar:vertical{background:rgba(80,120,150,35);width:9px;margin:0;border-radius:4px;} QScrollBar::handle:vertical{background:#64a9ba;min-height:18px;border-radius:4px;} QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical{height:0;}')
+        self.rail.valueChanged.connect(self.scroll_preview)
         self.rects = []; self.starts = []; self.total = 1.
         self.signature = None; self.view_signature = None
         self.cache = OrderedDict(); self.cache_bytes = 0; self.pending = None; self.failed = set()
@@ -34,10 +36,13 @@ class DocumentMap(QWidget):
         self.setToolTip(L('点击跳转；拖动蓝框浏览；滚轮或按住右键拖动预览；边缘缩放；右键设置。',
                           'Click to jump; drag the blue viewport; wheel or right-drag to pan; resize at edges; right-click for settings.'))
 
+    def scroll_preview(self,value):
+        self.offset=float(value);self.update();self.request_visible()
+
     def toggle(self):
         self.enabled = not self.enabled
         self.tab.window.settings.setValue('minimap/enabled', self.enabled)
-        self.sync()
+        self.sync();self.tab.sync_tool_states()
 
     def release(self):
         self.generation += 1
@@ -66,7 +71,7 @@ class DocumentMap(QWidget):
             rows=[t.canvas.sizes[i:i+columns] for i in range(0,len(t.canvas.sizes),columns)]
             natural_width=max((sum(w for w,h in row)*scale+5*(len(row)-1) for row in rows),default=80)+26
             natural_height=sum(max(h for w,h in row)*scale+7 for row in rows)+self.HEADER+self.FOOTER+5
-            self.resize(round(max(100,min(natural_width,parent.width()-20))),round(max(100,min(natural_height,self.screen().availableGeometry().height()/2,parent.height()-inset-20))))
+            self.resize(round(max(100,min(natural_width,parent.width()-20))),round(max(100,min(natural_height,(parent.height()-inset)*.8,parent.height()-inset-20))))
         width = min(max(100, self.width()), max(100, parent.width()-20))
         height = min(max(100, self.height()), max(100, parent.height()-inset-20))
         if (width,height) != (self.width(),self.height()):self.resize(width,height)
@@ -76,7 +81,9 @@ class DocumentMap(QWidget):
         self.raise_()
         signature = (t.canvas.columns,t.document.revision, tuple(t.canvas.sizes), self.percent, self.width(), round(self.devicePixelRatioF(),3), t.night)
         if signature != self.signature:
-            self.release(); self.signature = signature; self.rects = []; self.starts = []
+            if getattr(self,'preserve_next',False):self.preserve_next=False
+            else:self.release()
+            self.signature = signature; self.rects = []; self.starts = []
             scale = self.percent/100 * 96/72
             self.rows=[list(range(i,min(i+t.canvas.columns,len(t.canvas.sizes)))) for i in range(0,len(t.canvas.sizes),t.canvas.columns)]
             widest=max((sum(t.canvas.sizes[i][0] for i in row) for row in self.rows),default=1)
@@ -91,7 +98,7 @@ class DocumentMap(QWidget):
                 y+=max(t.canvas.sizes[i][1]*scale for i in row)+7
             self.total=y
         if self.auto_size:
-            desired=round(max(80,min(self.total+self.HEADER+self.FOOTER,self.screen().availableGeometry().height()/2,parent.height()-inset-20)))
+            desired=round(max(80,min(self.total+self.HEADER+self.FOOTER,(parent.height()-inset)*.8,parent.height()-inset-20)))
             if self.height()!=desired:self.resize(self.width(),desired)
         canvas=t.canvas; vb=t.scroll.verticalScrollBar(); hb=t.scroll.horizontalScrollBar()
         current=(canvas.page,canvas.scale,canvas.columns,canvas.continuous,vb.value(),hb.value(),t.scroll.viewport().size(),getattr(t,'reading_inset',0))
@@ -102,7 +109,18 @@ class DocumentMap(QWidget):
                 focus=self.markers[0]
                 if focus.top()<self.offset or focus.bottom()>self.offset+self.body().height():
                     self.offset = focus.center().y()-self.body().height()/2
-        self.clamp_offset(); self.update(); self.request_visible()
+        self.clamp_offset()
+        from PySide6.QtCore import QSignalBlocker
+        with QSignalBlocker(self.rail):
+            self.rail.setGeometry(self.width()-12,self.HEADER,9,int(self.body().height()));self.rail.setRange(0,round(max(0,self.total-self.body().height())));self.rail.setPageStep(round(self.body().height()));self.rail.setValue(round(self.offset))
+        self.rail.setVisible(self.rail.maximum()>0);self.rail.raise_()
+        self.update(); self.request_visible()
+
+    def preserve_pages(self,mapping,changed):
+        if self.pending:self.pending.cancelled=True
+        self.pending=None;self.generation+=1
+        self.cache=OrderedDict((new,self.cache[old]) for new,old in enumerate(mapping) if old in self.cache and new not in changed)
+        self.cache_bytes=sum(p.width()*p.height()*4 for p in self.cache.values());self.failed.clear();self.preserve_next=True;self.signature=None
 
     def clamp_offset(self):
         self.offset=max(0.,min(self.offset,max(0.,self.total-self.body().height())))
@@ -161,15 +179,11 @@ class DocumentMap(QWidget):
             mini=self.rects[page];height=self.tab.canvas.sizes[page][1]
             rows=set(round((rect[1]+rect[3])/2/height*mini.height()) for rect in self.tab.canvas.search_hits.get(page,[]))
             for y in rows:
-                for spread,alpha in ((5,22),(3,45),(1.5,145)):
-                    p.fillRect(QRectF(mini.x()-1,mini.y()+y-spread,mini.width()+2,spread*2),QColor(255,168,25,alpha))
+                for spread,alpha in ((5,50),(3,110),(1.5,230)):
+                    p.fillRect(QRectF(mini.x()-1,mini.y()+y-spread,mini.width()+2,spread*2),QColor(248,255,20,alpha))
         p.setPen(QPen(QColor('#2389ed'  if dark else '#006ee6'),2));p.setBrush(QColor(25,126,245,66))
         for rect in self.markers:p.drawRect(rect)
         p.restore()
-        # Full-length rail remains available even when the preview is much taller than the panel.
-        rail=QRectF(self.width()-5,self.HEADER,3,self.body().height());p.fillRect(rail,QColor('#9bacbf'))
-        if self.total>0:
-            p.fillRect(QRectF(rail.x(),rail.y()+self.offset/self.total*rail.height(),3,max(8,self.body().height()/self.total*rail.height())),QColor('#1677dc'))
         p.setPen(QColor('#a9bbd2' if dark else '#475f80'))
         p.drawText(QRectF(6,self.height()-self.FOOTER,self.width()-12,self.FOOTER),Qt.AlignCenter,f'{self.tab.canvas.page+1} / {len(self.rects)} · {self.reading_progress():.0f}%')
 

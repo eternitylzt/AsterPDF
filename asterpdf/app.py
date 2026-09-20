@@ -32,7 +32,7 @@ QToolButton,QPushButton {border:1px solid transparent;border-radius:5px;padding:
 QToolButton:hover,QPushButton:hover {background:#eaf0ff;border-color:#d7e0fc;}
 QToolButton:pressed,QPushButton:pressed {background:#cfddf7;border-color:#829acb;}
 QPushButton {background:#eef2f8;border-color:#dce3ed;}
-QToolButton:checked {background:#dce6ff;border-color:#aebfed;}
+QToolButton:checked,QPushButton:checked {background:#dce6ff;border-color:#aebfed;}
 QWidget:disabled {color:#94a0b1;}
 QLineEdit,QSpinBox,QDoubleSpinBox,QComboBox,QTextEdit,QPlainTextEdit {background:#fff;border:1px solid #d9e1ec;border-radius:5px;padding:3px;}
 QListWidget,QTreeWidget {background:#f7f9fc;border:0;outline:0;}
@@ -63,7 +63,7 @@ QToolButton,QPushButton {border:1px solid transparent;border-radius:5px;padding:
 QToolButton:hover,QPushButton:hover {background:#304267;border-color:#42577e;}
 QToolButton:pressed,QPushButton:pressed {background:#47628c;border-color:#91aad0;}
 QPushButton {background:#27364c;border-color:#3c4e67;}
-QToolButton:checked {background:#3e527a;border-color:#8299cb;}
+QToolButton:checked,QPushButton:checked {background:#3e527a;border-color:#8299cb;}
 QWidget:disabled {color:#77859c;}
 QLineEdit,QSpinBox,QDoubleSpinBox,QComboBox,QTextEdit,QPlainTextEdit {background:#182334;border:1px solid #3b4b62;border-radius:5px;padding:3px;}
 QListWidget,QTreeWidget {background:#192333;border:0;outline:0;}
@@ -168,8 +168,10 @@ class Window(QMainWindow):
         self.home_recent.header().setSectionResizeMode(1,QHeaderView.Fixed);self.home_recent.header().setSectionResizeMode(2,QHeaderView.Fixed)
         self.home_recent.setColumnWidth(1,90);self.home_recent.setColumnWidth(2,175)
         self.home_recent.setStyleSheet('QHeaderView::section {padding:4px 8px;} QTreeView::item {padding:6px;}')
+        from .recent_files import RecentDelegate
+        self.home_recent.setItemDelegate(RecentDelegate(self.home_recent))
         self.home_recent.itemActivated.connect(lambda item,column:self.open_file(item.data(0,Qt.UserRole)))
-        self.home_recent.itemClicked.connect(lambda item,column:self.open_file(item.data(0,Qt.UserRole)))
+        self.home_recent.setContextMenuPolicy(Qt.CustomContextMenu);self.home_recent.customContextMenuRequested.connect(self.recent_context_menu)
         layout.addWidget(self.home_recent,0,Qt.AlignHCenter)
         layout.addStretch();self.home_footer=QLabel();self.home_footer.setAlignment(Qt.AlignCenter);self.home_footer.setStyleSheet('color:#71829a;padding:18px;line-height:150%;');layout.addWidget(self.home_footer);self.update_home_footer()
         home=self.tabs.addTab(self.welcome,L('首页','Home'))
@@ -195,7 +197,7 @@ class Window(QMainWindow):
         self.action(view,'minimap',lambda:self.with_tab(lambda t:t.minimap.toggle()))
         for label,columns,continuous in [(L('单页视图','Single page'),1,False),(L('启用滚动','Continuous'),1,True),(L('双页视图','Two pages'),2,False),(L('双页并排滚动','Continuous two pages'),2,True)]:
             view.addAction(label,lambda c=columns,b=continuous:self.with_tab(lambda t:t.set_view(c,b)))
-        view.addAction(L('自定义工具栏…','Customize toolbar…'),lambda:self.with_tab(lambda t:t.customize_toolbar()))
+        view.addAction(L('自定义工具栏…','Customize toolbar…'),self.customize_toolbar)
         for label,key in [(L('显示 / 隐藏工具栏','Show / hide toolbar'),'hidden'),(L('自动隐藏工具栏','Auto-hide toolbar'),'autohide')]:
             view.addAction(label,lambda k=key:self.with_tab(lambda t:t.set_chrome_option(k,not self.settings.value('toolbar/'+k,False,type=bool))))
         view.addAction(L('工具栏透明度…','Toolbar opacity…'),lambda:self.with_tab(lambda t:t.toolbar_opacity()))
@@ -206,7 +208,7 @@ class Window(QMainWindow):
             action=edit.addAction(tr(key),lambda checked=False,k=key:self.with_tab(lambda t:t.set_panel(k)))
             if key=='objects':action.setShortcut('Ctrl+E')
         media_menu=self.menuBar().addMenu(tr('media'))
-        for key,callback in [('play',lambda t:t.play_selected()),('replay',lambda t:t.replay()),('previous',lambda t:t.step(-1)),('next',lambda t:t.step(1)),('details',lambda t:t.set_panel('media'))]:
+        for key,callback in [('play',lambda t:t.play_selected()),('replay',lambda t:t.replay()),('previous',lambda t:t.step(-1)),('next',lambda t:t.step(1)),('playback_controls',lambda t:t.show_playback_controls())]:
             media_menu.addAction(tr(key),lambda checked=False,f=callback:self.with_tab(f))
         quality_menu=media_menu.addMenu(L('动画画质','Animation quality'))
         from PySide6.QtGui import QActionGroup
@@ -224,10 +226,10 @@ class Window(QMainWindow):
         dark=view.addAction(tr('dark'));self.dark_action=dark;dark.setCheckable(True);dark.setChecked(self.dark);dark.toggled.connect(self.set_dark)
         night=view.addAction(tr('night'));self.night_action=night;night.setCheckable(True);night.toggled.connect(lambda b:self.with_tab(lambda t:(setattr(t,'night',b),t.canvas.invalidate(False))))
         language=view.addMenu('语言/Language');self.language_menu=language
-        for label,code in [(L('中文','Chinese'),'zh'),(L('英文','English'),'en')]:language.addAction(label,lambda c=code:self.change_language(c))
+        for label,code in [('中文','zh'),('English','en')]:language.addAction(label,lambda c=code:self.change_language(c))
         settingsmenu=self.menuBar().addMenu('Settings');self.settings_menu=settingsmenu;preferences=settingsmenu.addAction(L('首选项…','Preferences…'));preferences.setShortcut('Ctrl+,');preferences.triggered.connect(self.preferences)
         settingsmenu.addMenu(language)
-        settingsmenu.addAction(L('自定义工具栏…','Customize toolbar…'),lambda:self.with_tab(lambda t:t.customize_toolbar()))
+        settingsmenu.addAction(L('自定义工具栏…','Customize toolbar…'),self.customize_toolbar)
         settingsmenu.addAction(L('恢复未保存的文档…','Recover unsaved documents…'),self.offer_recovery)
         helpmenu=self.menuBar().addMenu(tr('help'));self.action(helpmenu,'details',self.compatibility)
         self.action(helpmenu,'update',self.check_updates);self.action(helpmenu,'about',self.about)
@@ -274,6 +276,8 @@ class Window(QMainWindow):
         self.queue.submit(lambda j:merge_files(files,target),lambda _:self.open_file(target),lambda e:QMessageBox.warning(self,'AsterPDF',str(e)),self.statusBar().clearMessage,priority=2)
 
     def eventFilter(self,obj,event):
+        from shiboken6 import isValid
+        if hasattr(self,'tabs') and not isValid(self.tabs):return False
         if event.type() in (QEvent.Resize,QEvent.LayoutRequest) and hasattr(self,'tabs') and obj in (self.tabs,self.tabs.tabBar()):QTimer.singleShot(0,self.sync_tab_corner)
         if event.type()!=QEvent.KeyPress:return False
         tab=self.current()
@@ -303,18 +307,36 @@ class Window(QMainWindow):
         if tab and not tab.busy:return callback(tab)
 
     def open_dialog(self):
-        files,_=QFileDialog.getOpenFileNames(self,tr('open'),'','PDF (*.pdf)')
+        files,_=QFileDialog.getOpenFileNames(self,tr('open'),'','Documents (*.pdf *.eps *.ps *.md *.markdown);;PDF (*.pdf);;PostScript (*.eps *.ps);;Markdown (*.md *.markdown)')
         for filename in files:self.open_file(filename)
 
     def open_file(self,filename):
         filename=str(Path(filename).resolve())
+        if not Path(filename).is_file():
+            QMessageBox.warning(self,'AsterPDF',L('文件已失效或被移动：','File is missing or moved: ')+filename);return
         if filename in self.opening:return
         for i in range(self.tabs.count()):
             tab=self.tabs.widget(i)
             if isinstance(tab,DocumentTab) and tab.document.original==filename:self.tabs.setCurrentIndex(i);return
+        loading=QLabel(tr('working')+' '+Path(filename).name);loading.setAlignment(Qt.AlignCenter)
+        loading_index=self.tabs.addTab(loading,Path(filename).name);self.tabs.setCurrentIndex(loading_index)
         self.opening.add(filename);self.statusBar().showMessage(tr('working')+' '+Path(filename).name)
+        source=filename
+        import tempfile
+        temporary=None
+        if Path(filename).suffix.lower() in ('.md','.markdown'):
+            from .file_open import markdown_pdf
+            temporary=tempfile.TemporaryDirectory(prefix='aster-import-')
         def work(job):
-            doc=Document(filename,self.recovery_root)
+            converted=source
+            if Path(filename).suffix.lower() in ('.eps','.ps'):
+                from .figures import prepare
+                with tempfile.TemporaryDirectory(prefix='aster-import-') as folder:
+                    converted=prepare(filename,folder);doc=Document(converted,self.recovery_root)
+            else:doc=Document(converted,self.recovery_root)
+            if Path(filename).suffix.lower()!='.pdf':
+                import shutil
+                doc.original=filename;shutil.copyfile(doc.path,doc.folder/'imported-base.pdf');doc._metadata()
             try:return doc,doc.info()
             except Exception:doc.close();raise
         def done(result):
@@ -325,12 +347,39 @@ class Window(QMainWindow):
             self.settings.setValue('recent',([filename]+[x for x in recent if x!=filename])[:15])
             import hashlib,datetime
             self.settings.setValue('recent_opened/'+hashlib.sha256(filename.encode()).hexdigest(),datetime.datetime.now().isoformat(timespec='seconds'));self.refresh_recent()
-        self.queue.submit(work,done,lambda e:QMessageBox.warning(self,'AsterPDF',e),
-                          lambda:(self.opening.discard(filename),self.statusBar().clearMessage()),priority=3)
+        def cleanup():
+            self.opening.discard(filename);self.tabs.removeTab(self.tabs.indexOf(loading));loading.deleteLater()
+            if temporary:temporary.cleanup()
+            self.statusBar().clearMessage()
+        def failed(message):QMessageBox.warning(self,'AsterPDF',str(message))
+        def submit():self.queue.submit(work,done,failed,cleanup,priority=3)
+        if temporary:
+            from .markdown_import import prepare
+            def ready(prepared):
+                nonlocal source
+                try:source=markdown_pdf(filename,Path(temporary.name)/'document.pdf',prepared)
+                except Exception as error:failed(error);cleanup();return
+                submit()
+            self.queue.submit(lambda j:prepare(filename),ready,lambda message:(failed(message),cleanup()),priority=3)
+        else:submit()
+
+    def customize_toolbar(self,parent=None):
+        from .chrome import customize_window_toolbar
+        customize_window_toolbar(self,parent if isinstance(parent,QWidget) else self)
 
     def preferences(self):
         from .preferences import Preferences
         dialog=Preferences(self);dialog.exec()
+
+    def recent_context_menu(self,pos):
+        item=self.home_recent.itemAt(pos)
+        if not item:return
+        path=item.data(0,Qt.UserRole);menu=QMenu(self)
+        menu.addAction(L('复制文件名','Copy filename'),lambda:QApplication.clipboard().setText(Path(path).name))
+        menu.addAction(L('复制路径','Copy path'),lambda:QApplication.clipboard().setText(path))
+        def remove():
+            self.settings.setValue('recent',[p for p in self.settings.value('recent',[],type=list) if p!=path]);self.refresh_recent()
+        menu.addAction(L('移除记录','Remove from recent'),remove);menu.exec(self.home_recent.viewport().mapToGlobal(pos))
 
     def refresh_recent(self):
         self.recent.clear();self.home_recent.clear()
@@ -344,7 +393,8 @@ class Window(QMainWindow):
             try:size=f'{file.stat().st_size/1024/1024:.2f} MB'
             except OSError:size=L('文件不可用','Unavailable')
             item=QTreeWidgetItem([f'{file.name}\n{file.parent}',size,opened]);item.setData(0,Qt.UserRole,path);item.setToolTip(0,path);item.setTextAlignment(1,Qt.AlignRight|Qt.AlignVCenter);self.home_recent.addTopLevelItem(item)
-            item.setSizeHint(0,__import__('PySide6.QtCore',fromlist=['QSize']).QSize(660,54))
+            item.setSizeHint(0,__import__('PySide6.QtCore',fromlist=['QSize']).QSize(660,60))
+
 
     def update_title(self):
         for i in range(self.tabs.count()):
@@ -364,17 +414,19 @@ class Window(QMainWindow):
         self._previous_tab=self.current();self.update_title()
         if self.current():self.current().current_changed(self.current().canvas.page);self.current().canvas.update()
 
-    def save_tab(self,save_as=False,after=None):
+    def save_tab(self,save_as=False,after=None,on_failure=None):
         tab=self.current()
         if not tab or tab.busy:return
         if tab.suspended_inline:tab.restore_inline()
         if tab.inline_editor:
-            tab.commit_inline(lambda:self.save_tab(save_as,after));return
+            tab.commit_inline(lambda:self.save_tab(save_as,after,on_failure),on_failure=on_failure);return
         destination=None
-        if save_as:
-            destination,_=QFileDialog.getSaveFileName(self,tr('save_as'),tab.document.original,'PDF (*.pdf)')
-            if not destination:return
-        tab.run(tr('save'),lambda j:tab.document.save(destination),lambda _:after() if after else None)
+        if save_as or Path(tab.document.original).suffix.lower()!='.pdf':
+            destination,_=QFileDialog.getSaveFileName(self,tr('save_as'),str(Path(tab.document.original).with_suffix('.pdf')),'PDF (*.pdf)')
+            if not destination:
+                if after:self._close_pending=False;self._closing_all=False
+                return
+        tab.run(tr('save'),lambda j:tab.document.save(destination),lambda _:after() if after else None,failure=on_failure)
 
     def history(self,redo):
         tab=self.current()
@@ -401,10 +453,10 @@ class Window(QMainWindow):
                 def failed(message=None):
                     self._close_pending=False;self._closing_all=False
                     if message:tab.error(message)
-                def saved(_):QTimer.singleShot(0,lambda:self.finish_close_tab(tab))
+                def saved(_=None):QTimer.singleShot(0,lambda:self.finish_close_tab(tab))
                 def save():
                     if tab.busy:QTimer.singleShot(20,save);return
-                    tab.run(tr('save'),lambda j:tab.document.save(),saved,failure=failed)
+                    self.save_tab(after=saved,on_failure=failed) if Path(tab.document.original).suffix.lower()!='.pdf' else tab.run(tr('save'),lambda j:tab.document.save(),saved,failure=failed)
                 if tab.inline_editor:tab.commit_inline(save,on_failure=failed)
                 else:save()
                 return False
@@ -424,7 +476,19 @@ class Window(QMainWindow):
         # Process one document at a time. Never queue another close inside a
         # modal save prompt: nested close events used to bypass/duplicate it.
         event.ignore()
-        if getattr(self,'_close_pending',False):return
+        if getattr(self,'_close_pending',False) or getattr(self,'_confirm_close_pending',False):return
+        if not getattr(self,'_closing_all',False) and len(self.document_tabs())>1 and self.settings.value('window/confirm_close',True,type=bool):
+            from PySide6.QtWidgets import QCheckBox
+            prompt=QMessageBox(self);prompt.setWindowTitle(L('关闭 AsterPDF','Close AsterPDF'));prompt.setText(L('关闭当前标签页，还是关闭所有标签页并退出？','Close the current tab, or close all tabs and quit?'))
+            current=prompt.addButton(L('当前标签页','Current tab'),QMessageBox.ActionRole);current.setEnabled(self.current() is not None)
+            all_tabs=prompt.addButton(L('所有标签页并退出','All tabs and quit'),QMessageBox.AcceptRole);prompt.addButton(QMessageBox.Cancel)
+            remember=QCheckBox(L('不再提示（以后直接退出，仍询问保存修改）','Do not ask again (still prompt to save changes)'));prompt.setCheckBox(remember)
+            self._confirm_close_pending=True
+            try:prompt.exec()
+            finally:self._confirm_close_pending=False
+            if prompt.clickedButton() not in (current,all_tabs):return
+            if remember.isChecked():self.settings.setValue('window/confirm_close',False)
+            if prompt.clickedButton()==current:self.close_tab(self.tabs.currentIndex());return
         self._closing_all=True
         if self.opening or any(t.busy for t in self.document_tabs()):
             QTimer.singleShot(150,lambda:self.close() if getattr(self,'_closing_all',False) else None);return
@@ -436,11 +500,11 @@ class Window(QMainWindow):
         self._closing_all=False;self.settings.sync();event.accept()
 
     def dragEnterEvent(self,event):
-        if event.mimeData().hasUrls() and any(u.isLocalFile() and u.toLocalFile().lower().endswith('.pdf') for u in event.mimeData().urls()):event.acceptProposedAction()
+        if event.mimeData().hasUrls() and any(u.isLocalFile() and u.toLocalFile().lower().endswith(('.pdf','.eps','.ps','.md','.markdown')) for u in event.mimeData().urls()):event.acceptProposedAction()
 
     def dropEvent(self,event):
         for url in event.mimeData().urls():
-            if url.isLocalFile() and url.toLocalFile().lower().endswith('.pdf'):self.open_file(url.toLocalFile())
+            if url.isLocalFile() and url.toLocalFile().lower().endswith(('.pdf','.eps','.ps','.md','.markdown')):self.open_file(url.toLocalFile())
 
     def set_dark(self,value):
         self.dark=value;self.settings.setValue('dark',value);self.apply_theme()
@@ -468,9 +532,18 @@ class Window(QMainWindow):
                     key=action.property('aster_key')
                     if key:decorate(action,key,self.dark)
                 tab.zoom_minus.setIcon(icon('minus',self.dark));tab.zoom_plus.setIcon(icon('plus',self.dark));tab.update_bookmark_icon();tab.navbar_host.timer.start(0)
+        if sys.platform=='win32':
+            import ctypes
+            value=ctypes.c_int(1 if self.dark else 0)
+            for attribute in (20,19):
+                try:ctypes.windll.dwmapi.DwmSetWindowAttribute(int(self.winId()),attribute,ctypes.byref(value),ctypes.sizeof(value))
+                except (AttributeError,OSError):pass
+        self.applied_font_size=self.settings.value('ui/font_size','medium')
         QTimer.singleShot(0,self.sync_tab_corner)
 
     def sync_tab_corner(self):
+        from shiboken6 import isValid
+        if not isValid(self) or not isValid(self.tabs):return
         from .ui_icons import icon
         bar=self.tabs.tabBar();button=self.document_switcher
         if getattr(self,'_corner_dark',None)!=self.dark:
@@ -498,7 +571,9 @@ class Window(QMainWindow):
         from .release import REPOSITORY
         repository=REPOSITORY or self.settings.value('repository','')
         address='https://github.com/'+repository if repository else L('仓库地址：待设置','Repository: not configured')
-        self.home_footer.setText(L('版本 ','Version ')+__version__+'\n'+address+'\n'+L('开发者：','Developer: ')+'Zhentong Li (eternitylzt@gmail.com)')
+        self.home_footer.setTextFormat(Qt.RichText);self.home_footer.setOpenExternalLinks(True)
+        self.home_footer.setTextInteractionFlags(Qt.TextBrowserInteraction)
+        self.home_footer.setText(L('版本 ','Version ')+__version__+f'<br><a href="{address}">{address}</a><br>'+L('开发者：','Developer: ')+'Zhentong Li (<a href="mailto:eternitylzt@gmail.com">eternitylzt@gmail.com</a>)')
 
     def populate_tab_menu(self,menu):
         menu.clear()
@@ -545,6 +620,7 @@ class Window(QMainWindow):
             if hasattr(tab,'property_container'):self._presentation_widgets.append((tab.property_container,tab.property_container.isVisible()))
             self._presentation_view=tab.document_views.currentWidget();self._presentation_editing=tab.editing_objects
             self.presentation=True;tab.editing_objects=False
+            if hasattr(tab,'playback_panel'):tab.playback_panel.dismiss()
             for widget,_ in self._presentation_widgets:widget.hide()
             tab.document_views.setCurrentWidget(tab.scroll);tab.set_mode('select');tab.set_view(1,False)
             self.showFullScreen();tab.canvas.setFocus();QTimer.singleShot(100,lambda:tab.fit(False) if self.presentation and not tab.closed else None)
@@ -660,10 +736,12 @@ def main():
     parser.add_argument('files',nargs='*');parser.add_argument('--data-dir');parser.add_argument('--smoke-test',action='store_true')
     parser.add_argument('--verify-desktop',metavar='OUTPUT_DIRECTORY',help=argparse.SUPPRESS)
     args=parser.parse_args()
-    app=QApplication(sys.argv[:1]);app.setApplicationName('AsterPDF');app.setApplicationVersion(__version__)
+    from .file_open import DesktopApplication
+    app=DesktopApplication(sys.argv[:1]);app.setApplicationName('AsterPDF');app.setApplicationVersion(__version__)
     app.setOrganizationName('AsterPDF');app.setStyle('Fusion')
-    window=Window(args.data_dir);window.show()
+    window=Window(args.data_dir)
     for filename in args.files:window.open_file(filename)
+    app.bind(window);window.show()
     if args.verify_desktop:
         from .diagnostics import start
         start(window,args.verify_desktop,len(args.files))

@@ -23,8 +23,7 @@ SHORT={
  'page_fit':('整页','Fit'),'width_fit':('宽度','Width'),'save':('保存','Save'),'print':('打印','Print'),'file_info':('信息','Info')}
 ALIASES={'reset_document':'undo','add_text':'text_ops','apply':'check','cancel':'close','organize':'pages','export_settings':'tool',
  'delete_pages':'delete','crop':'region','images':'add_image','export_pages':'extract','export_region':'extract',
- 'copy_region':'extract','extract_pages':'pages','vector_pdf':'vector_edit','highlight':'annotate','ink':'annotate',
- 'underline':'text_ops','strikeout':'text_ops','note':'annotate','select_annot':'select','freetext':'text_ops','bookmark':'star','replay':'undo'}
+ 'copy_region':'extract','extract_pages':'pages','vector_pdf':'vector_edit','bookmark':'star','replay':'undo'}
 
 
 class OffsetPanel(QWidget):
@@ -122,6 +121,24 @@ def translate_tree(root):
         if isinstance(obj,QAction) and obj.property('aster_key'):decorate(obj,obj.property('aster_key'),getattr(root,'dark',False))
 
 
+def customize_window_toolbar(window,parent=None):
+    from .ui_icons import icon
+    defaults=['annotate','objects','pages','extract','undo','redo','save','width_fit','page_fit','bookmark','continuous','minimap']
+    keys=defaults+['region','copy_region','images','play','replay','presentation','print','file_info','search']
+    current=window.current()
+    if current:return ChromeMixin.customize_toolbar(current,parent)
+    form=FormDialog(L('自定义工具栏与功能区','Customize toolbar and modules'),parent or window)
+    listing=QListWidget();listing.setMinimumHeight(330)
+    visible=window.settings.value('toolbar/tools',defaults,type=list)
+    for key in keys:
+        item=QListWidgetItem(icon(key,window.dark),tr(key));item.setData(Qt.UserRole,key)
+        item.setFlags(item.flags()|Qt.ItemIsUserCheckable);item.setCheckState(Qt.Checked if key in visible else Qt.Unchecked);listing.addItem(item)
+    form.form.addRow(listing)
+    if form.finish().exec()==QDialog.Accepted:
+        window.settings.setValue('toolbar/tools',[listing.item(i).data(Qt.UserRole) for i in range(listing.count()) if listing.item(i).checkState()==Qt.Checked])
+        for tab in window.document_tabs():tab.configure_chrome()
+
+
 class ChromeMixin:
     def configure_chrome(self):
         defaults=['annotate','objects','pages','extract','undo','redo','save','width_fit','page_fit','bookmark','continuous','minimap']
@@ -172,6 +189,7 @@ class ChromeMixin:
             for widget in (self.navbar_host,self.tool_panels):
                 if not widget.isHidden():
                     height=widget.sizeHint().height();widget.setGeometry(0,y,self.width(),height);y+=height;widget.raise_()
+        if hasattr(self,'playback_panel'):self.playback_panel.reposition()
         for name in ('sidebar_container','text_container','property_container'):
             panel=getattr(self,name,None)
             if panel:panel.layout().setContentsMargins(0,y,0,0)
@@ -204,8 +222,8 @@ class ChromeMixin:
         form.number('opacity',L('不透明度（%）','Opacity (%)'),self.window.settings.value('toolbar/opacity',100,type=int),35,100)
         if form.finish().exec()==QDialog.Accepted:self.set_chrome_option('opacity',form.values()['opacity'])
 
-    def customize_toolbar(self):
-        form=FormDialog(L('自定义工具栏与功能区','Customize toolbar and modules'),self)
+    def customize_toolbar(self,parent=None):
+        form=FormDialog(L('自定义工具栏与功能区','Customize toolbar and modules'),parent or self)
         form.note(L('勾选显示工具；直接拖动主工具栏上的图标调整顺序。指针、手形、页码和缩放始终保留。','Check tools to show them; drag icons directly on the main toolbar to reorder. Pointer, hand, page number and zoom remain available.'))
         listing=QListWidget();listing.setMinimumHeight(330)
         actions={a:k for k,a in {**self.module_actions,**self.quick_actions}.items() if k not in ('select','hand')}

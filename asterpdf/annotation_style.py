@@ -2,8 +2,55 @@
 import math
 import re
 
+def rgb(color):
+    if not color:return None
+    if len(color)==1:return [color[0]]*3
+    if len(color)==4:return [(1-color[i])*(1-color[3]) for i in range(3)]
+    return color[:3]
+
+def note_style(page,annot,size,fontname,color):
+    import html
+    import pymupdf as fitz
+    family={'helv':'Helvetica','tiro':'Times New Roman','cour':'Courier','china-s':'sans-serif'}.get(fontname,'sans-serif')
+    rgbcolor=rgb(color) or (0,0,0);hexcolor='#'+''.join(f'{round(c*255):02x}' for c in rgbcolor)
+    style=f'font-family:{family};font-size:{size:g}pt;color:{hexcolor};'
+    body=html.escape(annot.info.get('content','')).replace('\n','<br/>')
+    rich=f'<body xmlns="http://www.w3.org/1999/xhtml"><p style="{style}">{body}</p></body>'
+    page.parent.xref_set_key(annot.xref,'RC',fitz.get_pdf_str(rich));page.parent.xref_set_key(annot.xref,'DS',fitz.get_pdf_str(style))
+    page.parent.xref_set_key(annot.xref,'AsterFontSize',str(size));page.parent.xref_set_key(annot.xref,'AsterFont',fitz.get_pdf_str(fontname))
+
+def markup_appearance(page,annot,width,dash='solid'):
+    """Use standard quad geometry with a customized, self-contained appearance."""
+    if annot.type[1] not in ('Underline','StrikeOut','Squiggly'):return
+    pdf=page.parent
+    quads=[float(v) for v in re.findall(r'[-+]?(?:\d*\.\d+|\d+)',pdf.xref_get_key(annot.xref,'QuadPoints')[1])]
+    if len(quads)%8:return
+    color=annot.colors.get('stroke') or (0,0,0);rgb=' '.join(f'{v:g}' for v in color);op={1:'G',3:'RG',4:'K'}.get(len(color),'RG');segments=[]
+    dashed={'dash':'[4 3]','dot':'[1 2]','dashdot':'[4 2 1 2]'}.get(dash,'[]')
+    for n in range(0,len(quads),8):
+        x0,y0,x1,y1,x2,y2,x3,y3=quads[n:n+8]
+        factor=.5 if annot.type[1]=='StrikeOut' else .08
+        left=(x2+(x0-x2)*factor,y2+(y0-y2)*factor);right=(x3+(x1-x3)*factor,y3+(y1-y3)*factor)
+        segments.append(f'{left[0]:g} {left[1]:g} m')
+        if dash=='wave' or annot.type[1]=='Squiggly':
+            distance=math.hypot(right[0]-left[0],right[1]-left[1]);steps=max(2,round(distance/2));ux=(right[0]-left[0])/max(distance,.01);uy=(right[1]-left[1])/max(distance,.01)
+            for k in range(1,steps+1):
+                d=distance*k/steps;offset=(1 if k%2 else -1)*max(.6,width*.55)
+                segments.append(f'{left[0]+ux*d-uy*offset:g} {left[1]+uy*d+ux*offset:g} l')
+        else:segments.append(f'{right[0]:g} {right[1]:g} l')
+        segments.append('S')
+    xs=quads[::2];ys=quads[1::2];margin=max(2,width*2);bounds=[min(xs)-margin,min(ys)-margin,max(xs)+margin,max(ys)+margin];bbox='['+' '.join(map(str,bounds))+']'
+    opacity=annot.opacity if annot.opacity>=0 else 1
+    ap=pdf.get_new_xref();pdf.update_object(ap,f'<< /Type /XObject /Subtype /Form /BBox {bbox} /Resources << /ExtGState << /GS << /CA {opacity:g} /ca {opacity:g} >> >> >> >>')
+    pdf.update_stream(ap,(f'q /GS gs {rgb} {op} {max(.1,width):g} w {dashed} 0 d '+' '.join(segments)+' Q').encode())
+    pdf.xref_set_key(annot.xref,'AP',f'<< /N {ap} 0 R >>');pdf.xref_set_key(annot.xref,'Rect',bbox)
+    pdf.xref_set_key(annot.xref,'AsterDash','/'+dash);pdf.xref_set_key(annot.xref,'BS',f'<< /W {width:g} /S /S >>')
+
 
 def text_style(annot):
+    if annot.type[1]=='Text':
+        pdf=annot.parent.parent;kind,size=pdf.xref_get_key(annot.xref,'AsterFontSize')
+        if kind in ('int','float'):return {'fontsize':float(size),'fontname':pdf.xref_get_key(annot.xref,'AsterFont')[1]}
     if annot.type[1]!='FreeText':return {}
     spans=[s for b in annot.get_text('dict').get('blocks',[]) for line in b.get('lines',[]) for s in line['spans']]
     if not spans:return {}

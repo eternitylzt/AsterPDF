@@ -7,6 +7,8 @@ from .core import Unsupported
 from .i18n import L
 from .objects import content_bytes,commands,operands
 
+DASHES={'solid':'[] 0','dash':'[6 3] 0','dot':'[1 3] 0','dashdot':'[6 3 1 3] 0'}
+
 def ghostscript():
     for name in ('gswin64c','gswin32c','gs'):
         found=shutil.which(name)
@@ -41,10 +43,12 @@ def insert_pdf(document,page,rect,filename,source_page=0,keep_ratio=True):
                 names[key]=name;xobjects[name]=pdf.copy_foreign(value)
             resources.XObject=xobjects;dst.Resources=resources
             drawing=b'\n'.join((names[str(operands(c)[0])]+' Do').encode() if c.op=='Do' else c.raw for c in commands(content_bytes(src)))
-            dst.Contents=pdf.make_stream(content_bytes(dst)+b'\n'+drawing)
+            from .text_boxes import final_ctm
+            original=content_bytes(dst);inverse=~fitz.Matrix(final_ctm(original));prefix=('\nq '+' '.join(map(str,inverse))+' cm\n').encode()
+            dst.Contents=pdf.make_stream(original+prefix+drawing+b'\nQ')
     document.edit('insert vector figure',mutate)
 
-def draw_shape(document,page,rect,kind,color,fill,width):
+def draw_shape(document,page,rect,kind,color,fill,width,dash='solid'):
     with fitz.open(document.path) as original,fitz.open() as scratch:
         src=original[page];p=scratch.new_page(width=src.mediabox.width,height=src.mediabox.height)
         p.set_mediabox(src.mediabox);p.set_cropbox(src.cropbox);p.set_rotation(src.rotation)
@@ -60,7 +64,7 @@ def draw_shape(document,page,rect,kind,color,fill,width):
             elif kind=='diamond':points=[(cx,r.y0),(r.x1,cy),(cx,r.y1),(r.x0,cy)]
             else:points=[(cx+math.cos(-math.pi/2+n*math.pi/5)*r.width/2*(1 if n%2==0 else .42),cy+math.sin(-math.pi/2+n*math.pi/5)*r.height/2*(1 if n%2==0 else .42)) for n in range(10)]
             shape.draw_polyline(points+[points[0]])
-        shape.finish(color=color,fill=fill if kind!='line' else None,width=width,closePath=kind!='line');shape.commit()
+        shape.finish(color=color,fill=fill if kind!='line' else None,width=width,dashes=DASHES.get(dash,'[] 0'),closePath=kind!='line');shape.commit()
         data=p.read_contents()
     def mutate(pdf):
         from .text_boxes import final_ctm
@@ -69,15 +73,15 @@ def draw_shape(document,page,rect,kind,color,fill,width):
         target.Contents=pdf.make_stream(original+prefix+data+b'\nQ\n')
     document.edit('draw vector shape',mutate)
 
-def style_vectors(document,page,selected,color,fill,width):
+def style_vectors(document,page,selected,color,fill,width,dash='solid'):
     if any(o.kind!='vector' for o in selected):raise Unsupported(L('样式修改适用于直接绘制的路径；组合图可整体移动、缩放。','Style changes apply to painted paths; Form groups support moving and scaling.'))
-    stroke=(' '.join(map(str,color))+' RG '+str(width)+' w\n').encode();paint=(' '.join(map(str,fill))+' rg\n').encode() if fill is not None else b''
+    stroke=(' '.join(map(str,color))+' RG '+str(width)+' w '+DASHES.get(dash,'[] 0')+' d\n').encode();paint=(' '.join(map(str,fill))+' rg\n').encode() if fill is not None else b''
     def mutate(pdf):
         p=pdf.pages[page];data=content_bytes(p)
         for o in sorted(selected,key=lambda o:o.start,reverse=True):
             parts=[]
             for c in commands(data[o.start:o.end]):
-                if c.op in ('RG','G','K','w','rg','g','k'):continue
+                if c.op in ('RG','G','K','w','rg','g','k','d'):continue
                 if c.op in ('f','F','f*','B','B*','b','b*','S','s'):parts.append(b'B' if fill is not None else b'S')
                 else:parts.append(c.raw)
             data=data[:o.start]+b' q '+stroke+paint+b'\n'.join(parts)+b' Q '+data[o.end:]

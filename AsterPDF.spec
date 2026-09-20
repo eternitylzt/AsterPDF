@@ -15,7 +15,8 @@ a = Analysis([str(root/'run.py')], pathex=[str(root)], binaries=[], datas=data,
     hiddenimports=['PySide6.QtMultimedia','PySide6.QtMultimediaWidgets','pikepdf._core'],
     excludes=['PySide6.QtWebEngineCore','PySide6.QtWebEngineWidgets','PySide6.QtWebEngineQuick',
               'PySide6.Qt3DCore','PySide6.Qt3DRender','PySide6.Qt3DExtras','PySide6.QtPdf',
-              'tkinter','pytest','reportlab','imageio_ffmpeg','numpy','matplotlib'],
+              'tkinter','pytest','reportlab','imageio_ffmpeg','numpy','matplotlib',
+              'pygments'],  # Markdown code blocks do not need optional syntax-highlighting lexers.
     noarchive=False)
 if sys.platform == 'win32':
     # Qt's Windows ICU imports target the OS API. A broad developer PATH can
@@ -44,4 +45,4 @@ if sys.platform == 'darwin':
         info_plist={'CFBundleName':'AsterPDF','CFBundleShortVersionString':version,
                     'NSHighResolutionCapable':True,'LSMinimumSystemVersion':'13.0',
                     'CFBundleDocumentTypes':[{'CFBundleTypeName':'PDF document',
-                    'CFBundleTypeExtensions':['pdf'],'CFBundleTypeRole':'Editor'}]})
+                    'CFBundleTypeExtensions':['pdf','eps','ps','md','markdown'],'CFBundleTypeRole':'Editor'}]})

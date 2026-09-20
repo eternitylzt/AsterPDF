@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "asterpdf"
-version = "1.0.1"
+version = "1.2.0"
 description = "Read · Edit · Animate · Annotate · Extract — a local scientific PDF workspace"
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
 license = "AGPL-3.0-only"
-dependencies = ["PySide6==6.10.2", "PyMuPDF==1.27.1", "pikepdf==10.3.0", "Pillow>=11,<13"]
+dependencies = ["PySide6==6.10.2", "PyMuPDF==1.27.1", "pikepdf==10.3.0", "Pillow>=11,<13", "Markdown==3.10.3"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8,<10", "pyinstaller>=6.16,<7", "reportlab>=4,<6"]

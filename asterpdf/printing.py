@@ -14,11 +14,18 @@ def information(tab):
     def show(result):
         import html
         metadata,sizes,count,attachments=result
+        from .metadata_display import readable
+        raw={k:str(v) for k,v in metadata.items() if k in ('title','author') and v and readable(v)!=str(v).strip()}
+        metadata={k:readable(v) if k in ('title','author') else v for k,v in metadata.items()}
         lines=[L('文件：','File: ')+tab.document.original,L('大小：','Size: ')+f'{Path(tab.document.original).stat().st_size/1024**2:.2f} MB',L('页数：','Pages: ')+str(count),L('附件：','Attachments: ')+str(attachments)]
         labels={'title':L('标题','Title'),'author':L('作者','Author'),'subject':L('主题','Subject'),'creator':L('创建程序','Creator'),'producer':L('生成程序','Producer'),'creationDate':L('创建时间','Created'),'modDate':L('修改时间','Modified'),'format':L('格式','Format')}
         lines.extend(labels.get(k,k)+': '+str(v) for k,v in metadata.items() if v and k in labels)
+        if raw:lines.append(L('元数据含排版标记或损坏尾段，已整理显示；可展开查看原始值。','Metadata contains layout commands or a malformed tail. You can show the original values below.'))
         lines.extend(L(f'第 {n+1} 页：',f'Page {n+1}: ')+f'{w*25.4/72:.1f} × {h*25.4/72:.1f} mm' for n,(w,h) in enumerate(sizes[:200]))
-        dialog=QDialog(tab);dialog.setWindowTitle(tr('file_info'));dialog.resize(570,480);layout=QVBoxLayout(dialog);browser=QTextBrowser();browser.setPlainText('\n'.join(lines));layout.addWidget(browser);button=QPushButton(L('关闭','Close'));button.clicked.connect(dialog.accept);layout.addWidget(button);dialog.exec()
+        dialog=QDialog(tab);dialog.setWindowTitle(tr('file_info'));dialog.resize(570,480);layout=QVBoxLayout(dialog);browser=QTextBrowser();browser.setPlainText('\n'.join(lines));layout.addWidget(browser)
+        if raw:
+            original=QTextBrowser();original.setPlainText('\n\n'.join(labels.get(k,k)+': '+v for k,v in raw.items()));original.hide();toggle=QPushButton(L('显示 / 隐藏原始元数据','Show / hide original metadata'));toggle.clicked.connect(lambda:original.setVisible(not original.isVisible()));layout.addWidget(toggle);layout.addWidget(original)
+        button=QPushButton(L('关闭','Close'));button.clicked.connect(dialog.accept);layout.addWidget(button);dialog.exec()
     tab.queue.submit(inspect,show,tab.error)
 
 

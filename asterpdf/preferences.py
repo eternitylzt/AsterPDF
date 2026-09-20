@@ -33,24 +33,27 @@ class Preferences(QDialog):
             form=FormDialog('',self);form.setWindowFlags(Qt.Widget);scroll=QScrollArea();scroll.setWidgetResizable(True);scroll.setWidget(form);self.tabs.addTab(scroll,label);self.forms.append(form);return form
         def field(form,key,label,default,limits=None,choices=None):
             value=window.settings.value(key,default,type=type(default))
-            if choices:
+            if 'color' in key and key.startswith('annotation/'):
+                from .tool_widgets import ColorButton
+                w=ColorButton(QColor(value));form.inputs[key]=w;form.form.addRow(label,w)
+            elif choices:
                 w=form.choice(key,label,choices);w.setCurrentIndex(max(0,w.findData(value)))
             elif isinstance(default,bool):w=form.check(key,label,value)
             elif limits:w=form.number(key,label,value,*limits)
             else:w=form.text(key,label,value)
             return w
         f=page(L('常规','General'))
+        field(f,'window/confirm_close',L('退出时询问关闭当前或所有标签页','Ask whether to close current or all tabs'),True)
         field(f,'home/recent',L('首页显示最近文件','Recent files on Home'),True)
         field(f,'ui/font_size',L('界面字体','Interface text'),'medium',choices=[(L('小','Small'),'small'),(L('中','Medium'),'medium'),(L('大','Large'),'large')])
         field(f,'language','语言/Language','zh',choices=[('中文','zh'),('English','en')]);field(f,'dark',tr('dark'),True)
-        field(f,'repository',L('GitHub 仓库（owner/repository）','GitHub repository (owner/repository)'),'')
         f=page(L('阅读 / 工具栏','Reading / Toolbar'))
         field(f,'reader/columns',L('并排页数','Columns'),1,choices=[('1',1),('2',2)])
         field(f,'reader/continuous',tr('continuous'),True);field(f,'reader/night',tr('night'),False)
         field(f,'toolbar/opacity',L('工具栏不透明度（%）','Toolbar opacity (%)'),100,(35,100))
         field(f,'toolbar/hidden',L('隐藏工具栏','Hide toolbar'),False);field(f,'toolbar/autohide',L('自动隐藏工具栏','Auto-hide toolbar'),False)
         field(f,'sidebar/hidden',L('收起导航','Collapse navigation'),False);field(f,'sidebar/autohide',L('自动隐藏导航','Auto-hide navigation'),False)
-        button=QPushButton(L('自定义工具栏按钮…','Customize toolbar buttons…'));button.clicked.connect(lambda:window.with_tab(lambda t:t.customize_toolbar()));f.form.addRow(button)
+        button=QPushButton(L('自定义工具栏按钮…','Customize toolbar buttons…'));button.clicked.connect(lambda:window.customize_toolbar(self));f.form.addRow(button)
         f=page(L('速览窗','Overview'))
         field(f,'minimap/enabled',L('显示速览窗','Show overview'),True);field(f,'minimap/opacity',L('不透明度（%）','Opacity (%)'),80,(20,100))
         field(f,'minimap/auto_scale',L('按页数自动缩放','Automatic scale by page count'),True)
@@ -59,16 +62,14 @@ class Preferences(QDialog):
         field(f,'minimap/width',L('自定义宽度','Custom width'),148,(100,1500));field(f,'minimap/height',L('自定义高度','Custom height'),370,(100,1500))
         field(f,'minimap/corner',L('位置','Position'),'top-right',choices=[(L('右上','Top right'),'top-right'),(L('左上','Top left'),'top-left'),(L('右下','Bottom right'),'bottom-right'),(L('左下','Bottom left'),'bottom-left')])
         f=page(L('批注','Annotations'));field(f,'annotation/show',L('显示所有批注','Show all annotations'),True);field(f,'annotation/sort',L('列表排序','List order'),'position',choices=[(L('文档位置','Position'),'position'),(L('时间','Time'),'time')]);field(f,'annotation_author',L('批注人','Author'),'AsterPDF')
-        names={'annot_color':L('颜色（#RRGGBB）','Color (#RRGGBB)'),'annot_width':L('线宽','Line width'),'annot_opacity':L('不透明度（0–1）','Opacity (0–1)'),'annot_size':L('字号','Font size'),'annot_head_size':L('箭头大小','Arrowhead size'),'annot_text_border':L('文本边框宽度','Text border width'),'annot_border_color':L('文本边框颜色','Text border color'),'annot_dashed':L('虚线','Dashed')}
+        names={'annot_color':L('颜色','Color'),'annot_width':L('线宽','Line width'),'annot_opacity':L('不透明度（0–1）','Opacity (0–1)'),'annot_size':L('字号','Font size'),'annot_head_size':L('箭头大小','Arrowhead size'),'annot_text_border':L('文本边框宽度','Text border width'),'annot_border_color':L('文本边框颜色','Text border color'),'annot_dashed':L('虚线','Dashed')}
         for key,(default,kind) in ANNOT.items():
             choices=[(L('中文','CJK'),'china-s'),('Helvetica','helv'),('Times','tiro'),('Courier','cour')] if key=='annot_font' else [(L('实心箭头','Closed arrow'),5),(L('空心箭头','Open arrow'),4),(L('圆','Circle'),2),(L('菱形','Diamond'),3),(L('无','None'),0)] if key=='annot_end' else None
             field(f,'annotation/'+key,names.get(key,L('字体','Font') if key=='annot_font' else L('箭头端点','Arrow ending')),default,(.05,1,2) if key=='annot_opacity' else (4 if key=='annot_size' else 3 if key=='annot_head_size' else .2 if key=='annot_width' else 0,150,1) if kind==float else None,choices)
         f=page(L('对象 / 页面','Objects / Pages'))
-        field(f,'text/family',L('新文本框字体','New text box font'),'Microsoft YaHei');field(f,'text/size',L('新文本框字号','New text box size'),12.,(1,300,1))
         field(f,'image/ratio',L('图片保持宽高比','Keep image aspect ratio'),True)
         field(f,'shape/width',L('图形线宽','Shape line width'),1.5,(.1,50,1));field(f,'shape/fill',L('填充图形','Fill shapes'),False)
-        field(f,'shape/stroke',L('图形轮廓颜色','Shape outline color'),'#243249');field(f,'shape/color',L('图形填充颜色','Shape fill color'),'#b6cff4')
-        field(f,'color/target',L('换色目标颜色','Replacement color'),'#3366cc');field(f,'color/images',L('换色包含栅格图片','Recolor raster images'),True)
+        field(f,'color/images',L('换色包含栅格图片','Recolor raster images'),True)
         field(f,'page/angle',L('默认旋转角度','Default rotation'),90,choices=[('90°',90),('-90°',-90),('180°',180)]);field(f,'page/separate',L('提取每页为单独 PDF','Extract one PDF per page'),False)
         field(f,'color/invert',L('默认使用反色','Invert by default'),False)
         field(f,'color/tolerance',L('换色容差（%）','Recolor tolerance (%)'),8.,(0,100,1))
@@ -86,25 +87,45 @@ class Preferences(QDialog):
         values={k:v for form in self.forms for k,v in form.values().items()}
         from PySide6.QtWidgets import QMessageBox
         for key in ('annotation/annot_color','annotation/annot_border_color','shape/stroke','shape/color','color/target'):
-            if not QColor(values[key]).isValid():QMessageBox.warning(self,'AsterPDF',L('请输入有效颜色：','Invalid color: ')+values[key]);return
+            if key in values and not QColor(values[key]).isValid():QMessageBox.warning(self,'AsterPDF',L('请输入有效颜色：','Invalid color: ')+values[key]);return
         try:root=Path(values['recovery/folder']);root.mkdir(parents=True,exist_ok=True)
         except OSError as error:QMessageBox.warning(self,'AsterPDF',str(error));return
+        changed={key for key,value in values.items() if self.host.settings.value(key,value,type=type(value))!=value}
         for key,value in values.items():self.host.settings.setValue(key,value)
-        self.host.recovery_root=root;apply_preferences(self.host);self.accept()
+        mapping={'annot_color':'color','annot_width':'width','annot_opacity':'opacity','annot_size':'size','annot_font':'font','annot_end':'end','annot_head_size':'head','annot_text_border':'border'}
+        import json
+        from .annotation_tools import KINDS
+        for kind in KINDS:
+            name='annotation/tools/'+kind
+            try:preset=json.loads(self.host.settings.value(name,'{}'))
+            except (ValueError,TypeError):preset={}
+            for source,target in mapping.items():
+                if 'annotation/'+source in changed:preset[target]=values['annotation/'+source]
+            if 'annotation/annot_dashed' in changed:preset['dash']='dash' if values['annotation/annot_dashed'] else 'solid'
+            if preset:self.host.settings.setValue(name,json.dumps(preset))
+        self.host.recovery_root=root;self.accept();QTimer.singleShot(0,lambda:apply_preferences(self.host,changed))
 
-def apply_preferences(window):
-    s=window.settings;window.dark=s.value('dark',True,type=bool);window.apply_theme();window.change_language(s.value('language','zh'));window.refresh_recent()
+def apply_preferences(window,changed=None):
+    if changed==set():return
+    s=window.settings
+    from . import i18n
+    if window.dark!=s.value('dark',True,type=bool) or getattr(window,'applied_font_size',None)!=s.value('ui/font_size','medium'):window.dark=s.value('dark',True,type=bool);window.apply_theme()
+    if i18n.LANGUAGE!=s.value('language','zh'):window.change_language(s.value('language','zh'))
+    window.refresh_recent()
     for tab in window.document_tabs():
-        annotation_defaults(tab);tab.configure_chrome();tab.sidebar.setVisible(not s.value('sidebar/hidden',False,type=bool))
+        if changed is None or any(key.startswith('annotation') for key in changed):
+            annotation_defaults(tab)
+            if tab.active_panel=='annotate':tab.show_annotation_properties(tab.canvas.mode)
+        tab.configure_chrome();tab.sidebar.setVisible(not s.value('sidebar/hidden',False,type=bool))
         restore=bool(tab.inline_editor)
         if restore:tab.suspend_inline()
-        tab.set_view(s.value('reader/columns',1,type=int),s.value('reader/continuous',True,type=bool))
+        if (tab.canvas.columns,tab.canvas.continuous)!=(s.value('reader/columns',1,type=int),s.value('reader/continuous',True,type=bool)):tab.set_view(s.value('reader/columns',1,type=int),s.value('reader/continuous',True,type=bool))
         if restore:tab.restore_inline()
         tab.show_annotations.setChecked(s.value('annotation/show',True,type=bool));tab.annotation_sort.setCurrentIndex(max(0,tab.annotation_sort.findData(s.value('annotation/sort','position'))))
         tab.loop.setChecked(s.value('animation/loop',True,type=bool))
         for player in tab.players.values():player.speed=s.value('animation/speed',1.,type=float);player.loop=s.value('animation/loop',True,type=bool)
         tab.rebuild_media_controls()
-        tab.night=s.value('reader/night',False,type=bool);tab.canvas.invalidate(False)
+        if tab.night!=s.value('reader/night',False,type=bool):tab.night=s.value('reader/night',False,type=bool);tab.canvas.invalidate(False)
         m=tab.minimap;m.enabled=s.value('minimap/enabled',True,type=bool);m.auto_scale=s.value('minimap/auto_scale',True,type=bool);m.auto_size=s.value('minimap/auto_size',True,type=bool)
         m.percent=(5. if len(tab.canvas.sizes)>20 else 10.) if m.auto_scale else s.value('minimap/scale',10.,type=float);m.corner=s.value('minimap/corner','top-right');m.opacity=s.value('minimap/opacity',80,type=int);m.graphicsEffect().setOpacity(m.opacity/100)
         if not m.auto_size:m.resize(s.value('minimap/width',148,type=int),s.value('minimap/height',370,type=int))
@@ -115,7 +136,7 @@ def apply_preferences(window):
         pane=getattr(tab,'shape_properties',None)
         if pane:
             pane.inputs['width'].setValue(s.value('shape/width',1.5,type=float));pane.inputs['fill'].setChecked(s.value('shape/fill',False,type=bool))
-            for widget,key in [(tab.shape_stroke,'shape/stroke'),(tab.shape_fill,'shape/color')]:widget.color=QColor(s.value(key));widget.setText(widget.color.name())
+            for widget,key in [(tab.shape_stroke,'shape/stroke'),(tab.shape_fill,'shape/color')]:widget.color=QColor(s.value(key,widget.color.name()));widget.setText(widget.color.name())
         pane=getattr(tab,'image_properties',None)
         if pane:pane.inputs['ratio'].setChecked(s.value('image/ratio',True,type=bool))
         pane=getattr(tab,'page_properties',None)
@@ -129,4 +150,5 @@ def apply_preferences(window):
         if pane:
             pane.inputs['invert'].setChecked(s.value('color/invert',False,type=bool))
             pane.inputs['tolerance'].setValue(s.value('color/tolerance',8.,type=float))
-    window.animation_quality(s.value('animation/quality','auto'));window.update_title()
+    if changed is None or 'animation/quality' in changed:window.animation_quality(s.value('animation/quality','auto'))
+    window.update_title()

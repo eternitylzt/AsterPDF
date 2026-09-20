@@ -172,6 +172,7 @@ class Document:
 
     def save(self, filename=None):
         destination = Path(filename or self.original)
+        if destination.suffix.lower()!='.pdf':raise ValueError(L('请另存为 PDF；源文件不会被覆盖。','Save as PDF; the source document will not be overwritten.'))
         fd, temporary = tempfile.mkstemp(prefix='.asterpdf-', suffix='.pdf', dir=destination.parent)
         try:
             with os.fdopen(fd, 'wb') as out, self.path.open('rb') as src:
@@ -199,6 +200,7 @@ class Document:
 
     def close(self):
         self.release_rendering()
+        self._annotation_cache=None
         fitz.TOOLS.store_shrink(100)
         # Only called after a successful save or explicit discard.
         self.session_lock.unlock()
@@ -387,15 +389,21 @@ class Document:
         self.edit('content' if content else 'annotation', mutate)
 
     def add_annotation(self, page, kind, points, color=(0.96, 0.65, 0.12), width=2,
-                       opacity=0.7, text='', word_rects=None, author_name='AsterPDF', fontsize=12, fontname='helv', line_end=4, dashed=False,head_size=10,text_border=0,border_color=(0,0,0)):
+                       opacity=0.7, text='', word_rects=None, author_name='AsterPDF', fontsize=12, fontname='helv', line_end=4, dashed=False,head_size=10,text_border=0,border_color=(0,0,0),dash=None,fill=None):
         def author(p):
             pts = [fitz.Point(x) * p.derotation_matrix for x in points]
             rect = fitz.Rect(pts[0], pts[-1]).normalize()
-            if kind in ('highlight', 'underline', 'strikeout'):
+            if kind in ('highlight', 'underline', 'strikeout','replace_text','squiggly'):
                 rects = [fitz.Rect(r) * p.derotation_matrix for r in (word_rects or [])]
                 if not rects:
                     raise ValueError(L('请先选择文字。','Select text first'))
-                a = getattr(p, f'add_{kind}_annot')(rects)
+                a = getattr(p, f'add_{"strikeout" if kind=="replace_text" else kind}_annot')(rects)
+                if kind=='replace_text':
+                    caret=p.add_caret_annot(rects[-1].br);caret.set_info(title=author_name,content=text)
+                    p.parent.xref_set_key(caret.xref,'IT','/Replace')
+                    p.parent.xref_set_key(caret.xref,'IRT',f'{a.xref} 0 R');p.parent.xref_set_key(caret.xref,'RT','/Group')
+                    p.parent.xref_set_key(caret.xref,'NM',fitz.get_pdf_str('AsterPDF-'+uuid.uuid4().hex))
+                    caret.set_colors(stroke=color);caret.update()
             elif kind == 'note':
                 a = p.add_text_annot(pts[0], text)
             elif kind == 'freetext':
@@ -416,11 +424,17 @@ class Document:
             a.set_info(title=author_name, content=text,creationDate=stamp,modDate=stamp)
             p.parent.xref_set_key(a.xref,'NM',fitz.get_pdf_str('AsterPDF-'+uuid.uuid4().hex))
             if kind != 'freetext':
-                a.set_colors(stroke=color,fill=color if kind=='arrow' and line_end in (5,8) else None)
+                a.set_colors(stroke=color,fill=color if kind=='arrow' and line_end in (5,8) else fill if kind in ('rectangle','ellipse') else None)
             a.set_opacity(opacity)
-            if kind not in ('highlight', 'underline', 'strikeout', 'note'):
-                a.set_border(width=0 if kind=='freetext' else width, dashes=[4,3] if dashed else [])
+            if kind not in ('highlight', 'underline', 'strikeout','replace_text','squiggly','note'):
+                a.set_border(width=0 if kind=='freetext' else width, dashes={'dash':[4,3],'dot':[1,2],'dashdot':[4,2,1,2]}.get(dash,[4,3] if dashed else []))
             a.update()
+            if kind=='note':
+                from .annotation_style import note_style
+                note_style(p,a,fontsize,fontname,color)
+            if kind in ('underline','strikeout','squiggly','replace_text'):
+                from .annotation_style import markup_appearance
+                markup_appearance(p,a,width,dash or ('dash' if dashed else 'solid'))
             if kind=='arrow':
                 from .annotation_style import line_appearance
                 line_appearance(p,a,head_size)
@@ -441,21 +455,28 @@ class Document:
         self.edit('annotation',mutate)
 
     def annotations(self, page=None):
-        from .annotation_style import text_style
+        from .annotation_style import text_style,rgb
+        cache=getattr(self,'_annotation_cache',None)
+        if cache and cache[0]==self.revision:
+            return [dict(item) for item in cache[1] if page is None or item['page']==page]
         with fitz.open(self.path) as pdf:
-            return [{'page':p.number,'xref': a.xref, 'type': a.type[1], 'rect': tuple(a.rect * p.rotation_matrix),
+            result=[{'page':p.number,'xref': a.xref, 'type': a.type[1], 'rect': tuple(a.rect * p.rotation_matrix),
                      'text': a.info.get('content', ''), 'author': a.info.get('title',''),
                      'created':a.info.get('creationDate',''),'modified':a.info.get('modDate',''),
-                     'color': a.colors.get('stroke'), 'width': a.border.get('width',2), 'opacity': a.opacity if a.opacity>=0 else 1,
-                     'id':a.info.get('id',''),'dashed':bool(a.border.get('dashes')),
+                     'color': rgb(a.colors.get('stroke')), 'fill':rgb(a.colors.get('fill')), 'width': a.border.get('width',2), 'opacity': a.opacity if a.opacity>=0 else 1,
+                     'dash':pdf.xref_get_key(a.xref,'AsterDash')[1].lstrip('/') if pdf.xref_get_key(a.xref,'AsterDash')[0]=='name' else ('dash' if a.border.get('dashes') else 'solid'),'id':a.info.get('id',''),'dashed':bool(a.border.get('dashes')),
                      'line_end':a.line_ends[1] if a.type[1]=='Line' else None,
                      'head_size':float(pdf.xref_get_key(a.xref,'AsterHeadSize')[1]) if pdf.xref_get_key(a.xref,'AsterHeadSize')[0] in ('int','float') else 10,
                      'own': a.info.get('title') == 'AsterPDF' or a.info.get('id','').startswith('AsterPDF-'),**text_style(a)}
                     for p in ([pdf[page]] if page is not None else pdf) for a in (p.annots() or [])]
+            from .annotation_groups import group_replacements
+            result=group_replacements(pdf,result)
+            if page is None:self._annotation_cache=(self.revision,result)
+            return result
 
     def delete_annotations(self,annotations):
         targets={}
-        for a in annotations:targets.setdefault(a['page'],set()).add(a['xref'])
+        for a in annotations:targets.setdefault(a['page'],set()).update([a['xref']]+a.get('related',[]))
         def mutate(pdf):
             for page,refs in targets.items():
                 p=pdf.pages[page];items=list(p.obj.get('/Annots',[]));remove=set(refs)
@@ -467,7 +488,7 @@ class Document:
     def reset(self):
         """Restore the current original file as a new, undoable revision."""
         self.release_rendering();self.serial+=1;dest=self.folder/f'{self.serial:04d}.pdf'
-        shutil.copyfile(self.original,dest)
+        shutil.copyfile(self.folder/'imported-base.pdf' if Path(self.original).suffix.lower()!='.pdf' else self.original,dest)
         with pp.open(dest) as check:
             if not check.pages:raise ValueError('Empty PDF')
         for obsolete in self.history[self.index+1:]:obsolete.unlink(missing_ok=True)
@@ -477,11 +498,11 @@ class Document:
         self.saved_revision=str(dest);self._metadata()
 
     def change_annotation(self, page, xref, delete=False, color=None, width=2, opacity=1,
-                          text=None, offset=None, fontsize=None, fontname=None, line_end=None, dashed=False,head_size=None,border_color=None,rect=None):
+                          text=None, offset=None, fontsize=None, fontname=None, line_end=None, dashed=False,head_size=None,border_color=None,rect=None,dash=None,fill=None,_page=None):
         def author(p):
             a = p.load_annot(xref)
-            if a.info.get('title') != 'AsterPDF' and not a.info.get('id','').startswith('AsterPDF-'):
-                raise Unsupported(L('仅修改本软件添加的批注。','Only AsterPDF annotations can be changed'))
+            if not delete and a.type[1] not in ('Text','FreeText','Highlight','Underline','StrikeOut','Squiggly','Ink','Line','Square','Circle','Caret'):
+                raise Unsupported(L('此批注类型暂不支持样式重写；原批注保持不变。','Style rewriting is not supported for this annotation type; the original is unchanged.'))
             if delete:
                 p.delete_annot(a)
                 return
@@ -493,6 +514,8 @@ class Document:
                 a.set_line_ends(0,line_end)
                 if line_end in (5,8):a.set_colors(fill=color or a.colors.get('stroke') or (0,0,0))
             if a.type[1] not in ('Highlight','Underline','StrikeOut','Text'):a.set_border(width=width,dashes=[4,3] if dashed else [])
+            if fill is not None and a.type[1] in ('Square','Circle'):a.set_colors(fill=fill)
+            if dash is not None and a.type[1] not in ('Highlight','Underline','StrikeOut','Squiggly','Text'):a.set_border(width=width,dashes={'dash':[4,3],'dot':[1,2],'dashdot':[4,2,1,2]}.get(dash,[]))
             a.set_opacity(opacity)
             if text is not None:
                 a.set_info(content=text)
@@ -507,11 +530,51 @@ class Document:
                 from .annotation_style import freetext_border
                 freetext_border(p,a,width,border_color or (0,0,0),dashed)
             else:a.update()
+            if a.type[1]=='Text' and (text is not None or fontsize is not None or fontname is not None):
+                from .annotation_style import note_style,text_style
+                style=text_style(a);note_style(p,a,fontsize or style.get('fontsize',12),fontname or style.get('fontname','helv'),color or a.colors.get('stroke'))
+            if a.type[1] in ('Underline','StrikeOut','Squiggly'):
+                from .annotation_style import markup_appearance
+                markup_appearance(p,a,width,dash or ('dash' if dashed else 'solid'))
             if a.type[1]=='Line':
                 from .annotation_style import line_appearance
                 saved=p.parent.xref_get_key(a.xref,'AsterHeadSize')
                 line_appearance(p,a,head_size if head_size is not None else float(saved[1]) if saved[0] in ('int','float') else 10)
-        self._mupdf_page_change(page, author)
+        if _page is not None:author(_page);return
+        options=locals().copy()
+        for key in ('self','page','xref','author','_page'):options.pop(key,None)
+        self.change_annotations([({'page':page,'xref':xref},options)])
+
+    def change_annotations(self,changes):
+        touched={}
+        with fitz.open(self.path) as mp:
+            for ann,options in changes:
+                page=ann['page'];refs=[ann['xref']]+ann.get('related',[])
+                for ref in refs:
+                    self.change_annotation(page,ref,_page=mp[page],**options)
+                    touched.setdefault(page,set()).add(ref)
+            data=mp.tobytes(garbage=0,deflate=False)
+        def mutate(pdf):
+            with pp.open(io.BytesIO(data)) as authored:
+                for page,refs in touched.items():
+                    dst=pdf.pages[page].obj;source={a.objgen[0]:a for a in authored.pages[page].obj.get('/Annots',[])};items=[];replaced={}
+                    originals=list(dst.get('/Annots',[]));relations={a.objgen[0]:{key:a[key].objgen[0] for key in ('/Parent','/IRT') if isinstance(a.get(key),pp.Dictionary)} for a in originals}
+                    # Do not recursively import the whole source page through /P.
+                    for a in source.values():
+                        if '/P' in a:del a['/P']
+                    for old in originals:
+                        ref=old.objgen[0]
+                        if ref not in refs:items.append(old)
+                        elif ref in source:
+                            copied=pdf.copy_foreign(source[ref]);copied['/P']=dst;items.append(copied);replaced[ref]=copied
+                            if old.get('/Popup') is not None:copied['/Popup']=old.Popup
+                    current={a.objgen[0]:a for a in originals if a.objgen[0] not in refs};current.update(replaced)
+                    for ref,links in relations.items():
+                        if ref not in current:continue
+                        for key,target in links.items():
+                            if target in current:current[ref][key]=current[target]
+                    dst.Annots=pp.Array(items)
+        self.edit('annotation styles',mutate)
 
     def insert_text(self, page, rect, text, fontfile=None, fontsize=12, color=(0, 0, 0), fontbuffer=None):
         font = fitz.Font(fontbuffer=fontbuffer) if fontbuffer else fitz.Font(fontfile=fontfile) if fontfile else fitz.Font('helv')
@@ -547,7 +610,9 @@ class Document:
                     names[key]=name;images[name]=pdf.copy_foreign(value)
                 resources.XObject=images;dst.Resources=resources
                 drawing=b'\n'.join((names[str(operands(c)[0])]+' Do').encode() if c.op=='Do' else c.raw for c in commands(content_bytes(src)))
-                dst.Contents=pdf.make_stream(content_bytes(dst)+b'\n'+drawing)
+                from .text_boxes import final_ctm
+                original=content_bytes(dst);inverse=~fitz.Matrix(final_ctm(original));prefix=('\nq '+' '.join(map(str,inverse))+' cm\n').encode()
+                dst.Contents=pdf.make_stream(original+prefix+drawing+b'\nQ')
         self.edit('insert image',mutate)
 
 

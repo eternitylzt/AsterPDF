@@ -32,5 +32,8 @@ def paste_pdf(document,page,data):
                 xo[name]=pdf.copy_foreign(value);names[key]=name
             resources.XObject=xo;target.Resources=resources
             content=b'\n'.join((names[str(operands(c)[0])]+' Do').encode() if c.op=='Do' else c.raw for c in commands(content_bytes(src)))
-            target.Contents=pdf.make_stream(content_bytes(target)+b'\n'+content)
+            from .text_boxes import final_ctm
+            original=content_bytes(target);inverse=~fitz.Matrix(final_ctm(original))
+            prefix=('\nq '+' '.join(f'{v:.9f}' for v in inverse)+' cm\n').encode()
+            target.Contents=pdf.make_stream(original+prefix+content+b'\nQ\n')
     document.edit('paste in place',mutate)

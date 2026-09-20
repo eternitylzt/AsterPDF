@@ -2,13 +2,15 @@
 LANGUAGE = 'zh'
 
 STRINGS = {
+    'playback_controls':('多媒体控件','Playback controls'),
+    'replace_text':('替换文字批注','Replace text'), 'squiggly':('波浪下划线','Squiggly underline'), 'caret':('插入文字','Insert text'), 'add_video':('插入视频','Insert video'),
     'minimap':('速览窗','Quick overview'),
     'text_ops':('文字操作','Text tools'), 'vector_edit':('图形编辑','Shape editing'),
     'colors':('颜色替换','Replace colors'), 'organize':('组织页面','Organize pages'),
     'print':('打印…','Print…'), 'file_info':('文件信息','Document information'),
     'sidebar':('导航栏','Navigation'), 'toolbar':('工具栏','Toolbar'),
 
-    'file': ('文件', 'File'), 'open': ('打开 PDF…', 'Open PDF…'),
+    'file': ('文件', 'File'), 'open': ('打开文件…', 'Open document…'),
     'save': ('保存', 'Save'), 'save_as': ('另存为…', 'Save as…'),
     'close': ('关闭标签页', 'Close tab'), 'recent': ('最近文件', 'Recent files'),
     'edit': ('编辑', 'Edit'), 'undo': ('撤销', 'Undo'), 'redo': ('重做', 'Redo'),

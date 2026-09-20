@@ -32,6 +32,8 @@ class EmbeddedMedia:
     xref: int
     kind: str
     warning: str = ''
+    annotation_xref: int = 0
+    annotation_name: str = ''
 
 
 def field_name(annotation):
@@ -139,7 +141,8 @@ def scan(document):
                         stream = ef.get('/UF', ef.get('/F'))
                         if isinstance(stream, pp.Stream):
                             media.append(EmbeddedMedia(i, rect, Path(filename.replace('\\', '/')).name,
-                                         stream.objgen[0], 'audio' if suffix in ('.mp3', '.m4a', '.wav', '.ogg', '.flac') else 'video'))
+                                         stream.objgen[0], 'audio' if suffix in ('.mp3', '.m4a', '.wav', '.ogg', '.flac') else 'video',
+                                         annotation_xref=a.objgen[0],annotation_name=str(a.get('/NM',''))))
                             found = True
                     if not found:
                         warnings.append(L(f'第 {i+1} 页：{subtype} 媒体结构不受支持；不播放外部网址、Flash、3D 或原始声音流。',f'Page {i+1}: {subtype} has no supported embedded asset; external URLs, Flash, 3D and raw Sound streams are not played.'))
@@ -232,3 +235,16 @@ def control_at(animation,point):
         combined='PlayPause'+direction
         if combined in hits or ('Play'+direction in hits and 'Pause'+direction in hits):return combined
     return hits[0] if hits else None
+
+
+def export_animation(document,animation,destination):
+    """Preserve vector frames and their timing; animate has no original video stream."""
+    import zipfile,json
+    frames=prepare_animation(document,animation)
+    timing={'format':'AsterPDF animation source 1','frame_count':len(animation.frames),'fps':animation.fps,
+            'variable_fps':animation.variable_fps,'source_page':animation.page+1,'method':animation.method}
+    with zipfile.ZipFile(destination,'w',zipfile.ZIP_DEFLATED) as archive:
+        archive.write(frames,'frames.pdf')
+        archive.writestr('timing.json',json.dumps(timing,ensure_ascii=False,indent=2))
+        archive.writestr('README.txt','LaTeX animate stores PDF frames, not an original MP4.\nframes.pdf contains every original vector frame in order, one per page.\ntiming.json records the detected frame rate and per-frame rate changes.\nNo PDF JavaScript is executed.\n')
+    return str(destination)

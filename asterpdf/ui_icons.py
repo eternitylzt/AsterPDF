@@ -4,6 +4,25 @@ from PySide6.QtGui import QIcon,QPixmap,QPainter
 from PySide6.QtSvg import QSvgRenderer
 
 PATHS={
+ 'media_play':'<path d="m7 3 17 11-17 11Z"/>',
+ 'media_pause':'<path d="M7 4h4v20H7ZM17 4h4v20h-4Z"/>',
+ 'replay':'<path d="M5 10a10 10 0 1 1-1 9M5 3v8h8"/>',
+ 'reset_speed':'<circle cx="14" cy="14" r="11"/><path d="m11 9 3-2v14m-3 0h6"/>',
+
+ 'triangle':'<path d="M14 3 26 24H2Z"/>',
+ 'diamond':'<path d="M14 2 26 14 14 26 2 14Z"/>',
+ 'select_annot':'<path stroke-dasharray="2 3" d="M2 2h24v24H2z"/><path d="m8 7 12 9-6 1-3 6Z"/>',
+ 'underline':'<path d="M6 4h16M14 4v15M6 24h16"/>',
+ 'strikeout':'<path d="M6 4h16M14 4v19M3 13h22"/>',
+ 'replace_text':'<path d="M3 4h12M9 4v12M2 11h15M17 20h9m-4-4 4 4-4 4"/>',
+ 'freetext':'<path d="M3 5h14M10 5v18M21 4h5m-3 0v20m-2 0h5"/>',
+ 'highlight':'<path d="m5 17 12-13 6 5-12 13-6-1ZM5 17l6 5M3 26h22"/>',
+ 'ink':'<path d="m5 15 13-12 5 5-13 12-6 1ZM3 26c5-8 9 4 14-2s5 0 8 0"/>',
+ 'note':'<path d="M3 3h22v16l-6 6H3ZM19 25v-6h6M7 8h12m-6 0v10"/>',
+ 'caret':'<path d="m4 19 10-12 10 12M8 25h12"/>',
+ 'squiggly':'<path d="M5 4h18M14 4v14M3 24q3-6 6 0t6 0t6 0t6 0"/>',
+ 'add_video':'<path d="M3 5h22v18H3zM11 9l8 5-8 5Z"/>',
+
  'tabs':'<path d="m6 10 8 8 8-8"/>',
  'minimap':'<path d="M4 3h14v22H4zM21 3h4v22h-4zM4 11h14v7H4z"/>',
  'flip_h':'<path d="M14 2v24M3 7l7 7-7 7ZM25 7l-7 7 7 7Z"/>',

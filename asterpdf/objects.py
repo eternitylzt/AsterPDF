@@ -534,3 +534,23 @@ def move_vertex(document,page_index,obj,index,point):
                 block=block[:part.start]+replacement+block[part.end:]
         page.Contents=pdf.make_stream(data[:obj.start]+block+data[obj.end:])
     document.edit('vector endpoint',mutate)
+
+
+def set_stacking(document,page_index,selected,front=True):
+    """Arrange chosen text/path/image/Form occurrences, retaining state and clips."""
+    if not selected or any(o.kind not in ('image','group','text','vector') or o.end<=o.start or o.reason for o in selected):
+        raise Unsupported(L('请选择可编辑的文字、图形或图片。','Select editable text, shapes or images.'))
+    def mutate(pdf):
+        page=pdf.pages[page_index];data=content_bytes(page);base=[];isolated=[]
+        for c in commands(data):
+            chosen=any(o.start<=c.start and c.end<=o.end for o in selected)
+            if chosen and c.op in PAINT:base.append(b'n')
+            elif chosen and c.op in ('Do','sh','Tj','TJ',"'",'"'):base.append(b' ')
+            else:base.append(c.raw)
+            if not chosen and c.op in PAINT:isolated.append(b'n')
+            elif not chosen and c.op in ('Do','sh','Tj','TJ',"'",'"'):isolated.append(b' ')
+            else:isolated.append(c.raw)
+        original=b'\n'.join(base);layer=b'\n'.join(isolated)
+        first,last=(original,layer) if front else (layer,original)
+        page.Contents=pdf.make_stream(b'q\n'+first+b'\nQ\nq\n'+last+b'\nQ\n')
+    document.edit('bring to front' if front else 'send to back',mutate)

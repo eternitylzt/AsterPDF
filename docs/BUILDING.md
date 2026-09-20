@@ -55,7 +55,7 @@ The user's `E:\tempdata\testpage.pdf` is an external validation input. It is **n
 
 ## GitHub setup and releases
 
-The public repository is `eternitylzt/AsterPDF`. A `v*` tag runs tests and native PyInstaller builds on Windows, macOS Apple Silicon and Linux, then publishes the matching archives, source and SHA-256 files as a GitHub Release. A manual workflow run builds downloadable CI artifacts without creating a Release.
+The public repository is `eternitylzt/AsterPDF`. A `v*` tag runs tests and native PyInstaller builds on Windows, macOS Apple Silicon and Linux, then publishes the matching archives and matching source (without separate per-platform checksum attachments) as a GitHub Release. A manual workflow run builds downloadable CI artifacts without creating a Release.
 
 Build completion establishes that the project packaged on that runner. It does not replace the real-desktop checks in `docs/VALIDATION.md`, especially multimedia playback, clipboard integration, fonts, signing and platform codec availability. Published binaries are unsigned; add signing/notarization credentials separately when available.
 

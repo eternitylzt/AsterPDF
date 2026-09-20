@@ -90,5 +90,13 @@
       "licenses\\packaging\\licenses\\LICENSE.APACHE",
       "licenses\\packaging\\licenses\\LICENSE.BSD"
     ]
+  },
+  {
+    "name": "Markdown",
+    "version": "3.10.3",
+    "license": "BSD-3-Clause",
+    "files": [
+      "licenses\\Markdown\\licenses\\LICENSE.md"
+    ]
   }
 ]

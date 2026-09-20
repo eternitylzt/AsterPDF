@@ -27,6 +27,7 @@ from .player import AnimationPlayer, VideoPlayer
 
 class ThumbnailList(QListWidget):
     reordered=Signal(object)
+    zoomed=Signal(float)
     MIME='application/x-asterpdf-page-order'
 
     def __init__(self,parent=None):
@@ -35,6 +36,11 @@ class ThumbnailList(QListWidget):
         self.setAcceptDrops(True);self.viewport().setAcceptDrops(True)
         self.drop_line=QFrame(self.viewport());self.drop_line.setStyleSheet('background:#1677e8;border-radius:1px;');self.drop_line.hide()
         self.drag_token=str(id(self)).encode();self.drop_target=None
+
+    def wheelEvent(self,event):
+        if event.modifiers()&Qt.ControlModifier and self.viewMode()==QListWidget.IconMode and self.flow()==QListWidget.LeftToRight:
+            self.zoomed.emit(event.angleDelta().y()/120);event.accept();return
+        super().wheelEvent(event)
 
     def startDrag(self,actions):
         from PySide6.QtCore import QMimeData,QPoint
@@ -115,7 +121,7 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
         self.annotations_data = []
         self.object_cache = {}
         self.image_cache = {}
-        self.editing_objects = False
+        self.editing_objects = False; self.edit_tool='text'; self.fit_mode=None
         self.inline_editor = None
         self.annot_author = window.settings.value('annotation_author','AsterPDF')
         self.annot_font = 'china-s'
@@ -172,9 +178,10 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
         zoom_layout.addWidget(self.zoom);self.zoom_plus=QToolButton();self.zoom_plus.setIcon(icon('plus',self.dark));self.zoom_plus.setFixedWidth(25);self.zoom_plus.clicked.connect(lambda:self.zoom_by(1.2));zoom_layout.addWidget(self.zoom_plus);nav.addWidget(zoom_group)
         nav.addSeparator()
         for key,callback in [('undo',lambda:self.window.history(False)),('redo',lambda:self.window.history(True)),('page_fit',lambda:self.fit(False)),('width_fit',lambda:self.fit(True)),('bookmark',self.toggle_bookmark),
-            ('save',lambda:self.window.save_tab()),('region',lambda:self.set_mode('region')),('copy_region',self.copy_region),('images',self.extract_embedded),('play',self.play_selected),('replay',self.replay),('presentation',self.window.toggle_presentation),
+            ('save',lambda:self.window.save_tab()),('region',lambda:self.set_mode('select' if self.canvas.mode=='region' else 'region')),('copy_region',self.copy_region),('images',self.extract_embedded),('play',self.play_selected),('replay',self.replay),('presentation',self.window.toggle_presentation),
             ('print',lambda:self.window.print_current()),('file_info',lambda:self.window.file_information()),('minimap',lambda:self.minimap.toggle())]:
             self.quick_actions[key]=decorate(nav.addAction(tr(key),callback),key,self.dark)
+        for key in ('select','hand','region','page_fit','width_fit','minimap'):self.quick_actions[key].setCheckable(True)
         self.continuous=QCheckBox(tr('continuous'));self.continuous.setChecked(True);self.continuous.toggled.connect(self.set_continuous)
         self.quick_actions['continuous']=nav.addWidget(self.continuous)
         self.search_input=QLineEdit();self.search_input.setPlaceholderText(tr('search_hint'));self.search_input.setMaximumWidth(180);self.search_input.returnPressed.connect(self.search)
@@ -183,7 +190,7 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
         self.panel_keys = {}
         self.add_panel('read', [('select', lambda: self.set_mode('select')), ('region', lambda: self.set_mode('region'))])
         self.add_panel('annotate', [(k, lambda k=k: self.set_mode(k)) for k in
-            ('select_annot','highlight','underline','strikeout','note','freetext','ink','line','arrow','rectangle','ellipse')])
+            ('select_annot','highlight','underline','strikeout','replace_text','squiggly','note','freetext','ink','line','arrow','rectangle','ellipse')])
         annotation_bar = self.tool_panels.widget(self.panel_keys['annotate'])
         self.color_action=annotation_bar.addAction('● '+tr('color'), self.choose_color)
         self.color_action.setIcon(self.color_icon())
@@ -194,12 +201,18 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
         opacity = QDoubleSpinBox(); opacity.setRange(5,100); opacity.setSingleStep(5); opacity.setValue(self.annot_opacity*100);opacity.setDecimals(0);opacity.setSuffix('%'); opacity.setMaximumWidth(70)
         self.annot_opacity_widget=opacity
         opacity.setToolTip(tr('opacity')); opacity.valueChanged.connect(lambda v:self.annotation_value('annot_opacity',v/100)); annotation_bar.addWidget(QLabel(tr('opacity')));annotation_bar.addWidget(opacity)
-        self.add_panel('objects', [('text_ops',self.text_tools),('add_image',self.choose_insert_image),('vector_edit',self.begin_vector_edit),('colors',self.replace_colors),('reset_document',self.reset_document)])
+        # Keep compatibility bindings, but expose all styling in the inline pane.
+        for action in annotation_bar.actions():
+            if not action.property('aster_key'):action.setVisible(False)
+        annotation_bar.addAction(L('批注人','Author'),lambda:self.show_annotation_properties(author=True))
+        self.add_panel('objects', [('text_ops',self.text_tools),('add_image',self.choose_insert_image),('vector_edit',self.begin_vector_edit),('add_video',lambda:__import__('asterpdf.video_insert',fromlist=['pane']).pane(self)),('colors',self.replace_colors),('reset_document',self.reset_document)])
         object_bar=self.tool_panels.widget(self.panel_keys['objects'])
-        self.keep_image_ratio=QCheckBox(L('保持比例（Shift 临时切换）','Keep ratio (Shift toggles)'));self.keep_image_ratio.setChecked(self.window.settings.value('image/ratio',True,type=bool));self.keep_image_ratio.toggled.connect(lambda v:self.window.settings.setValue('image/ratio',v));object_bar.addWidget(self.keep_image_ratio)
+        self.keep_image_ratio=QCheckBox(L('保持比例（Shift 临时切换）','Keep ratio (Shift toggles)'));self.keep_image_ratio.setChecked(self.window.settings.value('image/ratio',True,type=bool));self.keep_image_ratio.toggled.connect(lambda v:self.window.settings.setValue('image/ratio',v));self.keep_image_ratio.hide()
         self.add_panel('pages', [('organize',self.organize_pages),('rotate', lambda: self.page_op('rotate')),('flip_h',lambda:self.page_tools('flip_h')),('flip_v',lambda:self.page_tools('flip_v')), ('delete_pages',lambda: self.page_op('delete')),
             ('blank', lambda: self.page_op('blank')), ('merge', self.merge),
             ('extract_pages', self.extract_pages), ('crop', lambda:self.page_tools('crop'))])
+        pagebar=self.tool_panels.widget(self.panel_keys['pages'])
+        self.organizer_zoom=QDoubleSpinBox();self.organizer_zoom.setRange(2,50);self.organizer_zoom.setSuffix('%');self.organizer_zoom.setValue(self.window.settings.value('page/preview_scale',15.,type=float));self.organizer_zoom.setFixedWidth(80);self.organizer_zoom.setToolTip(L('页面预览缩放 · Ctrl+滚轮','Page preview zoom · Ctrl+wheel'));pagebar.addWidget(self.organizer_zoom)
         self.add_panel('extract', [('region', lambda: self.set_mode('region')), ('export_pages', lambda: self.export_images(False)),
             ('export_region', lambda: self.export_images(True)), ('copy_region', self.copy_region),
             ('vector_pdf', self.vector_export), ('images', self.extract_embedded), ('export_settings',self.window.export_settings)])
@@ -269,6 +282,7 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
         self.image_sidebar=QWidget();image_layout=QVBoxLayout(self.image_sidebar);image_layout.setContentsMargins(5,5,5,5)
         self.image_hint=QLabel();self.image_hint.setWordWrap(True);image_layout.addWidget(self.image_hint)
         self.image_list=QListWidget();self.image_list.setIconSize(QSize(72,72));self.image_list.setSelectionMode(QAbstractItemView.ExtendedSelection);image_layout.addWidget(self.image_list,1)
+        self.image_list.setContextMenuPolicy(Qt.CustomContextMenu);self.image_list.customContextMenuRequested.connect(self.image_list_menu)
         self.image_list.itemSelectionChanged.connect(self.image_list_selected)
         self.image_extract=QPushButton(tr('extract_image'));self.image_extract.clicked.connect(self.extract_selected_images);image_layout.addWidget(self.image_extract)
         self.image_list.itemDoubleClicked.connect(lambda _:self.extract_selected_images())
@@ -278,6 +292,7 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
         self.document_views=QStackedWidget();self.document_views.addWidget(self.scroll)
         self.organizer=ThumbnailList();self.organizer.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel);self.organizer.verticalScrollBar().valueChanged.connect(self.update_organizer_inset);self.organizer.setViewMode(QListWidget.IconMode);self.organizer.setIconSize(QSize(155,205));self.organizer.setGridSize(QSize(180,235));self.organizer.setResizeMode(QListWidget.Adjust)
         self.organizer.setSelectionMode(QAbstractItemView.ExtendedSelection);self.organizer.setDragDropMode(QAbstractItemView.InternalMove);self.organizer.setDefaultDropAction(Qt.MoveAction)
+        self.organizer.zoomed.connect(lambda delta:self.organizer_zoom.setValue(self.organizer_zoom.value()+delta));self.organizer_zoom.valueChanged.connect(self.zoom_organizer)
         self.organizer.reordered.connect(self.reorder);self.organizer.setContextMenuPolicy(Qt.CustomContextMenu);self.organizer.customContextMenuRequested.connect(lambda pos:self.page_context_menu(self.organizer,pos))
         self.organizer.itemDoubleClicked.connect(lambda item:(self.document_views.setCurrentWidget(self.scroll),self.goto(item.data(Qt.UserRole))))
         self.document_views.addWidget(self.organizer);self.splitter.addWidget(self.document_views); self.splitter.setSizes([self.sidebar.tabBar().sizeHint().width()+12,1000]);self.splitter.splitterMoved.connect(lambda pos,index:self.toggle_sidebar() if index==1 and pos<8 and self.sidebar.isVisible() else None)
@@ -300,9 +315,9 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
         self.splitter.setStretchFactor(0,0);self.splitter.setStretchFactor(self.splitter.indexOf(self.document_views),1)
         QTimer.singleShot(0,self.initialize_sidebar_width)
         self.sidebar.currentChanged.connect(lambda _:self.extract_embedded() if self.sidebar.currentWidget()==self.image_sidebar and self.canvas.mode!='images' and not self.busy else None)
-        self.tool_panels.hide();self.active_panel='read';self.configure_chrome()
+        self.tool_panels.hide();self.active_panel='read';self.configure_chrome();self.sync_tool_states()
         self.sidebar.setVisible(not self.window.settings.value('sidebar/hidden',False,type=bool))
-        for widget in (self.sidebar,self.outline,self.results,self.annotation_list,self.image_list):
+        for widget in (self.sidebar,self.outline,self.results,self.annotation_list):
             widget.setContextMenuPolicy(Qt.CustomContextMenu)
             widget.customContextMenuRequested.connect(lambda pos,source=widget:self.sidebar_menu(pos,source))
 
@@ -310,7 +325,7 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
         bar = QToolBar(); bar.setMovable(False);bar.setIconSize(QSize(17,17));bar.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
         for label, callback in actions:
             action=decorate(bar.addAction(tr(label), callback),label,self.dark)
-            if key=='annotate' or label in ('text_ops','add_image','vector_edit','colors','region','crop'):action.setCheckable(True)
+            if key=='annotate' or label in ('text_ops','add_image','vector_edit','colors','region','crop','add_video'):action.setCheckable(True)
         self.panel_keys[key] = self.tool_panels.addWidget(bar)
 
     def set_panel(self,key):
@@ -320,6 +335,7 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
     def open_panel(self,key):
         if self.inline_editor and self.inline_dirty():
             self.leave_inline(lambda:self.open_panel(key));return
+        self.leave_color_tools()
         self.active_panel=key
         self.cancel_inline()
         if key!='pages':self.document_views.setCurrentWidget(self.scroll)
@@ -360,26 +376,35 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
         if self.inline_editor and mode != "objects":
             self.leave_inline(lambda:self.set_mode(mode));return
         self.canvas.mode=mode
-        if mode in ('highlight','underline','strikeout','note','freetext','ink','line','arrow','rectangle','ellipse') and hasattr(self,'annotation_list'):
+        from .annotation_tools import KINDS
+        if mode in KINDS and hasattr(self,'splitter') and self.active_panel=='annotate':self.show_annotation_properties(mode)
+        self.sync_tool_states()
+        if mode in ('highlight','underline','strikeout','replace_text','squiggly','note','freetext','ink','line','arrow','rectangle','ellipse') and hasattr(self,'annotation_list'):
             self.annotation_list.setCurrentItem(None);self.annotation_list.clearSelection()
         if hasattr(self,'add_text_button'):self.add_text_button.setChecked(mode=='add_text')
         if hasattr(self,'shape_draw_button'):self.shape_draw_button.setChecked(mode=='draw_shape')
+        for kind,button in getattr(self,'shape_buttons',{}).items():
+            if mode!='draw_shape':button.setChecked(False)
         if hasattr(self,'figure_place'):self.figure_place.setChecked(mode=='add_image')
         for i in range(self.tool_panels.count()):
             for action in self.tool_panels.widget(i).actions():
                 if action.isCheckable():
-                    key=action.property('aster_key');tool={'text_ops':'text','add_image':'image','vector_edit':'shape','colors':'colors'}.get(key)
+                    key=action.property('aster_key');tool={'text_ops':'text','add_image':'image','vector_edit':'shape','colors':'colors','add_video':'video'}.get(key)
                     action.setChecked(tool==getattr(self,'edit_tool','text') if tool else key==mode)
         if mode=='freetext' and self.annot_color.name()=='#efb43d':
             self.annot_color=QColor('#243249');self.color_action.setIcon(self.color_icon())
         if mode in ('freetext','ink','line','arrow','rectangle','ellipse'):
             self._sync_annotation=True;self.annot_width_widget.setMinimum(0 if mode=='freetext' else .2)
             self.annot_width_widget.setValue(self.annot_text_border if mode=='freetext' else max(.2,self.annot_width));self._sync_annotation=False
-        cursor=Qt.OpenHandCursor if mode=='hand' else Qt.IBeamCursor if mode in ('highlight','underline','strikeout','freetext','add_text') else Qt.ArrowCursor if mode in ('select','objects','select_annot') else Qt.CrossCursor
+        cursor=Qt.OpenHandCursor if mode=='hand' else Qt.IBeamCursor if mode in ('highlight','underline','strikeout','replace_text','squiggly','freetext','add_text') else Qt.ArrowCursor if mode in ('select','objects','select_annot') else Qt.CrossCursor
         self.canvas.setCursor(cursor)
         self.status.setText(tr(mode)+' · '+(L('Shift 多选 · 拖动移动 · 右下角缩放 · 双击编辑 · Delete 删除','Shift: select several · Drag: move · Corner: resize · Double-click: edit · Delete: remove') if mode=='objects' else L('拖动选择','Drag to select')))
         if mode=='select_annot':self.load_annotations()
         self.canvas.update()
+
+    def show_annotation_properties(self,kind=None,selected=None,author=False):
+        from .annotation_tools import build
+        build(self,kind or 'select_annot',selected,author)
 
     def color_icon(self):
         pix=QPixmap(18,18);pix.fill(self.annot_color);return QIcon(pix)
@@ -424,7 +449,7 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
     def cancel_job(self):
         if self.job: self.job.cancelled = True
 
-    def run(self, label, function, success=None, editing=False, cancellable=False, failure=None, fast_objects=False,local_edit=False):
+    def run(self, label, function, success=None, editing=False, cancellable=False, failure=None, fast_objects=False,local_edit=False,page_update=None):
         if self.busy: return
         self.busy = True
         edit_page=self.canvas.page
@@ -439,7 +464,8 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
             if self.closed: return
             if editing:
                 self.info = result[1]
-                if local_edit or fast_objects:
+                if page_update is not None:self.refresh_pages(page_update)
+                elif local_edit or fast_objects:
                     self.refresh_local(result[0] if fast_objects else None,edit_page)
                 else:self.refresh()
                 result = result[0]
@@ -459,6 +485,52 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
             return (result,self.info if local_edit or fast_objects else self.document.info()) if editing else result
         self.job = self.queue.submit(work, done, failure or self.error, finished,
                          lambda n,total: (self.progress.setRange(0,total),self.progress.setValue(n)), priority=2)
+
+    def refresh_pages(self,update):
+        from PySide6.QtGui import QTransform
+        mapping=update.get('mapping')
+        if mapping is None:
+            oldcount=len(self.canvas.sizes);op=update.get('operation');indices=update.get('indices',[])
+            if op=='delete':mapping=[p for p in range(oldcount) if p not in indices]
+            elif op=='insert':
+                position=update['position'];mapping=list(range(oldcount));mapping[position:position]=[None]*(self.info['count']-oldcount)
+            elif op=='blank':
+                mapping=[]
+                for p in range(oldcount):
+                    if p in indices and update.get('before'):mapping.append(None)
+                    mapping.append(p)
+                    if p in indices and not update.get('before'):mapping.append(None)
+            else:mapping=list(range(self.info['count']))
+        changed=set(update.get('changed',[]));oldpage=self.canvas.page
+        self.canvas.remap_pages(mapping,changed);self.canvas.sizes=self.info['sizes']
+        self.canvas.page=mapping.index(oldpage) if oldpage in mapping else min(oldpage,len(mapping)-1)
+        for listing in (self.thumbnails,self.organizer):
+            scroll=listing.verticalScrollBar().value();listing.setUpdatesEnabled(False);listing.blockSignals(True)
+            previous=[listing.takeItem(0) for _ in range(listing.count())]
+            for page,old in enumerate(mapping):
+                item=previous[old] if old is not None else QListWidgetItem()
+                if old is None:item.setSizeHint(QSize(150,174))
+                item.setText(f'{page+1:02d}');item.setData(Qt.UserRole,page);item.setTextAlignment(Qt.AlignHCenter)
+                item.setData(Qt.UserRole+2,None)
+                if page in changed:
+                    transform=QTransform();op=update.get('operation')
+                    if op=='rotate':transform.rotate(update.get('angle',90))
+                    elif op in ('flip_h','flip_v'):transform.scale(-1 if op=='flip_h' else 1,-1 if op=='flip_v' else 1)
+                    if not item.icon().isNull():item.setIcon(QIcon(item.icon().pixmap(320,320).transformed(transform,Qt.SmoothTransformation)))
+                    item.setData(Qt.UserRole+1,True)
+                listing.addItem(item)
+            listing.blockSignals(False);listing.setUpdatesEnabled(True);listing.verticalScrollBar().setValue(scroll)
+        self.page_spin.blockSignals(True);self.page_spin.setMaximum(self.info['count']);self.page_spin.blockSignals(False);self.page_count.setText(f" / {self.info['count']}  ")
+        self.outline.clear();parents={0:self.outline.invisibleRootItem()}
+        for level,title,page in self.info['toc']:
+            item=QTreeWidgetItem([title]);item.setData(0,Qt.UserRole,max(0,page-1));parents.get(level-1,parents[0]).addChild(item);parents[level]=item
+        self.outline.expandToDepth(1);self.refresh_bookmarks();self.zoom_organizer();self.canvas.layout_pages();self.current_changed(self.canvas.page)
+        self.links.clear();self.object_cache.clear();self.image_cache.clear();self.load_annotations();self.load_characters(self.canvas.page)
+        for p in self.video_players:p.shutdown();p.deleteLater()
+        for p in self.players.values():p.release();p.deleteLater()
+        self.players={};self.video_players=[];self.animations=[];self.assets=[]
+        self.queue.submit(lambda j:media.scan(self.document),lambda data:self.media_scanned(data,False),self.error)
+        self.minimap.preserve_pages(mapping,changed);self.thumbnail_timer.start(0)
 
     def refresh_local(self,models=None,page=None):
         page=self.canvas.page if page is None else page;self.canvas.invalidate_page(page)
@@ -518,7 +590,14 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
         for level,title,page in self.info['toc']:
             item=QTreeWidgetItem([title]);item.setToolTip(0,title); item.setData(0,Qt.UserRole,max(0,page-1))
             parents.get(level-1,parents[0]).addChild(item); parents[level]=item
-        self.outline.expandToDepth(1); self.refresh_bookmarks()
+        self.outline.expandToDepth(1); self.refresh_bookmarks();self.zoom_organizer()
+
+    def zoom_organizer(self,*_):
+        scale=self.organizer_zoom.value()/100*96/72;self.window.settings.setValue('page/preview_scale',self.organizer_zoom.value())
+        w=max(40,round(max(s[0] for s in self.info['sizes'])*scale));h=max(40,round(max(s[1] for s in self.info['sizes'])*scale))
+        self.organizer.setIconSize(QSize(w,h));self.organizer.setGridSize(QSize(w+22,h+30))
+        for n in range(self.organizer.count()):self.organizer.item(n).setSizeHint(QSize(w+18,h+26))
+        if hasattr(self,'thumbnail_timer'):self.thumbnail_timer.start(0)
 
     def load_thumbnails(self):
         if self.closed:return
@@ -572,13 +651,13 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
             if operation!='delete':
                 for view in (self.thumbnails,self.organizer):
                     for n in range(view.count()):view.item(n).setSelected(view.item(n).data(Qt.UserRole) in pages)
-        self.run(tr('pages'),lambda j:self.document.page_operation(operation,pages),done,editing=True)
+        self.run(tr('pages'),lambda j:self.document.page_operation(operation,pages),done,editing=True,page_update={'operation':operation,'indices':pages,'changed':pages if operation!='delete' else []})
 
     def insert_pdf_at(self,position):
         files,_=QFileDialog.getOpenFileNames(self,L('插入 PDF','Insert PDFs'),'','PDF (*.pdf)')
         if not files:return
         if not self.approve_limit(True,L('插入只复制源文件的页级内容；不导入文档级目录、脚本和表单树。','Insertion copies page-level content, not document-level outlines, scripts or form trees.')):return
-        self.run(tr('pages'),lambda j:self.document.page_operation('insert',[],files=files,position=position),editing=True)
+        self.run(tr('pages'),lambda j:self.document.page_operation('insert',[],files=files,position=position),editing=True,page_update={'operation':'insert','position':position})
 
     def goto(self,page):
         if self.inline_editor:
@@ -673,7 +752,17 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
         if self.inline_editor:self.suspend_inline()
         self.set_zoom(self.zoom_factor*self.actual_size_scale())
 
+    def sync_tool_states(self):
+        for i in range(self.tool_panels.count()):
+            for action in self.tool_panels.widget(i).actions():
+                if action.property('aster_key')=='region':action.setChecked(self.canvas.mode=='region')
+        for key in ('select','hand','region'):
+            self.quick_actions[key].setChecked(self.canvas.mode==key)
+        for key in ('page_fit','width_fit'):self.quick_actions[key].setChecked(self.fit_mode==key)
+        if hasattr(self,'minimap'):self.quick_actions['minimap'].setChecked(self.minimap.enabled)
+
     def set_zoom(self,value):
+        self.fit_mode=None;self.sync_tool_states()
         unit=self.actual_size_scale();self.zoom_factor=max(1/64,min(64,value/unit));self.canvas.scale=self.zoom_factor*unit
         label='1.5625' if self.zoom_factor==1/64 else f'{self.zoom_factor*100:.2f}'.rstrip('0').rstrip('.')
         self.zoom.setCurrentText(label+'%')
@@ -701,6 +790,7 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
             h=max(size[1] for size in self.info['sizes'][row:row+2])
         available=self.scroll.viewport().size()
         self.set_zoom((available.width()-56)/w if width else min((available.width()-56)/w,(available.height()-getattr(self,'reading_inset',0)-40)/h))
+        self.fit_mode='width_fit' if width else 'page_fit';self.sync_tool_states()
 
     def set_continuous(self,value):
         if not hasattr(self,'canvas'):return
@@ -818,7 +908,7 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
                 listing.clearSelection()
                 for n in moved:listing.item(n).setSelected(True)
                 if moved:listing.scrollToItem(listing.item(moved[0]),QAbstractItemView.EnsureVisible)
-        self.run(tr('pages'),lambda j:self.document.page_operation('reorder',[],order=order),done,editing=True)
+        self.run(tr('pages'),lambda j:self.document.page_operation('reorder',[],order=order),done,editing=True,page_update={'mapping':order})
 
     def merge(self):
         self.merge_pane()
@@ -922,6 +1012,14 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
             self.status.setText(L(f'第 {page+1} 页 · {len(occurrences)} 张内嵌图片',f'Page {page+1} · {len(occurrences)} embedded images'))
         self.run(tr('images'),locate,done)
 
+    def image_list_menu(self,pos):
+        item=self.image_list.itemAt(pos)
+        if not item:return
+        if not item.isSelected():self.image_list.setCurrentItem(item)
+        page,index,xref=item.data(Qt.UserRole);obj=next((o for o in self.canvas.objects if o.id==index),None)
+        if obj is None:obj=objects.PdfObject(index,'image',0,0,(1,0,0,1,0,0),(0,0,1,1),xref=xref)
+        menu=QMenu(self);menu.addAction(L('复制图片','Copy image'),lambda:self.copy_image(obj));menu.addAction(tr('extract_image'),self.extract_selected_images);menu.exec(self.image_list.viewport().mapToGlobal(pos))
+
     def image_list_selected(self):
         if self.canvas.mode!='images':
             self.extract_embedded();return
@@ -951,7 +1049,7 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
             w,h=self.canvas.sizes[page];rect=(max(0,rect[0]),max(0,rect[1]),min(w,rect[2]),min(h,rect[3]));self.canvas.region=(page,rect);self.canvas.update()
             if mode=='crop':self.crop_selection_changed()
             return
-        if mode in ('select','read','highlight','underline','strikeout'):
+        if mode in ('select','read','highlight','underline','strikeout','replace_text','squiggly'):
             if mode in ('select','read') and abs(x1-x0)+abs(y1-y0)<5:
                 for link in self.links.get(page,[]):
                     if qrect(link['from']).contains(x0,y0):
@@ -960,12 +1058,13 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
             def selected(chars):
                 self.canvas.words[page]=chars
                 chosen=self.canvas.select_characters(page,QPointF(x0,y0),QPointF(x1,y1))
-                if mode in ('highlight','underline','strikeout') and chosen:
+                if mode in ('highlight','underline','strikeout','replace_text','squiggly') and chosen:
                     lines={}
                     for c in chosen:
                         key=c[2:4];lines[key]=lines[key].united(qrect(c[0])) if key in lines else qrect(c[0])
                     rects=[(r.left(),r.top(),r.right(),r.bottom()) for r in lines.values()]
-                    self.add_annotation(page,mode,points,word_rects=rects)
+                    from .annotation_tools import content
+                    self.add_annotation(page,mode,points,word_rects=rects,text=content(self))
             if self.canvas.words.get(page):selected(self.canvas.words[page])
             else:self.queue.submit(lambda j:self.document.characters(page),selected,self.error)
             return
@@ -974,7 +1073,12 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
             for n in range(self.annotation_list.count()):
                 it=self.annotation_list.item(n);ann=it.data(Qt.UserRole)
                 it.setSelected(ann['page']==page and box.contains(qrect(ann['rect'])))
-            self.annotation_list.blockSignals(False);self.canvas.update();return
+            self.annotation_list.blockSignals(False);self.canvas.update();self.show_annotation_properties('select_annot',selected=[it.data(Qt.UserRole) for it in self.annotation_list.selectedItems()] or None);return
+        if mode=='add_video':
+            from .video_insert import insert
+            filename=getattr(self,'pending_video',None)
+            if filename:self.run(tr('add_video'),lambda j:insert(self.document,page,rect,filename),lambda _:(self.set_mode('objects'),self.queue.submit(lambda j:media.scan(self.document),self.media_scanned,self.error)),editing=True,local_edit=True)
+            return
         if mode=='draw_shape':self.place_shape(page,rect);return
         if mode=='add_text':self.add_text(page,rect);return
         if mode=='add_image':
@@ -982,8 +1086,9 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
             return
         text=''
         if mode in ('note','freetext'):
-            text,ok=QInputDialog.getMultiLineText(self,tr(mode),L('内容','Text'))
-            if not ok:return
+            from .annotation_tools import content
+            text=content(self)
+            if not text:self.status.setText(L('请在批注设置中填写内容。','Enter text in annotation properties.'));return
             if mode=='freetext':
                 try:rect=self.freetext_bounds(page,rect,text,self.annot_size,self.annot_font)
                 except ValueError as error:self.error(str(error));return
@@ -1008,8 +1113,9 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
 
     def create_freetext(self,page,point):
         if page<0 or self.busy:return
-        text,ok=QInputDialog.getMultiLineText(self,tr('freetext'),L('内容（文本框自动扩展）','Text (box grows to fit)'))
-        if not ok or not text:return
+        from .annotation_tools import content
+        text=content(self)
+        if not text:self.status.setText(L('请在批注设置中填写内容。','Enter text in annotation properties.'));return
         try:rect=self.freetext_bounds(page,(point.x(),point.y(),point.x()+210,point.y()+20),text,self.annot_size,self.annot_font)
         except ValueError as error:self.error(str(error));return
         self.add_annotation(page,'freetext',[rect[:2],rect[2:]],text=text)
@@ -1026,28 +1132,12 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
         self.canvas.pending_annotation=(page,kind,points,kwargs.get('word_rects',[]),QColor(self.annot_color),self.annot_width,self.annot_opacity)
         self.canvas.update()
         def failed(message):self.canvas.pending_annotation=None;self.canvas.update();self.error(message)
-        self.run(tr('annotate'),lambda j:self.document.add_annotation(page,kind,points,color,self.annot_width,self.annot_opacity,author_name=self.annot_author,fontsize=self.annot_size,fontname=self.annot_font,line_end=self.annot_end,dashed=self.annot_dashed,head_size=self.annot_head_size,text_border=self.annot_text_border,border_color=self.annot_border_color.getRgbF()[:3],**kwargs),editing=True,local_edit=True,failure=failed)
+        self.run(tr('annotate'),lambda j:self.document.add_annotation(page,kind,points,color,self.annot_width,self.annot_opacity,author_name=self.annot_author,fontsize=self.annot_size,fontname=self.annot_font,line_end=self.annot_end,dashed=self.annot_dashed,head_size=self.annot_head_size,dash=getattr(self,'annot_dash','solid'),fill=getattr(self,'annot_fill',None),text_border=self.annot_text_border,border_color=self.annot_border_color.getRgbF()[:3],**kwargs),editing=True,local_edit=True,failure=failed)
 
     def edit_annotation(self,page,annotation):
-        form=FormDialog(tr('annotate'),self)
-        editor=QTextEdit();editor.setPlainText(annotation['text']);editor.setMinimumHeight(130);form.form.addRow(L('内容','Text'),editor)
-        form.number('width',tr('width'),annotation.get('width',self.annot_width),0,20,1);form.number('opacity',tr('opacity'),max(.05,annotation.get('opacity',self.annot_opacity)),.05,1,2)
-        if annotation['type']=='FreeText':
-            form.number('fontsize',L('字号','Font size'),annotation.get('fontsize',self.annot_size),4,150)
-            form.choice('fontname',L('字体','Font'),[(L('保留原字体','Keep original'),None),(L('中文','CJK'),'china-s'),('Helvetica','helv'),('Times','tiro'),('Courier','cour')])
-        if annotation['type']=='Line':
-            form.choice('line_end',L('端点','End'),[(L('实心箭头','Closed arrow'),5),(L('空心箭头','Open arrow'),4),(L('无','None'),0),(L('圆','Circle'),2)])
-            form.inputs['line_end'].setCurrentIndex(max(0,form.inputs['line_end'].findData(annotation.get('line_end'))))
-            form.number('head_size',L('箭头大小（点）','Arrowhead size (pt)'),annotation.get('head_size',10),3,80,1)
-        form.check('dashed',L('虚线','Dashed'),annotation.get('dashed',False))
-        form.check('delete',L('删除批注','Delete annotation'),False)
-        form.note(L('使用工具栏中选定的颜色','Uses the toolbar color'))
-        if form.finish().exec()==QDialog.Accepted:
-            values=form.values();values['text']=editor.toPlainText()
-            if annotation['type']=='FreeText' and not values['delete']:
-                try:values['rect']=self.freetext_bounds(page,annotation['rect'],values['text'],values['fontsize'],values['fontname'])
-                except ValueError as error:self.error(str(error));return
-            self.run(tr('annotate'),lambda j:self.document.change_annotation(page,annotation['xref'],color=self.annot_color.getRgbF()[:3],**values),editing=True,local_edit=True)
+        self.select_annotation(annotation)
+        self.show_annotation_properties('select_annot',[annotation])
+        if self.annotation_text_input:self.annotation_text_input.setFocus()
 
     def copy_objects(self):
         from .object_clipboard import copy_pdf
@@ -1081,7 +1171,23 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
             if url.scheme().lower() in ('http','https','mailto'):
                 if not QDesktopServices.openUrl(url):self.error(L('无法启动默认浏览器。网址：','Could not start the default browser. URL: ')+uri)
                 return True
-        if isinstance(link.get('page'),int) and link['page']>=0:self.goto(link['page']);return True
+        page=link.get('page');point=link.get('to')
+        if isinstance(page,str) and page.isdigit():page=int(page)-1
+        if not isinstance(page,int) or page<0:
+            name=link.get('nameddest') or link.get('name')
+            if name:
+                import pymupdf as fitz
+                with fitz.open(self.document.path) as pdf:
+                    destination=pdf.resolve_names().get(name,{})
+                    page=destination.get('page',-1)
+                    if 0<=page<len(pdf) and destination.get('to'):point=fitz.Point(destination['to'])*pdf[page].transformation_matrix*pdf[page].rotation_matrix
+        if isinstance(page,int) and 0<=page<self.info['count']:
+            self.goto(page)
+            if point is not None:
+                try:
+                    pos=self.canvas.page_rect(page,(point[0],point[1],point[0]+1,point[1]+1));self.scroll.ensureVisible(int(pos.x()),int(pos.y()),10,40)
+                except (TypeError,IndexError):pass
+            return True
         return False
 
     def reset_document(self):
@@ -1117,10 +1223,10 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
         self.canvas.object_page=page;self.set_mode('objects');self.start_inline(obj)
         self.inline_editor.setCurrentCharFormat(self.format_for(obj.details['family'],size,(0,0,0)))
 
-    def place_image(self,page,rect):
+    def place_image(self,page,rect,keep_override=None):
         filename=getattr(self,'pending_image',None)
         if not filename:return
-        vector=Path(filename).suffix.lower()=='.pdf';source_page=self.figure_page.value()-1 if hasattr(self,'figure_page') else 0;keep=self.keep_image_ratio.isChecked()
+        vector=Path(filename).suffix.lower()=='.pdf';source_page=self.figure_page.value()-1 if hasattr(self,'figure_page') else 0;keep=self.keep_image_ratio.isChecked() if keep_override is None else keep_override
         def work(job):
             from .figures import insert_pdf
             x,y,x1,y1=rect;bounds=rect
@@ -1147,17 +1253,21 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
             with fitz.open(self.document.path) as pdf:
                 entry=pdf.extract_image(obj.xref);data=entry['image'];pix=fitz.Pixmap(pdf,obj.xref)
                 if entry.get('smask'):
-                    mask=fitz.Pixmap(pdf,entry['smask']);pix=fitz.Pixmap(pix,mask)
+                    mask=fitz.Pixmap(pdf,entry['smask'])
+                    if pix.alpha:pix=fitz.Pixmap(pix,0)
+                    pix=fitz.Pixmap(pix,mask)
                 if pix.colorspace and pix.colorspace.n not in (1,3):pix=fitz.Pixmap(fitz.csRGB,pix)
                 png=pix.tobytes('png');return png if entry.get('smask') else data,png
         def done(result):
-            original,png=result;mime=QMimeData();mime.setImageData(QImage.fromData(png));mime.setData('application/x-asterpdf-image',original);QApplication.clipboard().setMimeData(mime)
+            original,png=result;mime=QMimeData();mime.setImageData(QImage.fromData(png));mime.setData('application/x-asterpdf-image',original)
+            mime.setData('application/x-asterpdf-image-placement',json.dumps(list(obj.bbox)).encode())
+            QApplication.clipboard().setMimeData(mime)
         self.queue.submit(work,done,self.error)
 
-    def paste(self):
+    def paste(self,from_tool=False):
         if self.busy:return
         focus=QApplication.focusWidget()
-        if isinstance(focus,(QTextEdit,QPlainTextEdit,QLineEdit)):focus.paste();return
+        if not from_tool and isinstance(focus,(QTextEdit,QPlainTextEdit,QLineEdit)):focus.paste();return
         mime=QApplication.clipboard().mimeData()
         if mime.hasFormat('application/x-asterpdf-objects'):
             from .object_clipboard import paste_pdf
@@ -1169,8 +1279,16 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
         if original and not QImage.fromData(original).isNull():filename.write_bytes(original)
         else:QImage(QApplication.clipboard().image()).save(str(filename))
         self.pending_image=str(filename)
-        self.open_panel('objects');self.set_mode('add_image')
-        self.place_image(self.canvas.page,(48,48,48,48))
+        if self.active_panel!='objects':self.open_panel('objects')
+        self.set_mode('add_image')
+        placement=(48,48,48,48)
+        if mime.hasFormat('application/x-asterpdf-image-placement'):
+            try:
+                import math
+                rect=json.loads(bytes(mime.data('application/x-asterpdf-image-placement')))
+                if len(rect)==4 and all(isinstance(v,(float,int)) and math.isfinite(v) for v in rect) and rect[2]>rect[0] and rect[3]>rect[1]:placement=tuple(rect)
+            except (ValueError,TypeError):pass
+        self.place_image(self.canvas.page,placement,False if placement!=(48,48,48,48) else None)
 
     def inspect_objects(self):
         if self.closed or self.busy or not self.editing_objects or self.edit_tool=='colors' or getattr(self.window,'_close_pending',False) or getattr(self.window,'_closing_all',False):return
@@ -1194,7 +1312,7 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
         box=qrect(selected[0].bbox)
         for obj in selected[1:]:box=box.united(qrect(obj.bbox))
         sx=max(.05,(box.width()+dx)/max(1,box.width()));sy=max(.05,(box.height()+dy)/max(1,box.height()))
-        if self.keep_image_ratio.isChecked()!=free:sy=sx
+        if any(o.kind=='image' for o in selected) and self.keep_image_ratio.isChecked()!=free:sy=sx
         self.run(tr('objects'),lambda j:objects.transform(self.document,page,selected,sx=sx,sy=sy,all_objects=self.canvas.objects),editing=True,fast_objects=True)
 
     def toggle_annotations(self,visible):
@@ -1210,7 +1328,7 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
             items=sorted(items,key=(lambda a:(a.get('created') or a.get('modified') or '',a['page'],a['rect'][1])) if self.annotation_sort.currentData()=='time' else (lambda a:(a['page'],a['rect'][1],a['rect'][0])))
             self.annotations_data=items;self.annotation_list.blockSignals(True);self.annotation_list.clear();self.annotation_text.clear();self.annotation_text.hide()
             for ann in items:
-                kind={'Text':'note','FreeText':'freetext','StrikeOut':'strikeout','Square':'rectangle','Circle':'ellipse'}.get(ann['type'],ann['type'].lower())
+                kind={'Text':'note','FreeText':'freetext','StrikeOut':'strikeout','Square':'rectangle','Circle':'ellipse','ReplaceText':'replace_text'}.get(ann['type'],ann['type'].lower())
                 if ann['type']=='Line' and ann.get('line_end') in (4,5,7,8):kind='arrow'
                 stamp=ann.get('created') or ann.get('modified') or ''
                 if stamp.startswith('D:') and len(stamp)>=16:stamp=f'{stamp[2:6]}-{stamp[6:8]}-{stamp[8:10]} {stamp[10:12]}:{stamp[12:14]}:{stamp[14:16]}'
@@ -1237,11 +1355,19 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
         self.annot_head_size=ann.get('head_size',10);self.annot_end=ann.get('line_end') or self.annot_end;self.annot_dashed=ann.get('dashed',False)
         if ann['type']=='FreeText':self.annot_text_border=ann.get('width',0)
         self._sync_annotation=False
+        if self.active_panel=='annotate':self.show_annotation_properties('select_annot',[it.data(Qt.UserRole) for it in self.annotation_list.selectedItems()] or [ann])
 
-    def select_annotation(self,ann):
+    def select_annotation(self,ann,additive=False):
+        if self.active_panel=='annotate' and self.canvas.mode!='select_annot':self.set_mode('select_annot')
         for i in range(self.annotation_list.count()):
             item=self.annotation_list.item(i)
-            if item.data(Qt.UserRole)['xref']==ann['xref']:self.annotation_list.setCurrentItem(item);self.annotation_list.scrollToItem(item);break
+            if item.data(Qt.UserRole)['xref']==ann['xref']:
+                if additive:
+                    item.setSelected(not item.isSelected())
+                    chosen=[it.data(Qt.UserRole) for it in self.annotation_list.selectedItems()]
+                    self.show_annotation_properties('select_annot',chosen or None);self.canvas.update()
+                else:self.annotation_list.setCurrentItem(item)
+                self.annotation_list.scrollToItem(item);break
         self.sidebar.show();self.sidebar.setCurrentWidget(self.annotation_sidebar)
 
     def annotation_value(self,name,value):
@@ -1266,7 +1392,7 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
 
     def edit_selected_annotation(self):
         item=self.annotation_list.currentItem()
-        if item and item.data(Qt.UserRole)['own']:self.edit_annotation(item.data(Qt.UserRole)['page'],item.data(Qt.UserRole))
+        if item:self.edit_annotation(item.data(Qt.UserRole)['page'],item.data(Qt.UserRole))
 
     def delete_annotation(self):
         chosen=[it.data(Qt.UserRole) for it in self.annotation_list.selectedItems()]
@@ -1351,6 +1477,8 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
     def media_scanned(self,result,invalidate=True):
         if self.closed:return
         self.animations,self.assets,self.media_warnings=result
+        from .video_insert import refresh_selection
+        refresh_selection(self)
         self.media_choice.clear()
         for a in self.animations:
             key=(a.page,a.key);p=self.players.get(key)
@@ -1367,6 +1495,53 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
         if invalidate:self.canvas.invalidate(False)
         else:self.canvas.update()
 
+    def export_embedded_media(self,asset,animation=False):
+        from pathlib import Path
+        name=f'animation-page-{asset.page+1}-{asset.key}.zip' if animation else asset.name
+        filename,_=QFileDialog.getSaveFileName(self,L('保存动画源帧（PDF 与帧率）','Save source animation frames (PDF and timing)') if animation else L('保存原始媒体','Save original media'),str(Path(self.document.original).parent/name),'ZIP (*.zip)' if animation else 'Media (*'+Path(name).suffix+')')
+        if not filename:return
+        def work(job):
+            if animation:return media.export_animation(self.document,asset,filename)
+            import shutil
+            return shutil.copyfile(media.extract_media(self.document,asset),filename)
+        self.run(L('提取媒体','Extract media'),work)
+
+    def media_context_menu(self,page,point,global_pos):
+        from PySide6.QtWidgets import QMenu
+        animation=next((a for a in self.animations if a.page==page and (qrect(a.rect).contains(point) or any(qrect(b[0]).contains(point) for b in getattr(a,'buttons',[])))),None)
+        asset=next((a for a in reversed(self.assets) if a.page==page and qrect(a.rect).contains(point)),None)
+        if not animation and not asset:return False
+        menu=QMenu(self)
+        if animation:
+            self.media_choice.setCurrentIndex(self.animations.index(animation))
+            menu.addAction(L('保存动画源帧…','Save animation source frames…'),lambda:self.export_embedded_media(animation,True))
+        else:
+            self.media_choice.setCurrentIndex(len(self.animations)+self.assets.index(asset))
+            menu.addAction(L('保存原始媒体…','Save original media…'),lambda:self.export_embedded_media(asset))
+        menu.addAction(L('多媒体控件','Playback controls'),self.show_playback_controls)
+        if asset:
+            menu.addSeparator();menu.addAction(L('置于顶层','Bring to front'),lambda:self.stack_media(asset,True));menu.addAction(L('置于底层','Send to back'),lambda:self.stack_media(asset,False))
+        menu.exec(global_pos);return True
+
+    def select_media(self,asset):
+        self.selected_media=asset;self.canvas.selected=[]
+        if self.canvas.page!=asset.page:self.goto(asset.page)
+        from .video_insert import refresh_selection
+        refresh_selection(self,False)
+
+    def stack_media(self,asset,front=True):
+        if asset is None or self.busy:return
+        self.select_media(asset)
+        from .video_insert import set_stacking
+        def done(token):
+            asset.annotation_name=token;self.selected_media=asset
+        self.run(L('调整媒体图层','Arrange media'),lambda j:set_stacking(self.document,asset,front),done,editing=True,local_edit=True)
+
+    def show_playback_controls(self):
+        from .playback_controls import PlaybackControls
+        if not hasattr(self,'playback_panel'):self.playback_panel=PlaybackControls(self)
+        self.playback_panel.present()
+
     def rebuild_media_controls(self):
         for bar in getattr(self,'media_controls',[]):bar.deleteLater()
         self.media_controls=[]
@@ -1374,7 +1549,7 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
             if a.buttons:continue
             player=self.players[(a.page,a.key)]
             bar=QToolBar(self.canvas);bar.animation=a
-            bar.addAction('▶ / Ⅱ',player.toggle);bar.addAction('↻',lambda checked=False,p=player:(p.stop(),p.show_frame(0),p.start()))
+            bar.play_action=bar.addAction(icon('media_pause' if player.playing else 'media_play',self.dark),L('播放 / 暂停','Play / pause'),player.toggle);bar.addAction(icon('replay',self.dark),L('重播','Replay'),lambda checked=False,p=player:(p.stop(),p.show_frame(0),p.start()))
             loop=QCheckBox(tr('loop'));loop.setChecked(player.loop);loop.toggled.connect(lambda b,p=player:setattr(p,'loop',b));bar.addWidget(loop)
             bar.adjustSize();self.media_controls.append(bar)
         self.position_video()
@@ -1393,6 +1568,9 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
     def replay(self):
         p=self.chosen_player()
         if p:p.stop();p.show_frame(0);p.start()
+        elif hasattr(self,'playback_panel'):
+            v=self.playback_panel.video()
+            if v:v.want_playing=True;v.player.setPosition(0);v.player.play()
 
     def step(self,direction):
         p=self.chosen_player()
@@ -1406,7 +1584,12 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
         p=self.chosen_player()
         if p:
             self.frame_slider.blockSignals(True);self.frame_slider.setMaximum(len(p.animation.frames));self.frame_slider.setValue(p.index+1);self.frame_slider.blockSignals(False)
-            self.media_label.setText(f'{p.index+1}/{len(p.animation.frames)} · {p.animation.fps*p.speed:g} fps'+(' ▶' if p.playing else ' Ⅱ'))
+            self.media_label.setText(f'{p.index+1}/{len(p.animation.frames)} · {p.animation.fps*p.speed:g} fps'+(' · '+L('播放中','Playing') if p.playing else ' · '+L('已暂停','Paused')))
+
+        for bar in getattr(self,'media_controls',[]):
+            player=self.players.get((bar.animation.page,bar.animation.key))
+            if player:bar.play_action.setIcon(icon('media_pause' if player.playing else 'media_play',self.dark))
+        if hasattr(self,'playback_panel'):self.playback_panel.sync()
 
     def media_clicked(self,page,point):
         for i,a in enumerate(self.animations):
@@ -1415,13 +1598,13 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
             command=media.control_at(a,point)
             if command:self.media_choice.setCurrentIndex(i);p.command(command);return
             if qrect(a.rect).contains(point):self.media_choice.setCurrentIndex(i);p.toggle();return
-        for asset in self.assets:
+        for asset in reversed(self.assets):
             if asset.page==page and qrect(asset.rect).contains(point):self.open_media(asset);return
 
     def open_media(self,asset):
         self.goto(asset.page)
         for player in self.video_players:
-            if player.asset==asset:player.show();player.player.play();return
+            if player.asset==asset:player.show();player.toggle();return
         def ready(filename):
             player=VideoPlayer(self,asset,filename);self.video_players.append(player);self.position_video()
         self.queue.submit(lambda j:media.extract_media(self.document,asset),ready,self.error)
@@ -1433,16 +1616,23 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
             if a.page<len(self.canvas.rects) and not self.canvas.rects[a.page].isEmpty():
                 r=self.canvas.page_rect(a.page,a.rect);bar.move(int(r.left()),int(r.bottom()));bar.show()
             else:bar.hide()
-        for player in self.video_players:
+        for player in sorted(self.video_players,key=lambda p:next((n for n,a in enumerate(self.assets) if a==p.asset),-1)):
             page=player.asset.page
             if page<len(self.canvas.rects) and not self.canvas.rects[page].isEmpty():
                 r=self.canvas.page_rect(page,player.asset.rect);r.setHeight(max(70,r.height()+42))
                 player.setGeometry(r.toRect())
-            else:player.player.pause();player.hide()
+                from PySide6.QtGui import QRegion
+                mask=QRegion(player.rect());order=self.assets.index(player.asset) if player.asset in self.assets else len(self.assets)
+                for above in self.assets[order+1:]:
+                    if above.page==page:
+                        cover=self.canvas.page_rect(page,above.rect).toAlignedRect().translated(-player.pos());mask-=QRegion(cover)
+                player.setMask(mask if not mask.isEmpty() else QRegion(-2,-2,1,1))
+                player.raise_()
+            else:player.want_playing=False;player.player.pause();player.hide()
 
     def pause_media(self):
         for p in self.players.values():p.stop()
-        for p in self.video_players:p.player.pause()
+        for p in self.video_players:p.want_playing=False;p.player.pause()
 
     def release_memory(self):
         self.pause_media();self.canvas.release_cache();self.minimap.release()

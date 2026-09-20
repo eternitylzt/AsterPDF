@@ -48,3 +48,9 @@ No Google Fonts binaries are bundled. The optional font lookup connects to https
 ## Optional local EPS / PostScript conversion (0.7)
 
 Ghostscript is **not bundled, downloaded or installed by AsterPDF**. If the user has installed it, the image pane can invoke its console executable with `-dSAFER` to convert a user-chosen EPS/PS file to a temporary PDF, then insert the vector content. The external installation retains its own copyright and license terms. No proprietary fonts from the user's PDF or system are included in the software distribution; clipboard PDF/font data stays in the local workflow.
+
+
+## Python-Markdown 3.10.3
+
+Markdown and embedded-HTML parsing. BSD-3-Clause. https://python-markdown.github.io/
+License: [Markdown-LICENSE.md](licenses/Markdown-LICENSE.md). No browser engine is bundled.

@@ -24,15 +24,19 @@ An offline desktop PDF workspace for research and technical documents.
 
 No account. No cloud dependency. PDF processing stays on your computer.
 
-## Version 1.0.1
+## 1.2.0 · New since published 1.0.1
 
-This patch fits each document’s overview independently, aligns Home history columns, adds a 32-swatch source palette with 8% default tolerance, and enables direct shape selection/rotation. [Patch notes](docs/USABILITY-1.0.1.md)
+- **More document formats:** read Markdown with local/linked images and tables, then save as PDF. Import EPS/PS through optional Ghostscript.
+- **Video inside your document:** insert videos or replace images with video; right-click to save embedded media or export animation frames. Select existing/inserted media from a list and bring it forward or send it back.
+- **Direct drawing and annotation:** a shape palette, independent inline annotation styles, batch styling and replacement-text comments.
+- **Regional recoloring and arrangement:** recolor text, vectors and images using ordered color pairs and saved schemes; arrange text, images and shapes.
+- **Smoother everyday work:** preserve unchanged page previews; improve paste-in-place, transparent-image copying, recent files, playback controls and save-on-close.
 
-Version 1.0 speeds up object discovery, adds simultaneous color replacements and reusable schemes, including raster images and selected regions. Search includes newly applied text, previous/next matches and overview markers. Sequential save prompts, synchronized preferences and a more spacious Home round out this release. [Details](docs/USABILITY-1.0.md)
+[Release notes](docs/RELEASE_NOTES.md)
 
 ## Run
 
-**Windows x64:** extract the complete `AsterPDF-1.0.1-windows-amd64.zip`, then run `AsterPDF/AsterPDF.exe`. Keep the accompanying `_internal` folder. No Python installation is required; the executable is unsigned.
+**Windows x64:** extract the complete `AsterPDF-1.2.0-windows-amd64.zip`, then run `AsterPDF/AsterPDF.exe`. Keep the accompanying `_internal` folder. No Python installation is required; the executable is unsigned.
 
 **macOS / Linux:** download the native archive from the GitHub Release. The automated build verifies packaging on each target; see the validation and compatibility documents for the features tested on real desktops.
 
@@ -45,7 +49,7 @@ python -m pip install -e ".[dev]"
 python -m asterpdf examples/AsterPDF-demo.pdf
 ```
 
-Dependency installation requires internet access. Optional font lookup and update checks also use the network.
+Dependency installation requires internet access. Optional font lookup, update checks and externally linked Markdown images also use the network.
 
 ## Start here
 
@@ -67,10 +71,14 @@ No OCR, PDF-to-Word, AI services, certificate signing or mobile client.
 
 The project includes PyInstaller configurations, platform icons, GitHub Actions, third-party licenses and public test fixtures. [Build and packaging instructions](docs/BUILDING.md).
 
-Source, native Windows/macOS/Linux builds and checksums are published in [GitHub Releases](https://github.com/eternitylzt/AsterPDF/releases). **Help → Check GitHub updates** compares the installed version with the latest stable Release and opens its download page.
+Source and native Windows/macOS/Linux builds are published in [GitHub Releases](https://github.com/eternitylzt/AsterPDF/releases). **Help → Check GitHub updates** compares the installed version with the latest stable Release and opens its download page.
 
-**GitHub About:** Offline scientific PDF editor with LaTeX animate playback, annotations and vector-preserving figure extraction.
+**GitHub About:** Offline scientific PDF editor with LaTeX animation, embedded video, Markdown reading and vector figure extraction.
 
 **Author:** Zhentong Li · eternitylzt@gmail.com
 
 **License:** [AGPL-3.0-only](LICENSE). Dependencies retain their licenses; see [third-party notices](THIRD_PARTY_NOTICES.md). Release binaries must be accompanied by matching source.
+
+### Format and media notes
+
+Markdown uses a lightweight parser to produce searchable PDF, including common tables and images; it is not a full browser layout engine and adds no WebEngine. EPS/PS requires a separate Ghostscript installation. Media layer controls reorder same-page media annotations; interactive players remain above ordinary page content. Animation export contains a vector-frame PDF and timing information, not a transcoded MP4. Media support varies by reader, system and codec.

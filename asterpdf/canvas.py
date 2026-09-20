@@ -49,6 +49,7 @@ class Canvas(QWidget):
         self.object_page = -1
         self.selected = []
         self.frame_pixmaps = {}
+        self.setContextMenuPolicy(Qt.PreventContextMenu)
         self.setMouseTracking(True)
         self.setFocusPolicy(Qt.StrongFocus)
 
@@ -79,6 +80,23 @@ class Canvas(QWidget):
                 self.fallback[key[1:]]=(pix,x,y,pix.width(),pix.height());budget-=pix.width()*pix.height()*4
         self.cache=retained;self.cache_bytes=sum(p.width()*p.height()*4 for p,_,_ in retained.values())
         self.words.pop(page,None);self.word_selection=[];self.update()
+
+    def remap_pages(self,mapping,changed=()):
+        """Retain sharp tiles belonging to unchanged physical pages."""
+        self.generation+=1
+        for job in self.render_jobs.values():job.cancelled=True
+        self.render_jobs.clear();self.pending.clear();self.failed.clear();self.fallback.clear()
+        reverse={old:new for new,old in enumerate(mapping) if old is not None};changed=set(changed);retained=OrderedDict()
+        for key,value in self.cache.items():
+            if key[1] not in reverse:continue
+            page=reverse[key[1]];newkey=(self.generation,page)+key[2:]
+            if page not in changed:retained[newkey]=value
+            else:
+                pix,x,y=value;self.fallback[newkey[1:]]=(pix,x,y,pix.width(),pix.height())
+        self.cache=retained;self.cache_bytes=sum(p.width()*p.height()*4 for p,_,_ in retained.values())
+        self.words={reverse[p]:v for p,v in self.words.items() if p in reverse and reverse[p] not in changed}
+        self.objects=[];self.selected=[];self.word_selection=[];self.search_hits={};self.region=None
+        self.frame_pixmaps.clear();self.update()
 
     def layout_pages(self):
         self.laying_out = True
@@ -111,6 +129,7 @@ class Canvas(QWidget):
         self.update()
 
     def locate(self, point):
+        point=QPointF(point)
         for i, rect in enumerate(self.rects):
             if rect.contains(point):
                 return i, (point-rect.topLeft()) / self.scale
@@ -210,21 +229,32 @@ class Canvas(QWidget):
                         painter.fillRect(r, QColor(37, 63, 96, 35))
                         painter.setPen(QColor('#5471e8'))
                         painter.drawText(r, Qt.AlignCenter, '▶  '+tr('media'))
-            for asset in self.tab.assets:
+            pressed=getattr(self,'media_press',None)
+            if pressed and pressed[0]==i:painter.fillRect(self.page_rect(i,pressed[1]),QColor(70,135,230,85))
+            for media_index,asset in enumerate(self.tab.assets):
                 if asset.page == i and not any(p.asset == asset and p.isVisible() for p in self.tab.video_players):
                     r = self.page_rect(i, asset.rect)
+                    from PySide6.QtGui import QRegion
+                    visible=QRegion(r.toAlignedRect())
+                    for above in self.tab.assets[media_index+1:]:
+                        if above.page==i:visible-=QRegion(self.page_rect(i,above.rect).toAlignedRect())
+                    painter.save();painter.setClipRegion(visible,Qt.IntersectClip)
                     painter.fillRect(r, QColor(37, 63, 96, 50))
                     painter.setPen(QColor('#526fe7'))
                     painter.drawText(r, Qt.AlignCenter | Qt.TextWordWrap, '▶  '+asset.name)
+                    painter.restore()
             for r in self.search_hits.get(i, []):
                 current=getattr(self,'active_search',None)==(i,r)
                 painter.fillRect(self.page_rect(i, r), QColor(255, 125 if current else 200, 20, 165 if current else 90))
                 if current:
                     painter.setBrush(Qt.NoBrush);painter.setPen(QPen(QColor('#f47e15'),2));painter.drawRect(self.page_rect(i,r))
+            selected_media=getattr(self.tab,'selected_media',None)
+            if self.tab.active_panel=='objects' and self.tab.edit_tool=='video' and selected_media and selected_media.page==i:
+                painter.setBrush(Qt.NoBrush);painter.setPen(QPen(QColor('#579cf7'),3));painter.drawRect(self.page_rect(i,selected_media.rect).adjusted(-3,-3,3,3))
             boundary=getattr(self,'color_boundary',None)
             if boundary and boundary[0]==i and getattr(self,'show_color_boundary',True):
                 painter.setBrush(Qt.NoBrush);painter.setPen(QPen(QColor('#18c6ae'),1.8,Qt.DashLine));painter.drawRect(self.page_rect(*boundary))
-            if self.region and self.region[0] == i:
+            if self.region and self.region[0] == i and (self.tab.edit_tool!='colors' or getattr(self,'show_color_boundary',False)):
                 painter.setBrush(QColor(82, 111, 231, 25)); painter.setPen(QPen(QColor('#526fe7'), 1.5, Qt.DashLine))
                 box=self.page_rect(i,self.region[1]);painter.drawRect(box)
                 if self.mode=='crop':
@@ -254,6 +284,7 @@ class Canvas(QWidget):
                 for obj in self.objects:
                     if self.mode == 'images' and obj.kind != 'image': continue
                     if self.mode == 'select' and obj.id not in self.selected:continue
+                    if self.mode=='objects' and self.tab.edit_tool=='shape' and obj.kind not in ('vector','group'):continue
                     selected = obj.id in self.selected
                     color = '#9866e8' if selected else '#3f98a5'
                     painter.setPen(QPen(QColor(color), 2 if selected else 0.7, Qt.SolidLine if selected else Qt.DotLine))
@@ -264,9 +295,12 @@ class Canvas(QWidget):
                         if self.resizing:
                             union=self.selection_box();factor=max(.05,(union.width()+delta.x())/max(1,union.width()))
                             free=bool(getattr(self,'drag_modifiers',Qt.NoModifier)&Qt.ShiftModifier)
-                            fy=factor if self.tab.keep_image_ratio.isChecked()!=free else max(.05,(union.height()+delta.y())/max(1,union.height()))
+                            keep=any(o.kind=='image' for o in self.tab.selected_objects()) and self.tab.keep_image_ratio.isChecked()!=free
+                            fy=factor if keep else max(.05,(union.height()+delta.y())/max(1,union.height()))
                             box=QRectF(union.left()+(box.left()-union.left())*factor,union.top()+(box.top()-union.top())*fy,box.width()*factor,box.height()*fy)
                         else:box.translate(delta)
+                    if selected and self.drag_objects and len(self.points)>1 and obj.kind=='vector' and obj.details.get('hit_path'):
+                        original=qrect(obj.bbox);painter.save();painter.translate(box.topLeft());painter.scale(box.width()/max(.001,original.width()),box.height()/max(.001,original.height()));painter.translate(-original.topLeft());painter.setBrush(Qt.NoBrush);pen=QPen(QColor('#aa72ef'),2);pen.setCosmetic(True);painter.setPen(pen);painter.drawPath(self.vector_path(obj));painter.restore()
                     if selected and self.drag_objects and len(self.points)>1 and getattr(self,'drag_preview',None):
                         painter.save();painter.setOpacity(.85);painter.drawPixmap(box,self.drag_preview,QRectF(self.drag_preview.rect()));painter.restore()
                     painter.drawRect(box)
@@ -362,8 +396,7 @@ class Canvas(QWidget):
                     out.append((obj,index,QRectF(point.x()-5,point.y()-5,10,10)))
         return out
 
-    def shape_hit(self,obj,point):
-        if self.tab.edit_tool!='shape' or obj.kind!='vector' or not obj.details.get('hit_path'):return True
+    def vector_path(self,obj):
         path=QPainterPath()
         for op,coords in obj.details['hit_path']:
             pts=[QPointF(x,y) for x,y in coords]
@@ -374,6 +407,11 @@ class Canvas(QWidget):
             elif op=='y':path.cubicTo(pts[0],pts[1],pts[1])
             elif op=='h':path.closeSubpath()
             elif op=='poly':path.addPolygon(QPolygonF(pts+[pts[0]]))
+        return path
+
+    def shape_hit(self,obj,point):
+        if self.tab.edit_tool!='shape' or obj.kind!='vector' or not obj.details.get('hit_path'):return True
+        path=self.vector_path(obj)
         stroker=QPainterPathStroker();stroker.setWidth(8/self.scale)
         return bool(obj.details.get('filled') and path.contains(point) or stroker.createStroke(path).contains(point))
 
@@ -421,10 +459,15 @@ class Canvas(QWidget):
             handle=next((key for key,r in self.annotation_handles(box) if r.contains(event.position())),None)
             border=box.adjusted(-5,-5,5,5).contains(event.position()) and not box.adjusted(6,6,-6,-6).contains(event.position())
             if handle or border:self.crop_drag=(page,rect,handle or 'move',event.position());return
-        if self.region:
+        if self.region and self.mode!='region':
             self.region=None;self.update()
         i, point = self.locate(event.position())
         if i < 0: return
+        if self.mode=='objects' and self.tab.edit_tool=='video':
+            asset=next((a for a in reversed(self.tab.assets) if a.page==i and qrect(a.rect).contains(point)),None)
+            if asset:
+                self.tab.select_media(asset);self.drag_page=-1;event.accept();return
+            self.tab.selected_media=None
         if i != self.page:
             self.page = i; self.pageChanged.emit(i)
         if self.mode in ('select', 'read'):
@@ -432,10 +475,10 @@ class Canvas(QWidget):
                 self.drag_page=i;self.points=[point];self.drag_objects=False;return
             for a in self.tab.animations:
                 if a.page == i and (qrect(a.rect).contains(point) or any(qrect(b[0]).contains(point) for b in a.buttons)):
-                    self.mediaClick.emit(i, point); return
+                    self.media_press=(i,next((b[0] for b in a.buttons if qrect(b[0]).contains(point)),a.rect));self.update();self.drag_page=-1;event.accept();self.mediaClick.emit(i, point); return
             for m in self.tab.assets:
                 if m.page == i and qrect(m.rect).contains(point):
-                    self.mediaClick.emit(i, point); return
+                    self.drag_page=-1;event.accept();self.mediaClick.emit(i, point); return
         if self.mode=='select':
             images=[x for x in self.tab.image_cache.get(i,[]) if qrect(x['bbox']).contains(point)]
             if images and not any(qrect(c[0]).contains(point) for c in self.words.get(i,[])):
@@ -448,9 +491,12 @@ class Canvas(QWidget):
         if self.tab.show_annotations.isChecked() and (self.tab.active_panel=='annotate' or self.mode in ('select','read')):
             candidates=[a for a in self.tab.annotations_data if a['page']==i and (self.tab.active_panel=='annotate' or a['type'] in ('Text','FreeText')) and qrect(a['rect']).contains(point)]
             if candidates:
-                ann=candidates[-1];self.tab.select_annotation(ann);self.drag_page=-1
+                ann=candidates[-1];self.tab.select_annotation(ann,bool(event.modifiers()&Qt.ControlModifier));self.drag_page=-1
                 if ann['type'] in ('FreeText','Text') and ann['own'] and self.tab.active_panel=='annotate':self.annotation_drag=(ann,'move',event.position());self.annotation_preview=ann['rect']
                 return
+        if self.tab.active_panel=='annotate' and self.mode=='select_annot':
+            self.tab.annotation_list.setCurrentItem(None);self.tab.annotation_list.clearSelection();self.region=None
+            self.tab.show_annotation_properties('select_annot')
         self.drag_page, self.points, self.drag_objects = i, [point], False
         self.vertex_drag=None
         for obj,index,handle in self.vertex_handles():
@@ -458,7 +504,7 @@ class Canvas(QWidget):
                 self.vertex_drag=(obj,index);self.drag_objects=True;return
         self.resizing = self.mode == 'objects' and self.resize_handle().contains(event.position())
         if self.resizing:
-            self.drag_objects = True;self.drag_preview=self.grab(self.selection_box().toAlignedRect());return
+            self.drag_objects = True;self.drag_preview=None;return
         if self.mode in ('objects','images') and i == self.object_page:
             candidates = [o for o in self.objects if (self.mode != 'images' or o.kind == 'image') and (self.tab.edit_tool!='shape' or o.kind in ('vector','group')) and qrect(o.bbox).adjusted(-2,-2,2,2).contains(point) and self.shape_hit(o,point)]
             if candidates:
@@ -525,7 +571,16 @@ class Canvas(QWidget):
             annotations=[a for a in self.tab.annotations_data if a['page']==i and qrect(a['rect']).contains(p)] if self.tab.show_annotations.isChecked() else []
             ann=annotations[-1] if annotations else None
             self.setToolTip(ann['text'] if ann and ann.get('text') else '')
-            if ann and self.tab.active_panel=='annotate' and ann['type'] in ('Text','FreeText'):
+            if self.mode in ('select','read'):
+                from .media import control_at
+                for animation in self.tab.animations:
+                    if animation.page!=i:continue
+                    command=control_at(animation,p)
+                    if command or qrect(animation.rect).contains(p):
+                        self.setCursor(Qt.PointingHandCursor)
+                        self.setToolTip({'Minus':L('减速','Slower'),'Plus':L('加速','Faster'),'Reset':L('默认速度','Default speed'),'StepLeft':L('上一帧','Previous frame'),'StepRight':L('下一帧','Next frame'),'EndLeft':L('第一帧','First frame'),'EndRight':L('最后一帧','Last frame')}.get(command,L('播放 / 暂停','Play / pause')))
+                if any(asset.page==i and qrect(asset.rect).contains(p) for asset in self.tab.assets):self.setCursor(Qt.PointingHandCursor)
+            if ann and self.tab.active_panel=='annotate'  and ann['type'] in ('Text','FreeText'):
                 self.setCursor(Qt.SizeAllCursor)
             selected=self.active_text_annotation()
             if selected and self.tab.active_panel=='annotate' and selected['type']=='FreeText':
@@ -541,7 +596,7 @@ class Canvas(QWidget):
         point.setY(max(0,min(point.y(),r.height()/self.scale)))
         if self.mode == 'ink': self.points.append(point)
         else: self.points = [self.points[0],point]
-        if self.mode in ('select','highlight','underline','strikeout'):
+        if self.mode in ('select','highlight','underline','strikeout','replace_text','squiggly'):
             self.select_characters(self.drag_page,self.points[0],point)
         self.update()
 
@@ -562,6 +617,9 @@ class Canvas(QWidget):
         return chosen
 
     def mouseReleaseEvent(self, event):
+        if event.button()==Qt.RightButton:
+            self.open_context_menu(event.position().toPoint(),event.globalPosition().toPoint());event.accept();return
+        self.media_press=None;self.update()
         if getattr(self,'shape_rotation',None):
             angle=self.shape_rotation[2];self.shape_rotation=None;self.unsetCursor();self.tab.rotate_shapes(angle);self.update();return
         if getattr(self,'crop_drag',None):self.crop_drag=None;self.tab.crop_selection_changed();self.update();return
@@ -608,6 +666,11 @@ class Canvas(QWidget):
             self.drag_page = -1; self.points = []; self.tab.modify_object()
 
     def contextMenuEvent(self,event):
+        self.open_context_menu(event.pos(),event.globalPos());event.accept()
+
+    def open_context_menu(self,pos,global_pos):
+        page,point=self.locate(pos)
+        if self.tab.media_context_menu(page,point,global_pos):return
         from PySide6.QtWidgets import QMenu
         menu=QMenu(self)
         if self.mode in ('objects','select') and self.selected:
@@ -616,10 +679,13 @@ class Canvas(QWidget):
                 menu.addAction(L('复制图片','Copy image'),lambda:self.tab.copy_image(selected[0]))
                 menu.addAction(tr('extract_image'),lambda:self.tab.save_image_xref(self.object_page,selected[0].xref))
             if self.mode=='objects':
+                if selected:
+                    menu.addAction(L('置于顶层','Bring to front'),lambda:self.tab.stack_images(True))
+                    menu.addAction(L('置于底层','Send to back'),lambda:self.tab.stack_images(False))
                 menu.addAction(tr('modify'),self.tab.modify_object);menu.addAction(tr('delete_object'),self.tab.delete_objects)
         if self.word_selection:menu.addAction(L('复制','Copy'),self.tab.copy_text)
         if self.region:menu.addAction(tr('copy_region'),self.tab.copy_region)
-        if menu.actions():menu.exec(event.globalPos())
+        if menu.actions():menu.exec(global_pos)
 
     def keyPressEvent(self,event):
         if not self.tab.handle_key(event): super().keyPressEvent(event)

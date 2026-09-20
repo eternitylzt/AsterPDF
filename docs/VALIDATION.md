@@ -1,13 +1,22 @@
-# AsterPDF 1.0.1 定向验证
+# AsterPDF 1.2.0 · Validation / 验证
 
-2026-09-17，Windows 11 x64。按本次要求，只验证四处修改及其直接相关流程，没有重跑媒体、文字编辑等整套测试。
+Windows native Qt validation, 2026-09-20. Cross-platform automated regression checks and native packaging run in the release workflow; this is separate from physical macOS/Linux desktop validation, which has not been performed here.
 
-- **8 项通过，22.30 秒**：连续打开 1 / 2 / 1 页文档，即使旧设置有固定高度，新文档仍各自适配；原文档手动高度不被改变。
-- 首页最近文件三列表头、大小/时间各自列、目录、文件打开关联及英文表头。
-- 4 × 8 色块矩阵、默认 8% 容差、最多 32 色、选色/取色、多对方案与图片区域换色相关回归。
-- 实际 Qt 鼠标绘制箭头，自动恢复选择；单击、框选、移动、缩放、拖动旋转柄，保存后重新打开仍保留矢量与原文字。修复大曲线包围框误抢空白框选的情况。
-- 真实界面截图检查：[颜色矩阵](evidence/palette-1.0.1.png)、[图形旋转柄](evidence/shapes-1.0.1.png)；首页截图仅用于本地检查，避免把本机目录显示在公开截图中。
+**Current release regression run: 47 passed (Windows native Qt), 105.69 seconds.** One Pillow deprecation warning, no test failures.
 
-Windows 打包启动检查：使用隔离设置启动冻结 EXE，窗口标题确认已打开公开示例 PDF，发送关闭事件后进程退出。核对包内包含颜色矩阵模块。此次没有重复媒体播放诊断。
+## Practical checks
 
-本次未测试 macOS/Linux，未对其它功能重复进行全面验证。旧版验证单独保留：[1.0](VALIDATION-1.0.md)。
+- New media-layer tests: Screen/Movie/RichMedia annotation ordering, undo, save/reopen, original streams and text geometry preservation; overlapping real video players, page/list selection and stacking masks.
+- Regional text/vector/image recoloring, sequential color pairs and selected-pair application; unchanged outside pixels; text/shape arrangement after editing.
+- Actual context-menu media export and byte comparison, animation frame export, extraction-list image copying, unchanged-page preview reuse after rotate/reorder/delete, and single-document close/save prompts.
+- Native Markdown imports with HTML tables, SVG and linked images. The supplied README fixture produced three pages, 5,159 text characters and six image resources. No WebEngine added.
+- Earlier targeted native regression runs cover independent annotation presets, batch edits, replacement comments, shape drawing/styles, transparent clipboard images, recent-file selection and multi-document closing.
+- Windows frozen-app checks cover decoded video frames, LaTeX animation advancement, Markdown rendering, text edits saved and reopened, and PDF printing. Machine-readable evidence is stored in `docs/evidence/`.
+
+## Limits
+
+Movie/RichMedia media-layer tests use structural fixtures; they do not prove every Acrobat media variant can play. Screen/Rendition video has actual decoder testing. No claim of full Acrobat JavaScript compatibility. Linux headless Qt may outline fonts, so native font editing is separately verified on Windows. macOS/Linux interactive playback, OS file-open behavior and unsigned-app installation still require physical-desktop verification.
+
+## Packaged Windows result
+
+The 1.2.0 executable completed desktop verification in 20.95 seconds: 42 animation frames rendered, 60 video frames decoded, Markdown text/images rendered, edited text saved/reopened, and three-page PDF print output verified. No reported errors. [Machine-readable report](evidence/desktop-1.2.0.json).

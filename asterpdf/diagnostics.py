@@ -11,6 +11,13 @@ from PySide6.QtWidgets import QApplication
 def start(window, directory, expected_files):
     directory=Path(directory);directory.mkdir(parents=True,exist_ok=True)
     started=time.monotonic();activated=set();samples={};errors=[];navigation=set();checks=[]
+    # Diagnostics must record failures instead of waiting behind a modal dialog.
+    from PySide6.QtWidgets import QMessageBox
+    def warning(*args,**kwargs):
+        errors.append(str(args[2] if len(args)>2 else kwargs.get('text','Warning')))
+        (directory/'diagnostic-errors.txt').write_text('\n'.join(errors),encoding='utf8')
+        return QMessageBox.Ok
+    QMessageBox.warning=warning
     edit_check={'done':False,'passed':False};validated=set();play_started={};print_check={'started':False,'done':False,'passed':False}
     from .fonts import font_bytes
     from PySide6.QtGui import QFont
@@ -39,11 +46,12 @@ def start(window, directory, expected_files):
         finally:doc.close()
     if buffer:
         window.queue.submit(edit_work,lambda result:edit_check.update(result),lambda message:edit_check.update(done=True,error=message),priority=2)
-    timer=QTimer(window);timer.setInterval(60)
+    timer=QTimer(window);timer.setInterval(60);loading={'settled':False}
     def tick():
         elapsed=time.monotonic()-started
         tabs=[window.tabs.widget(i) for i in range(window.tabs.count()) if hasattr(window.tabs.widget(i),'document')]
-        pending=[tab for tab in tabs if tab.document.original not in validated]
+        if not loading['settled'] and not window.opening and len(tabs)==expected_files and not window.queue.jobs:loading['settled']=True
+        pending=[tab for tab in tabs if tab.document.original not in validated] if loading['settled'] else []
         for tab in pending[:1]:
             key=tab.document.original
             window.tabs.setCurrentWidget(tab)
@@ -65,17 +73,22 @@ def start(window, directory, expected_files):
             # Windows hidden-start validation may receive no native paint
             # events. Ask Qt to paint the real viewport so the ordinary tile
             # pipeline is exercised; do not treat open/decode as page success.
-            if not tab.canvas.cache and not tab.canvas.pending:
-                viewport=tab.scroll.viewport()
-                tab.canvas.grab(QRect(tab.scroll.horizontalScrollBar().value(),tab.scroll.verticalScrollBar().value(),viewport.width(),viewport.height()))
+            viewport=tab.scroll.viewport()
+            tab.canvas.grab(QRect(tab.scroll.horizontalScrollBar().value(),tab.scroll.verticalScrollBar().value(),viewport.width(),viewport.height()))
             sample=samples.setdefault(key,{'pages':tab.info['count'],'rendered_pages':0,'animation_frames':0,'video_frames':0,'media_position_ms':0})
+            if Path(key).suffix.lower() in ('.md','.markdown') and 'markdown_characters' not in sample:
+                import pymupdf as fitz
+                from .core import ENGINE_LOCK
+                with ENGINE_LOCK,fitz.open(tab.document.path) as pdf:
+                    sample['markdown_characters']=sum(len(page.get_text()) for page in pdf)
+                    sample['markdown_images']=sum(len(page.get_images()) for page in pdf)
             sample['rendered_pages']=max(sample['rendered_pages'],len(tab.canvas.cache))
             sample['animation_frames']=sum(p.rendered_frames for p in tab.players.values())
             sample['video_frames']=sum(p.actual_video_frames for p in tab.video_players)
             sample['media_position_ms']=max([p.player.position() for p in tab.video_players] or [0])
             for p in tab.video_players:
                 if p.player.errorString():errors.append(p.player.errorString())
-            playback=bool(tab.canvas.cache) and (not tab.animations or sample['animation_frames']>=8) and (not tab.assets or sample['video_frames']>=8 or sample['media_position_ms']>=700)
+            playback=any(key[1]==tab.canvas.page for key in tab.canvas.cache) and not tab.canvas.pending and (not tab.animations or sample['animation_frames']>=8) and (not tab.assets or sample['video_frames']>=8 or sample['media_position_ms']>=700)
             if playback and time.monotonic()-play_started.get(key,started)>=3:
                 validated.add(key);tab.pause_media();window.grab().save(str(directory/f'desktop-{len(validated)}.png'))
         ready=edit_check['done'] and len(tabs)==expected_files and len(validated)==expected_files
@@ -97,6 +110,6 @@ def start(window, directory, expected_files):
             report={'frozen':bool(getattr(sys,'frozen',False)),'elapsed_seconds':round(elapsed,2),
                     'print':print_check,'passed':ready and print_check['passed'] and edit_check['passed'] and not errors and all(c['passed'] for c in checks),'navigation':checks,'text_edit':edit_check,'documents':list(samples.values()),'errors':list(set(errors))}
             (directory/'desktop-report.json').write_text(json.dumps(report,indent=2),encoding='utf-8')
-            window.close();QApplication.instance().exit(0 if report['passed'] else 1)
+            window._closing_all=True;window.close();QApplication.instance().exit(0 if report['passed'] else 1)
     timer.timeout.connect(tick);timer.start()
     window._diagnostic_timer=timer

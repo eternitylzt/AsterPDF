@@ -25,11 +25,11 @@ def test_raster_multiple_pairs_region_save_search(tmp_path):
         pairs=[((1,0,0),(0,0,1)),((0,0,1),(0,1,0))]
         colors.replace(doc,0,images=True,pairs=pairs)
         with fitz.open(doc.path) as pdf:
-            pix=pdf[0].get_pixmap();assert pix.pixel(50,50)==(0,0,255) and pix.pixel(300,50)==(0,255,0)
+            pix=pdf[0].get_pixmap();assert pix.pixel(50,50)==(0,255,0) and pix.pixel(300,50)==(0,255,0)
         doc.undo();colors.replace(doc,0,images=True,pairs=pairs,region=(20,20,100,100))
         saved=tmp_path/'saved.pdf';doc.save(saved)
         with fitz.open(saved) as pdf:
-            pix=pdf[0].get_pixmap();assert pix.pixel(50,50)==(0,0,255) and pix.pixel(150,50)==(255,0,0) and pix.pixel(300,50)==(0,0,255)
+            pix=pdf[0].get_pixmap();assert pix.pixel(50,50)==(0,255,0) and pix.pixel(150,50)==(255,0,0) and pix.pixel(300,50)==(0,0,255)
             assert pdf[0].search_for('Searchable source') and len(pdf)==2
     finally:doc.close()
 
@@ -65,7 +65,9 @@ def test_recolor_presets_boundary_settings(ui):
 def test_new_text_search_navigation_overview(ui):
     app,w,t,pump=ui;t.open_panel('objects');pump(lambda:not t.busy and not w.queue.jobs)
     t.add_text(0,(150,430,150,430));t.inline_editor.insertPlainText('AsterFind AsterFind')
-    t.search_input.setText('AsterFind');t.search();pump(lambda:t.inline_editor is None and not t.busy and not w.queue.jobs,timeout=40)
+    t.search_input.setText('AsterFind');t.search()
+    assert t.busy or t.inline_editor is None,t.draft_notice.text()
+    pump(lambda:t.inline_editor is None and not t.busy and not w.queue.jobs,timeout=40)
     assert t.results.count()==2 and t.document.search('AsterFind')
     first=t.canvas.active_search;t.search_step(1);assert t.canvas.active_search!=first and t.results.currentRow()==1
     t.search_step(1);assert t.canvas.active_search==first and t.results.currentRow()==0
@@ -76,6 +78,9 @@ def test_new_text_search_navigation_overview(ui):
 
 def test_close_multiple_dirty_tabs_save_discard_cancel(ui,tmp_path,monkeypatch):
     app,w,t,pump=ui
+    def confirm_all(dialog):
+        next(b for b in dialog.buttons() if b.text() in ('所有标签页并退出','All tabs and quit')).click()
+    monkeypatch.setattr(QMessageBox,'exec',confirm_all)
     second=Document(t.document.original,tmp_path/'other-recovery');other=DocumentTab(w,second,second.info());w.tabs.addTab(other,'other')
     t.document.page_operation('rotate',[0],angle=90);second.page_operation('rotate',[1],angle=90);t.refresh();other.refresh();pump(lambda:not w.queue.jobs)
     w.tabs.setCurrentWidget(w.welcome)

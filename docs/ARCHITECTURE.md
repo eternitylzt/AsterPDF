@@ -34,7 +34,7 @@
 5. Invalidate revision-sensitive geometry and render caches; retain the prior page pixels until replacement rendering arrives. Automatically inspect editable objects again; media widget references are refreshed without discarding prepared animation data for ordinary content/annotation edits.
 6. On Save, copy to a temporary sibling file, flush/fsync, parse-check and replace destination atomically.
 
-MuPDF annotation operations are performed on a separate scratch document. Only AsterPDF annotation objects are imported back; foreign annotations retain their original objects. Added text/images import the changed page resources/content, while the original document catalog and page annotations stay authoritative. Unknown vendor dictionary preservation and embedded stream checks are covered by tests.
+MuPDF annotation operations are performed on a separate scratch document. Only explicitly edited annotation objects (including a selected replacement group) are imported back; unselected annotations retain their original objects. Batch styling creates one recovery/undo revision. Added text/images import the changed page resources/content, while the original document catalog and page annotations stay authoritative. Unknown vendor dictionary preservation and embedded stream checks are covered by tests.
 
 Object editing uses a small balanced PDF lexer to record raw byte ranges. pikepdf parsing only inspects operands. The editor keeps untouched source bytes; it does not round-trip the whole page through a lossy serializer. A scratch MuPDF page suppresses other painting operators to measure each candidate. Content/state patterns outside this conservative model are refused or documented as unsupported.
 

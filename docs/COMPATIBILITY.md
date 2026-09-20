@@ -1,4 +1,12 @@
-# AsterPDF 0.7 compatibility / 兼容性
+# AsterPDF 1.2.0 compatibility / 兼容性
+
+## Formats, editing and media / 格式、编辑与媒体
+
+Markdown imports common tables, local/HTTP(S) images and SVG through a lightweight parser and Qt PDF printing, not a browser/CSS engine. Missing images show placeholders; mathematical extensions are not implemented. EPS/PS requires installed Ghostscript. Converted files use Save As PDF and leave the original source intact.
+
+Video insertion uses Screen/Rendition annotations. Media layer controls reorder original Screen/Movie/RichMedia annotations, preserving payloads and actions; interactive playback stays above page content. Screen playback and overlapping-player masks were tested on Windows. Movie/RichMedia stacking has structural fixture tests, not independent real-world playback coverage.
+
+Embedded audio/video exports preserve original bytes. LaTeX animation export is a ZIP containing vector frames in `frames.pdf` and `timing.json`, not a generated MP4/GIF. Color pairs cascade in list order for text, vectors and image pixels, including selected regions. Text/image/shape arrangement preserves vector content. Independent annotation styles, batch editing and grouped replacement-text comments are supported; rich comment formatting is reader-dependent.
 
 This document describes implemented behavior, not a roadmap. 此文档描述当前实现，未将计划中的功能列为完成。
 
@@ -7,8 +15,8 @@ This document describes implemented behavior, not a roadmap. 此文档描述当�
 | Platform | Source/configuration | Actual verification in this delivery |
 | --- | --- | --- |
 | Windows x64 | PySide6/Qt + PyInstaller directory bundle; optional Inno Setup configuration | Python 3.12 desktop UI, PDF backend, animation and video/audio workflows tested. See VALIDATION.md for packaged build result. |
-| macOS | `.app` bundle + tar.gz workflow, icon and document type metadata | Not run; signing/notarization not configured or performed |
-| Linux x64 | Qt directory bundle + tar.gz, `.desktop` file | Not run; FFmpeg/runtime platform dependencies must be verified on target |
+| macOS | `.app` bundle + tar.gz workflow, icon and document type metadata | Native CI tests/build configured; interactive desktop unverified; unsigned, not notarized |
+| Linux x64 | Qt directory bundle + tar.gz, `.desktop` file | Native CI tests/build configured; interactive desktop and codecs require target verification |
 
 ## Reading / 阅读
 
@@ -43,7 +51,7 @@ Merge through a preview/reorder/remove queue, extraction into one PDF or individ
 
 ## Annotations / 批注
 
-Standard Highlight, Underline, StrikeOut, Text, FreeText, Ink, Line/arrow, Square and Circle annotations are written with appearance streams. Annotations can be selected and deleted in batches; style/content editing remains limited to AsterPDF-owned annotations. Stroke color, opacity and applicable border width are editable; text-note content is editable. FreeText content, supported font/size and color can be changed. Annotation text uses standard Latin/CJK PDF fonts; content editing supports installed system fonts. Closed arrow endings have matching solid fill and independently adjustable head size through a standard annotation appearance. FreeText borders default to zero and can have a separate width/color/dash style. Single-click selects a note or shape for sidebar/style editing; double-click edits note content. Author names are configurable; ownership uses an AsterPDF-prefixed annotation ID, independent of the author. Legacy AsterPDF-authored annotations are also recognized. Sticky notes move by dragging; note/shape text is previewed on hover. Marquee selection and Delete work on canvas/list. The document-wide sidebar visually separates metadata and comment, sorted by creation time or document position. A view-only checkbox hides annotations without changing the list or saved PDF. FreeText boxes can be created by double-clicking, grow to fit, and have draggable edges/corners for reflow and repositioning. Other annotation types do not offer arbitrary vertex resizing or multi-annotation group transforms.
+Standard Highlight, Underline, StrikeOut, Text, FreeText, Ink, Line/arrow, Square and Circle annotations are written with appearance streams. Annotations can be selected and deleted in batches; standard annotation style/content editing applies to selected supported annotations, including imported comments; unfamiliar multimedia, widget and vendor-specific types are not general-purpose editable shapes. Stroke color, opacity and applicable border width are editable; text-note content is editable. FreeText content, supported font/size and color can be changed. Annotation text uses standard Latin/CJK PDF fonts; content editing supports installed system fonts. Closed arrow endings have matching solid fill and independently adjustable head size through a standard annotation appearance. FreeText borders default to zero and can have a separate width/color/dash style. Single-click selects a note or shape for sidebar/style editing; double-click edits note content. Author names are configurable; ownership uses an AsterPDF-prefixed annotation ID, independent of the author. Legacy AsterPDF-authored annotations are also recognized. Sticky notes move by dragging; note/shape text is previewed on hover. Marquee selection and Delete work on canvas/list. The document-wide sidebar visually separates metadata and comment, sorted by creation time or document position. A view-only checkbox hides annotations without changing the list or saved PDF. FreeText boxes can be created by double-clicking, grow to fit, and have draggable edges/corners for reflow and repositioning. Other annotation types do not offer arbitrary vertex resizing or multi-annotation group transforms.
 
 Tests reopen written PDFs and inspect subtype, ownership, content and appearance streams. A Poppler render is also used for independent visual validation. Acrobat itself was not run in this delivery; do not interpret standards conformance as an Acrobat application test.
 
@@ -74,7 +82,7 @@ Every successful mutation produces a separate on-disk revision and atomic recove
 
 Editing encrypted PDFs is refused in 0.7. Signature invalidation warnings exist for recognized signature permissions, but signatures are not created or validated. The app does not promise preservation of signed validity. The engine lock serializes MuPDF work across background tasks; queued computation does not run concurrently inside MuPDF.
 
-Changing language translates existing controls in place, preserving documents, canvases, scroll positions, drafts and playback objects. UI labels, dialogs and built-in messages follow the selected language; raw errors from external libraries may retain their technical English text. Update checking requires `REPOSITORY` in `asterpdf/release.py` (or a previously saved setting) and user action. It compares stable numeric release versions and offers a download-page button. The repository remains unset pending upload; the network endpoint has not been live-tested for this unpublished project. Offline reading never depends on it.
+Changing language translates existing controls in place, preserving documents, canvases, scroll positions, drafts and playback objects. UI labels, dialogs and built-in messages follow the selected language; raw errors from external libraries may retain their technical English text. Update checking requires `REPOSITORY` in `asterpdf/release.py` (or a previously saved setting) and user action. It compares stable numeric release versions and offers a download-page button. The configured release repository is `eternitylzt/AsterPDF`. Offline reading never depends on it.
 
 ## Explicitly outside this implementation
 

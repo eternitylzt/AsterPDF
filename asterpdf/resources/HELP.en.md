@@ -12,11 +12,17 @@ Input automatically matches installed fonts and identifies substitutions. Find f
 
 ## Annotations
 
-Drag across partial text to highlight, underline or strike out. Notes appear in the annotation sidebar. Color, Line width and Opacity set appearance. Style controls the author, text font/size and arrow ending. Closed arrows have solid standard fill.
+Drag across partial text for highlight, underline, strikeout, squiggly or replacement comments. Each tool has independent inline appearance settings. Enter note, text-box or replacement content before placing it. Marquee or Ctrl-click to select several annotations; Apply changes only the selected items. Author changes take effect immediately; a blank name uses AsterPDF. Closed arrowheads have independently adjustable size.
 
 ## Extraction and export
 
-Entering Export selects the region tool; drag to select; clicking elsewhere clears the region. Export settings remembers DPI, pixel width, format and JPG quality, including high-resolution clipboard copies. Embedded image extraction opens a list linked to page highlights. Use the list for overlapping layers; Ctrl/Shift selects several images. Extraction preserves original channels without compositing soft masks; it does not use a screenshot. Empty pages show an explicit no-images message.
+Entering Export selects the region tool. Drag again to replace the selection; a click without dragging preserves it. Toggle Region again or choose the pointer/hand to leave the tool. Export settings remembers DPI, pixel width, format and JPG quality, including high-resolution clipboard copies. Embedded image extraction opens a list linked to page highlights. Use the list for overlapping layers; Ctrl/Shift selects several images. Extraction preserves original channels without compositing soft masks; it does not use a screenshot. Empty pages show an explicit no-images message.
+
+## Formats and playback
+
+Open PDF, EPS, PS or Markdown. EPS/PS requires a separately installed Ghostscript. Markdown is laid out locally as PDF; Save As PDF preserves the source. Toggle a shape in the palette to draw it. The image panel accepts files, page numbers or clipboard images. Insert Video embeds a local video or replaces the selected image; codec support depends on the platform.
+
+Animation / Media → Playback controls opens floating controls. The frame rate is a target; complex pages may render more slowly. The overview scrollbar scrolls the preview; click a preview position to navigate the document. Page organizer zoom can be changed with the percentage control or Ctrl+wheel.
 
 ## Merge and save
 
@@ -77,3 +83,15 @@ Quick overview uses automatic dimensions, a half-screen height cap and 80% opaci
 Color sources follow the selected scope, sorted by estimated visible area and limited to 64 representatives. Use the picker, tolerance, multiple pairs and named schemes. Raster changes require the image checkbox; vector shadings, patterns, annotations and animation frames are unchanged. Region boundaries are display aids only.
 
 Applied text is searchable. Use F3 / Shift+F3 or Previous/Next to cycle matches; overview bands locate results and its footer shows reading progress. The language entry remains Settings → 语言/Language.
+
+
+## usage
+
+- Color pairs cascade from top to bottom. Ctrl/Shift-select pairs and choose Selected pairs, or apply All pairs (default). A→B followed by B→A turns both source colors into A.
+- Text, shapes and images support front/back stacking in their property panels and object context menus. Right-click the embedded-image list to copy an image.
+- Right-click an animation or video to save its source or show playback controls. Animations export vector PDF frames plus timing in ZIP; video preserves the embedded source file.
+- Markdown supports linked images and HTML tables. Remote images require a network connection; missing images show a placeholder. Save the imported document as PDF.
+
+## usage
+
+Single-click recent files to select and double-click to open; right-click to copy names/paths or remove entries. Recolor region outlines disappear when leaving the tool. Image editing supports front/back stacking. Right-click media to extract original video/audio or animation source ZIP (all vector PDF frames plus timing). Playback controls float within the window, the right grip adjusts only their width, and presentation dismisses them. Organizer preview supports 2–50%. Preferences → General can restore the close confirmation.

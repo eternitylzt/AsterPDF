@@ -1,6 +1,6 @@
 import time
 from collections import OrderedDict
-from PySide6.QtCore import QObject, QTimer, Signal, QUrl, Qt
+from PySide6.QtCore import QObject, QTimer, Signal, QUrl, Qt, QEvent
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton, QSlider, QHBoxLayout
 from . import media
@@ -127,15 +127,16 @@ class AnimationPlayer(QObject):
         if command.startswith(('Play','Pause')):
             direction=-1 if command.endswith('Left') else 1
             if command.startswith('Pause'):self.stop();self.show_frame(self.index);return
-            same=self.direction==direction
             self.direction=direction
-            if command.startswith('PlayPause') and self.playing and same:self.stop();self.show_frame(self.index)
+            if command.startswith('PlayPause') and self.playing:self.stop();self.show_frame(self.index)
             else:self.start()
         elif command in ('EndLeft','EndRight','StepLeft','StepRight'):
             self.stop();n={'EndLeft':0,'EndRight':len(self.animation.frames)-1,'StepLeft':self.index-1,'StepRight':self.index+1}[command];self.show_frame(n)
         elif command in ('Plus','Minus','Reset'):
             self.speed=1 if command=='Reset' else max(.125,min(8,self.speed*(1.25 if command=='Plus' else .8)))
             if self.playing:self.start()
+
+        self.changed.emit()
 
 
 class VideoPlayer(QWidget):
@@ -145,7 +146,7 @@ class VideoPlayer(QWidget):
         from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
         from PySide6.QtMultimediaWidgets import QVideoWidget
         self.asset, self.tab = asset, tab
-        self.player = QMediaPlayer(self)
+        self.player = QMediaPlayer(self);self.want_playing=True
         self.audio = QAudioOutput(self)
         self.audio.setVolume(.65)
         self.player.setAudioOutput(self.audio)
@@ -157,25 +158,66 @@ class VideoPlayer(QWidget):
         if asset.kind == 'video': layout.addWidget(self.video, 1)
         else: layout.addWidget(QLabel('♫  '+asset.name))
         controls = QHBoxLayout(); layout.addLayout(controls)
-        play = QPushButton('▶ / Ⅱ'); controls.addWidget(play)
-        play.clicked.connect(lambda: self.player.pause() if self.player.playbackState() == QMediaPlayer.PlayingState else self.player.play())
-        replay = QPushButton('↺'); controls.addWidget(replay)
-        replay.clicked.connect(lambda: (self.player.setPosition(0), self.player.play()))
+        from .ui_icons import icon
+        play = QPushButton();play.setIcon(icon('media_pause',True));self.play_button=play;controls.addWidget(play)
+        play.clicked.connect(self.toggle);play.setToolTip(L('播放 / 暂停','Play / pause'))
+        replay = QPushButton();replay.setIcon(icon('replay',True)); controls.addWidget(replay)
+        replay.clicked.connect(lambda: (setattr(self,'want_playing',True),self.player.setPosition(0),self.player.play()));replay.setToolTip(L('重播','Replay'))
         self.slider = QSlider(Qt.Horizontal); controls.addWidget(self.slider, 1)
         self.slider.sliderMoved.connect(self.player.setPosition)
         self.player.durationChanged.connect(lambda d: self.slider.setRange(0, d))
         self.player.positionChanged.connect(lambda n: self.slider.setValue(n) if not self.slider.isSliderDown() else None)
         loop = QPushButton('∞'); loop.setCheckable(True); controls.addWidget(loop)
         loop.toggled.connect(lambda b: self.player.setLoops(QMediaPlayer.Infinite if b else QMediaPlayer.Once))
-        close = QPushButton('×'); controls.addWidget(close); close.clicked.connect(self.shutdown)
+        close = QPushButton();close.setIcon(icon('close',True)); controls.addWidget(close); close.clicked.connect(self.shutdown)
         self.message = QLabel(''); self.message.setWordWrap(True); layout.addWidget(self.message)
         self.player.errorOccurred.connect(lambda e, msg: self.message.setText(L('播放失败：','Playback failed')+msg))
         self.player.setSource(QUrl.fromLocalFile(filename))
         self.setStyleSheet('VideoPlayer {background:#101822;} QPushButton {padding:3px;}')
+        for button in (play,replay,loop,close):button.setCursor(Qt.PointingHandCursor)
+        loop.setToolTip(tr('loop'));close.setToolTip(tr('close'));self.video.setCursor(Qt.PointingHandCursor);self.video.setContextMenuPolicy(Qt.PreventContextMenu);self.video.installEventFilter(self)
+        self.setStyleSheet(self.styleSheet()+' QPushButton:hover{background:#496580;} QPushButton:pressed{background:#7894b8;}')
+        self.player.mediaStatusChanged.connect(self.media_status)
+        self.player.playbackStateChanged.connect(self.sync_play_icon)
+        self.player.playbackStateChanged.connect(lambda *_:self.tab.player_changed())
         self.show(); self.player.play()
+
+    def media_status(self,status):
+        from PySide6.QtMultimedia import QMediaPlayer
+        if status==QMediaPlayer.EndOfMedia:self.want_playing=False
+        self.sync_play_icon();self.tab.player_changed()
+
+    def sync_play_icon(self,*_):
+        from .ui_icons import icon
+        self.play_button.setIcon(icon('media_pause' if self.want_playing else 'media_play',True))
+        self.play_button.setToolTip(L('暂停','Pause') if self.want_playing else L('播放','Play'))
+
+    def contextMenuEvent(self,event):
+        from PySide6.QtWidgets import QMenu
+        menu=QMenu(self);menu.addAction(L('保存原始媒体…','Save original media…'),lambda:self.tab.export_embedded_media(self.asset));menu.addAction(L('多媒体控件','Playback controls'),self.show_controls)
+        menu.addSeparator();menu.addAction(L('置于顶层','Bring to front'),lambda:self.tab.stack_media(self.asset,True));menu.addAction(L('置于底层','Send to back'),lambda:self.tab.stack_media(self.asset,False));menu.exec(event.globalPos())
+
+    def show_controls(self):
+        self.tab.media_choice.setCurrentIndex(len(self.tab.animations)+self.tab.assets.index(self.asset));self.tab.show_playback_controls()
+
+    def toggle(self):
+        self.want_playing=not self.want_playing
+        self.player.play() if self.want_playing else self.player.pause()
+        self.sync_play_icon()
+
+    def eventFilter(self,source,event):
+        if source is self.video and event.type()==QEvent.MouseButtonRelease and event.button()==Qt.RightButton:
+            from PySide6.QtGui import QContextMenuEvent
+            self.contextMenuEvent(QContextMenuEvent(QContextMenuEvent.Mouse,event.position().toPoint(),event.globalPosition().toPoint()));return True
+        if source is self.video and event.type()==QEvent.ContextMenu:self.contextMenuEvent(event);return True
+        if source is self.video and event.type()==QEvent.MouseButtonPress and event.button()==Qt.LeftButton:
+            if self.tab.active_panel=='objects' and self.tab.edit_tool=='video':
+                self.tab.select_media(self.asset);event.accept();return True
+            self.toggle();event.accept();return True
+        return super().eventFilter(source,event)
 
     def frame_received(self, frame):
         if frame.isValid(): self.actual_video_frames += 1
 
     def shutdown(self):
-        self.player.stop(); self.player.setSource(QUrl()); self.hide()
+        self.want_playing=False;self.player.stop(); self.player.setSource(QUrl()); self.hide()

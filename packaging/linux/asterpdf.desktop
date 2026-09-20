@@ -7,5 +7,5 @@ Icon=asterpdf
 Terminal=false
 Type=Application
 Categories=Office;Viewer;Science;
-MimeType=application/pdf;
+MimeType=application/pdf;application/postscript;text/markdown;
 StartupWMClass=AsterPDF

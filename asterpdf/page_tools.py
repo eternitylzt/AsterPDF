@@ -57,7 +57,7 @@ class PageToolsMixin:
                 if base in self.document.history:
                     self.document.release_rendering();self.document.index=self.document.history.index(base);self.document.revision+=1;self.document._metadata();return
                 self.document.edit('cancel page transforms',lambda pdf:[apply_page_transform(pdf,op,indices,-angle if op=='rotate' else angle) for op,indices,angle in reversed(operations)])
-            self.run(tr('pages'),inverse,editing=True)
+            self.run(tr('pages'),inverse,editing=True,page_update={'changed':sorted({i for _,indices,_ in operations for i in indices})})
         self.canvas.region=None;self.canvas.crop_drag=None;self.canvas.update();self.page_tool=None;self.close_properties()
 
     def crop_selection_changed(self):
@@ -109,7 +109,7 @@ class PageToolsMixin:
             work=lambda j:self.document.page_operation('blanks',indices,before=v['position']=='before')
         else:work=lambda j:self.document.page_operation(operation,indices,angle=v.get('angle',90))
         pane.apply_button.setEnabled(False);pane.feedback.setText(tr('working'))
-        self.run(tr('pages'),work,done,editing=True,failure=failure)
+        self.run(tr('pages'),work,done,editing=True,failure=failure,page_update={'operation':operation,'indices':indices,'changed':indices if operation in ('rotate','flip_h','flip_v','crop') else [],'angle':v.get('angle',90),'before':v.get('position')=='before'})
 
     def extract_with_options(self,indices,separate,pane):
         if separate:

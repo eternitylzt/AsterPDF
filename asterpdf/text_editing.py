@@ -191,6 +191,7 @@ class TextEditingMixin:
         clipboard=QHBoxLayout();root.addLayout(clipboard)
         for label,method in [(L('复制','Copy'),'copy'),(L('粘贴','Paste'),'paste')]:
             button=QPushButton(label);button.setFocusPolicy(Qt.NoFocus);button.clicked.connect(lambda checked=False,m=method:getattr(self.inline_editor,m)() if self.inline_editor else None);clipboard.addWidget(button)
+        self.add_layer_controls(root)
         buttons=QHBoxLayout();root.addLayout(buttons)
         for name,callback in [(tr('apply'),lambda:self.commit_inline()),(tr('cancel'),self.exit_text_tools)]:
             button=QPushButton(name);button.clicked.connect(callback);buttons.addWidget(button)
@@ -210,6 +211,7 @@ class TextEditingMixin:
         self.splitter.setSizes(sizes);self.position_chrome()
 
     def text_tools(self):
+        self.leave_color_tools()
         if hasattr(self,'property_container'):self.property_container.hide()
         self.canvas.vector_edit=False;self.edit_tool='text'
         self.set_mode('objects')

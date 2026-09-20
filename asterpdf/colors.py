@@ -25,7 +25,7 @@ def inventory(document,page,region=None,tolerance=.08):
     """
     import pymupdf as fitz
     indices=[page] if isinstance(page,int) else list(dict.fromkeys(page))
-    counts=Counter();images=0
+    counts=Counter();exact=Counter();images=0
     with fitz.open(document.path) as pdf:
         for index in indices:
             p=pdf[index];area=fitz.Rect(region) if region else p.rect
@@ -40,10 +40,19 @@ def inventory(document,page,region=None,tolerance=.08):
             for count,c in sample.getcolors(pix.width*pix.height) or []:
                 key=tuple(min(255,round(v/4)*4) for v in c)
                 counts[key]+=count*weight
-            images+=len(p.get_images())
-    total=sum(counts.values()) or 1
+            # Thin glyphs disappear into gray antialiased pixels at palette resolution.
+            # Seed actual PDF ink colors before clustering the sampled image colors.
+            for block in p.get_text('dict',flags=fitz.TEXTFLAGS_TEXT)['blocks']:
+                for line in block.get('lines',[]):
+                    for span in line['spans']:
+                        bounds=fitz.Rect(span['bbox'])*p.rotation_matrix
+                        if bounds.intersects(area):
+                            value=span['color'];key=((value>>16)&255,(value>>8)&255,value&255)
+                            exact[key]+=max(1,(bounds&area).get_area()*.12)
+            images+=sum(1 for entry in p.get_image_info() if (fitz.Rect(entry['bbox'])*p.rotation_matrix).intersects(area))
+    total=sum(counts.values())+sum(exact.values()) or 1
     # No huge UI lists, regardless of document length or gradient complexity.
-    clustered=Counter()
+    clustered=Counter(dict(exact.most_common(24)))
     for color,weight in counts.most_common():
         representative=next((c for c in clustered if max(abs(a-b) for a,b in zip(c,color))<=tolerance*255),color)
         if representative in clustered or len(clustered)<32:clustered[representative]+=weight
@@ -54,13 +63,12 @@ def inventory(document,page,region=None,tolerance=.08):
 def recolor_image(image,pairs,tolerance,invert=False):
     image=image.convert('RGB')
     if invert:return ImageOps.invert(image)
-    output=image.copy();channels=image.split();available=Image.new('L',image.size,255)
+    output=image.copy()
     for source,target in pairs:
+        channels=output.split()
         masks=[channel.point([255 if abs(v/255-source[n])<=tolerance else 0 for v in range(256)]) for n,channel in enumerate(channels)]
         mask=ImageChops.darker(ImageChops.darker(masks[0],masks[1]),masks[2])
-        mask=ImageChops.darker(mask,available)
         output.paste(tuple(round(v*255) for v in target),(0,0),mask)
-        available=ImageChops.subtract(available,mask)
     return output
 
 
@@ -70,7 +78,7 @@ def replace(document,page,source=None,target=None,invert=False,images=False,tole
     def changed(c):
         if invert:return tuple(1-max(0,min(1,x)) for x in c)
         for source,target in pairs:
-            if max(abs(a-b) for a,b in zip(c,source))<=tolerance:return tuple(target)
+            if max(abs(a-b) for a,b in zip(c,source))<=tolerance:c=tuple(target)
         return c
     def rewrite(data):
         pieces=[];start=0
