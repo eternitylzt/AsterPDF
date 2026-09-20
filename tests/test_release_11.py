@@ -83,7 +83,7 @@ def test_string_destination_import_md_and_preview_scroll(ui,tmp_path):
 def test_copy_paste_preserves_visual_position(document,tmp_path):
     from asterpdf.object_clipboard import copy_pdf,paste_pdf
     found=objects.discover(document,0);chosen=[o for o in found if o.kind=='text' and 'AsterPDF' in o.text][:1];assert chosen
-    
+
     with fitz.open(document.path) as pdf:source=tuple(pdf[0].search_for('AsterPDF')[0])
     payload=copy_pdf(document,0,chosen);paste_pdf(document,1,payload)
     with fitz.open(document.path) as pdf:

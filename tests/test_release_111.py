@@ -126,4 +126,3 @@ def test_animation_source_export_all_frames(document,tmp_path):
         with fitz.open(stream=z.read('frames.pdf'),filetype='pdf') as frames:
             assert len(frames)==len(a.frames)
             assert frames[0].get_pixmap().samples!=frames[-1].get_pixmap().samples
-
