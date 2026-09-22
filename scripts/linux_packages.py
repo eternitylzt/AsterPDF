@@ -44,7 +44,7 @@ refresh='#!/bin/sh\nset -e\nif command -v update-desktop-database >/dev/null 2>&
 for name in ['postinst','postrm']:(control/name).write_text(refresh);(control/name).chmod(0o755)
 def archive(path,directory):
     def owned(info):info.uid=info.gid=0;info.uname=info.gname='root';return info
-    with tarfile.open(path,'w:gz') as tar:
+    with tarfile.open(path,'w:gz',format=tarfile.GNU_FORMAT) as tar:
         for p in directory.iterdir():tar.add(p,arcname='./'+p.name,filter=owned)
 archive(dist/'control.tar.gz',control);archive(dist/'data.tar.gz',stage)
 (dist/'debian-binary').write_text('2.0\n')

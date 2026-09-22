@@ -36,7 +36,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: ['ubuntu:20.04', 'ubuntu:22.04', 'debian:12', 'rockylinux:8', 'rockylinux:9']
+        image: ['ubuntu:20.04', 'ubuntu:22.04', 'ubuntu:24.04', 'debian:12', 'rockylinux:8', 'rockylinux:9']
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4

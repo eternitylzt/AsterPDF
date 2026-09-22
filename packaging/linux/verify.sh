@@ -17,6 +17,8 @@ export DISPLAY=:99
 sleep 2
 timeout 45 asterpdf --smoke-test --data-dir /tmp/asterpdf-qa /opt/asterpdf/examples/AsterPDF-demo.pdf
 timeout 45 asterpdf --smoke-test --data-dir /tmp/asterpdf-md /opt/asterpdf/examples/Markdown-math.md
+timeout 90 asterpdf --verify-desktop /tmp/asterpdf-check --data-dir /tmp/asterpdf-check-settings /opt/asterpdf/examples/AsterPDF-media.pdf /opt/asterpdf/examples/Markdown-math.md
+cat /tmp/asterpdf-check/desktop-report.json
 if command -v apt-get >/dev/null; then apt-get remove -y asterpdf; else dnf remove -y asterpdf; fi
 test ! -e /usr/bin/asterpdf
 test ! -e /opt/asterpdf/AsterPDF
