@@ -9,6 +9,12 @@ else
 fi
 test -x /usr/bin/asterpdf
 test -f /usr/share/applications/asterpdf.desktop
+# Fail early if the multimedia plugin cannot load on this distribution.
+plugin=$(find /opt/asterpdf -name libffmpegmediaplugin.so -print -quit)
+test -n "$plugin"
+LD_LIBRARY_PATH=/opt/asterpdf/_internal:/opt/asterpdf/_internal/PySide6/Qt/lib ldd "$plugin" > /tmp/plugin-libraries.txt
+cat /tmp/plugin-libraries.txt
+if grep -q 'not found' /tmp/plugin-libraries.txt; then exit 1; fi
 export QT_QPA_PLATFORM=xcb
 export XDG_RUNTIME_DIR=/tmp/asterpdf-runtime
 mkdir -p "$XDG_RUNTIME_DIR"; chmod 700 "$XDG_RUNTIME_DIR"
