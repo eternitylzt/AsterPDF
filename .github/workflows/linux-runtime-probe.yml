@@ -1,0 +1,23 @@
+name: Linux runtime dependency diagnosis
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ['ubuntu:24.04', 'rockylinux:9']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-packages
+          run-id: 35726811635
+          github-token: ${{ github.token }}
+          path: linux-dist
+      - run: docker run --rm -e PROBE_HOST_RUNTIME=1 -v "$PWD/linux-dist:/packages:ro" -v "$PWD/packaging/linux:/checks:ro" '${{ matrix.image }}' bash /checks/verify.sh
