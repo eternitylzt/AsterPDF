@@ -35,6 +35,8 @@
 
 ## 运行
 
+[Linux 安装：deb / rpm / 免安装包](docs/LINUX.md)
+
 **Windows x64**：完整解压 `AsterPDF-1.2.1-windows-amd64.zip`，运行 `AsterPDF/AsterPDF.exe`。请保留同目录的 `_internal` 文件夹，无需安装 Python。当前程序未签名。
 
 **macOS / Linux**：请从 GitHub Release 下载相应平台的原生构建。自动化任务验证各平台打包是否成功；真实桌面功能的实测范围见验证记录与兼容性说明。

@@ -35,6 +35,8 @@ No account. No cloud dependency. PDF processing stays on your computer.
 
 ## Run
 
+[Linux installation: deb / rpm / portable](docs/LINUX.md)
+
 **Windows x64:** extract the complete `AsterPDF-1.2.1-windows-amd64.zip`, then run `AsterPDF/AsterPDF.exe`. Keep the accompanying `_internal` folder. No Python installation is required; the executable is unsigned.
 
 **macOS / Linux:** download the native archive from the GitHub Release. The automated build verifies packaging on each target; see the validation and compatibility documents for the features tested on real desktops.

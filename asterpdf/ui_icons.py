@@ -69,6 +69,6 @@ PATHS={
 
 def icon(name,dark=False):
     color='#d6dfec' if dark else '#101f35'
-    svg=f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28"><g fill="none" stroke="{color}" stroke-width="{2 if dark else 2.5}" stroke-linecap="round" stroke-linejoin="round">{PATHS.get(name,PATHS['tool'])}</g></svg>'
+    svg=f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28"><g fill="none" stroke="{color}" stroke-width="{2 if dark else 2.5}" stroke-linecap="round" stroke-linejoin="round">{PATHS.get(name,PATHS["tool"])}</g></svg>'
     pix=QPixmap(84,84);pix.fill(Qt.transparent);painter=QPainter(pix);QSvgRenderer(svg.encode()).render(painter);painter.end();pix.setDevicePixelRatio(3)
     return QIcon(pix)
