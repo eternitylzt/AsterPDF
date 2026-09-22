@@ -1,0 +1,64 @@
+name: Linux compatibility packages
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Replace only Linux assets in the existing 1.2.1 release
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build on glibc 2.28
+        run: |
+          docker build -f packaging/linux/Dockerfile -t asterpdf-linux .
+          id=$(docker create asterpdf-linux)
+          docker cp "$id:/src/dist" linux-dist
+          docker rm "$id"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-packages
+          path: |
+            linux-dist/AsterPDF-1.2.1-linux-x86_64.tar.gz
+            linux-dist/AsterPDF-1.2.1-linux-source.zip
+            linux-dist/*.deb
+            linux-dist/*.rpm
+            linux-dist/linux-abi.json
+  verify:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ['ubuntu:20.04', 'ubuntu:22.04', 'debian:12', 'rockylinux:8', 'rockylinux:9']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-packages
+          path: linux-dist
+      - name: Install, launch, uninstall
+        run: docker run --rm -v "$PWD/linux-dist:/packages:ro" -v "$PWD/packaging/linux:/checks:ro" '${{ matrix.image }}' bash /checks/verify.sh
+  publish:
+    if: inputs.publish
+    needs: [build, verify]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-packages
+          path: linux-dist
+      - name: Update Linux attachments only
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view v1.2.1 --repo "$GITHUB_REPOSITORY"
+          gh release upload v1.2.1 --repo "$GITHUB_REPOSITORY" --clobber linux-dist/AsterPDF-1.2.1-linux-x86_64.tar.gz linux-dist/AsterPDF-1.2.1-linux-source.zip linux-dist/*.deb linux-dist/*.rpm
