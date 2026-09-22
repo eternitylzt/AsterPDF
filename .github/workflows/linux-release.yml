@@ -6,8 +6,13 @@ on:
         description: Replace only Linux assets in the existing 1.2.1 release
         type: boolean
         default: false
+      reuse_run:
+        description: Optional successful build run to recheck unchanged packages
+        type: string
+        default: ''
 permissions:
   contents: read
+  actions: read
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -15,11 +20,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build on glibc 2.28
+        if: inputs.reuse_run == ''
         run: |
           docker build -f packaging/linux/Dockerfile -t asterpdf-linux .
           id=$(docker create asterpdf-linux)
           docker cp "$id:/src/dist" linux-dist
           docker rm "$id"
+      - uses: actions/download-artifact@v4
+        if: inputs.reuse_run != ''
+        with:
+          name: linux-packages
+          run-id: ${{ inputs.reuse_run }}
+          github-token: ${{ github.token }}
+          path: linux-dist
       - uses: actions/upload-artifact@v4
         with:
           name: linux-packages

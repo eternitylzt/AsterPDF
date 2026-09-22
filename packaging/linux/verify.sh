@@ -5,13 +5,19 @@ if command -v apt-get >/dev/null; then
   apt-get update -qq
   apt-get install -y /packages/*.deb xvfb xauth
 else
-  dnf install -y /packages/*.rpm xorg-x11-server-Xvfb xorg-x11-xauth
+  options=(--setopt=timeout=20 --setopt=retries=2)
+  . /etc/os-release
+  if [[ "$ID" == rocky && "$VERSION_ID" == 8* ]]; then
+    # Avoid a very slow regional BaseOS metadata mirror on hosted CI runners.
+    options+=(--setopt=baseos.mirrorlist= --setopt=baseos.baseurl=https://dl.rockylinux.org/pub/rocky/8/BaseOS/x86_64/os/)
+  fi
+  dnf "${options[@]}" install -y /packages/*.rpm xorg-x11-server-Xvfb xorg-x11-xauth
 fi
 test -x /usr/bin/asterpdf
 test -f /usr/share/applications/asterpdf.desktop
 # Fail early if the multimedia plugin cannot load on this distribution.
-plugin=$(find /opt/asterpdf -name libffmpegmediaplugin.so -print -quit)
-test -n "$plugin"
+plugin=/opt/asterpdf/_internal/PySide6/Qt/plugins/multimedia/libffmpegmediaplugin.so
+test -f "$plugin"
 LD_LIBRARY_PATH=/opt/asterpdf/_internal:/opt/asterpdf/_internal/PySide6/Qt/lib ldd "$plugin" > /tmp/plugin-libraries.txt
 cat /tmp/plugin-libraries.txt
 if grep -q 'not found' /tmp/plugin-libraries.txt; then exit 1; fi
