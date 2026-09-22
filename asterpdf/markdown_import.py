@@ -1,5 +1,6 @@
 """Markdown + embedded HTML import with bounded, explicitly loaded image resources."""
 from pathlib import Path
+from .network import tls_context
 from html.parser import HTMLParser
 from html import escape
 from urllib.parse import urljoin,urlsplit,unquote
@@ -69,7 +70,7 @@ def _prepare(filename):
                         if file.stat().st_size>16*1024*1024:raise ValueError('Image exceeds 16 MB')
                         raw=file.read_bytes()
                     elif parts.scheme in ('https','http'):
-                        with urlopen(Request(url,headers={'User-Agent':'AsterPDF Markdown image loader'}),timeout=5) as response:raw=response.read(16*1024*1024+1)
+                        with urlopen(Request(url,headers={'User-Agent':'AsterPDF Markdown image loader'}),timeout=5,context=tls_context()) as response:raw=response.read(16*1024*1024+1)
                     elif parts.scheme=='data' and ';base64,' in src:raw=base64.b64decode(src.split(',',1)[1],validate=True)
                     else:raise ValueError('Unsupported image URL')
                     if len(raw)>16*1024*1024:raise ValueError('Image exceeds 16 MB')

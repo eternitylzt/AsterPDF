@@ -9,7 +9,7 @@ description = "Read · Edit · Animate · Annotate · Extract — a local scient
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
 license = "AGPL-3.0-only"
-dependencies = ["PySide6==6.10.2; sys_platform != 'linux'", "PySide6==6.8.3; sys_platform == 'linux'", "PyMuPDF==1.27.1", "pikepdf==10.3.0", "Pillow>=11,<13", "markdown-it-py==4.0.0", "mdit-py-plugins==0.5.0", "linkify-it-py==2.0.3", "quickjs-ng==0.16.2.1"]
+dependencies = ["certifi>=2026.2.25", "PySide6==6.10.2; sys_platform != 'linux'", "PySide6==6.8.3; sys_platform == 'linux'", "PyMuPDF==1.27.1", "pikepdf==10.3.0", "Pillow>=11,<13", "markdown-it-py==4.0.0", "mdit-py-plugins==0.5.0", "linkify-it-py==2.0.3", "quickjs-ng==0.16.2.1"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8,<10", "pyinstaller>=6.16,<7", "reportlab>=4,<6"]

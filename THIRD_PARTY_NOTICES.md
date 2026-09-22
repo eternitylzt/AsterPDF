@@ -6,8 +6,9 @@ This software includes or links the following independently licensed components.
 
 | Component | License used / notice | Corresponding upstream source |
 | --- | --- | --- |
-| Python 3.12 | Python Software Foundation license and incorporated notices | https://github.com/python/cpython/tree/3.12 ; full license in `licenses/PYTHON-LICENSE.txt` |
-| PySide6, Shiboken6, Qt 6.10.2 | LGPL-3.0 option; Qt/PySide modules may also offer GPL/commercial alternatives | https://code.qt.io/cgit/pyside/pyside-setup.git/ ; https://download.qt.io/official_releases/qt/6.10/6.10.2/single/ |
+| certifi / Mozilla CA bundle | MPL-2.0 | https://github.com/certifi/python-certifi |
+| Python 3.11 (Linux), 3.12 (Windows/macOS) | Python Software Foundation license and incorporated notices | https://github.com/python/cpython/tree/3.12 ; full license in `licenses/PYTHON-LICENSE.txt` |
+| PySide6, Shiboken6, Qt 6.10.2 (Windows/macOS), 6.8.3 (Linux) | LGPL-3.0 option; Qt/PySide modules may also offer GPL/commercial alternatives | https://code.qt.io/cgit/pyside/pyside-setup.git/ ; https://download.qt.io/official_releases/qt/6.10/6.10.2/single/ |
 | PyMuPDF 1.27.1 / MuPDF | GNU AGPL v3 option, copyright Artifex Software, Inc. and contributors | https://github.com/pymupdf/PyMuPDF/tree/1.27.1 ; https://mupdf.com/releases/ ; https://github.com/ArtifexSoftware/mupdf |
 | pikepdf 10.3.0 | MPL-2.0, copyright pikepdf contributors | https://github.com/pikepdf/pikepdf/tree/v10.3.0 |
 | qpdf, compiled into/distributed with pikepdf wheel | Apache-2.0; wheel-specific third-party list included | https://github.com/qpdf/qpdf ; see `licenses/pikepdf/licenses/licenses-for-wheels.txt` |

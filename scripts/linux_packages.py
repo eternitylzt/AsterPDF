@@ -34,7 +34,7 @@ Maintainer: Zhentong Li <eternitylzt@gmail.com>
 Section: science
 Priority: optional
 Installed-Size: {size}
-Depends: libc6 (>= 2.28), libgl1, libegl1, libx11-6, libxcb1, libxkbcommon0, libxkbcommon-x11-0, libfontconfig1, libdbus-1-3, libasound2 | libasound2t64, fonts-dejavu-core
+Depends: libc6 (>= 2.28), libgl1, libegl1, libx11-6, libxcb1, libxkbcommon0, libxkbcommon-x11-0, libfontconfig1, libdbus-1-3, libasound2 | libasound2t64, libpulse0, fonts-dejavu-core
 Homepage: https://github.com/eternitylzt/AsterPDF
 Description: Scientific PDF reader, editor and multimedia workspace
  Read animated PDFs, edit and annotate, extract vector figures,
@@ -60,7 +60,7 @@ License: AGPL-3.0-only AND LGPL-3.0-only AND MIT AND Apache-2.0
 URL: https://github.com/eternitylzt/AsterPDF
 BuildArch: x86_64
 AutoReqProv: no
-Requires: glibc >= 2.28, mesa-libGL, mesa-libEGL, libX11, libxcb, libxkbcommon, libxkbcommon-x11, fontconfig, dbus-libs, alsa-lib, dejavu-sans-fonts
+Requires: glibc >= 2.28, mesa-libGL, mesa-libEGL, libX11, libxcb, libxkbcommon, libxkbcommon-x11, fontconfig, dbus-libs, alsa-lib, pulseaudio-libs, dejavu-sans-fonts
 %description
 Read, edit, animate, annotate and extract scientific PDF documents.
 Includes Python, Qt, offline mathematical Markdown and matching source.

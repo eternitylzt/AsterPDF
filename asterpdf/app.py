@@ -715,9 +715,8 @@ class Window(QMainWindow):
         if not re.fullmatch(r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+',repository):return
         self.statusBar().showMessage(L('正在检查更新','Checking for updates…'))
         def fetch(job):
-            request=urllib.request.Request(f'https://api.github.com/repos/{repository}/releases/latest',headers={'Accept':'application/vnd.github+json','User-Agent':'AsterPDF/'+__version__})
-            with urllib.request.urlopen(request,timeout=15) as response:
-                return json.loads(response.read(2_000_000))
+            from .network import fetch_latest_release
+            return fetch_latest_release(repository,__version__)
         def done(data):
             tag=data.get('tag_name','?');url=data.get('html_url','')
             if not url.startswith(f'https://github.com/{repository}/releases/'):
@@ -733,9 +732,15 @@ class Window(QMainWindow):
 
 def main():
     parser=argparse.ArgumentParser(description='AsterPDF desktop')
+    parser.add_argument('--verify-update',action='store_true',help=argparse.SUPPRESS)
     parser.add_argument('files',nargs='*');parser.add_argument('--data-dir');parser.add_argument('--smoke-test',action='store_true')
     parser.add_argument('--verify-desktop',metavar='OUTPUT_DIRECTORY',help=argparse.SUPPRESS)
     args=parser.parse_args()
+    if args.verify_update:
+        from .network import fetch_latest_release
+        from .release import REPOSITORY
+        print(json.dumps(fetch_latest_release(REPOSITORY,__version__)))
+        return 0
     from .file_open import DesktopApplication
     app=DesktopApplication(sys.argv[:1]);app.setApplicationName('AsterPDF');app.setApplicationVersion(__version__)
     app.setOrganizationName('AsterPDF');app.setStyle('Fusion')

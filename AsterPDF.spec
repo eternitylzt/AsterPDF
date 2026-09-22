@@ -11,6 +11,7 @@ data = [(str(root/'asterpdf'/'resources'), 'asterpdf/resources'),
         (str(root/'LICENSE'), 'licenses'),
         (str(root/'THIRD_PARTY_NOTICES.md'), 'licenses'),
         (str(root/'licenses'), 'licenses/third-party')]
+data += collect_data_files('certifi')
 a = Analysis([str(root/'run.py')], pathex=[str(root)], binaries=[], datas=data,
     hiddenimports=['PySide6.QtMultimedia','PySide6.QtMultimediaWidgets','pikepdf._core'],
     excludes=['PySide6.QtWebEngineCore','PySide6.QtWebEngineWidgets','PySide6.QtWebEngineQuick',

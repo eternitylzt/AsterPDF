@@ -1,0 +1,46 @@
+name: macOS certificate packaging repair
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -e '.[dev]'
+      - run: python -m pytest -q tests/test_network.py tests/test_release_121.py
+        env:
+          QT_QPA_PLATFORM: offscreen
+      - run: python scripts/collect_licenses.py
+      - run: python -m PyInstaller --noconfirm AsterPDF.spec
+      - name: Verify HTTPS inside the actual application without build-machine CA paths
+        run: SSL_CERT_FILE=/nonexistent/ca.pem SSL_CERT_DIR=/nonexistent dist/AsterPDF.app/Contents/MacOS/AsterPDF --verify-update
+      - run: |
+          python scripts/package.py
+          cp dist/AsterPDF-1.2.1-source.zip dist/AsterPDF-1.2.1-macos-source.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-repair
+          path: |
+            dist/AsterPDF-1.2.1-macos-arm64.tar.gz
+            dist/AsterPDF-1.2.1-macos-source.zip
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: macos-repair
+          path: packages
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view v1.2.1 --repo "$GITHUB_REPOSITORY"
+          gh release upload v1.2.1 --repo "$GITHUB_REPOSITORY" --clobber packages/AsterPDF-1.2.1-macos-arm64.tar.gz packages/AsterPDF-1.2.1-macos-source.zip

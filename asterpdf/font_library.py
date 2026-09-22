@@ -1,5 +1,6 @@
 """Opt-in OFL font discovery and app-private cache. No system installation."""
 from pathlib import Path
+from .network import tls_context
 import difflib
 import hashlib
 import json
@@ -17,7 +18,7 @@ RAW='https://raw.githubusercontent.com/google/fonts/main/'
 
 def get_bytes(url,limit=24*1024*1024):
     request=urllib.request.Request(url,headers={'User-Agent':'AsterPDF-fonts','Accept':'application/vnd.github+json'})
-    with urllib.request.urlopen(request,timeout=25) as response:
+    with urllib.request.urlopen(request,timeout=25,context=tls_context()) as response:
         data=response.read(limit+1)
     if len(data)>limit:raise ValueError(L('字体资源超过下载大小限制。','Font resource exceeds the download size limit.'))
     return data
