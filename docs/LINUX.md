@@ -47,7 +47,7 @@ The native package is recommended: it installs required desktop libraries automa
 
 ## Compatibility / 兼容性边界
 
-- Build baseline: AlmaLinux 8, glibc 2.28, Python 3.11, Qt/PySide 6.8.3. Every bundled ELF binary is checked for its GLIBC symbol requirements.
+- Build baseline: AlmaLinux 8, glibc 2.28, Python 3.11, Qt/PySide 6.8.3. Every bundled ELF binary is checked for its GLIBC symbol requirements. C++/GCC runtimes come from the host distribution so newer Mesa drivers are not shadowed by older bundled libraries.
 - Automated installation/X11 launch/removal checks: Ubuntu 20.04, Ubuntu 22.04, Ubuntu 24.04, Debian 12, Rocky Linux 8 and 9. See the [Linux workflow](https://github.com/eternitylzt/AsterPDF/actions/workflows/linux-release.yml) for completed results.
 - Distribution families alone do not guarantee compatibility. CentOS 7 (glibc 2.17), Alpine/musl and ARM machines are not supported by these x86-64 packages. Kernel version from `uname` alone does not establish the glibc version; use `ldd --version`.
 - Container/Xvfb checks cover package management and X11 startup, not physical GPU, audio, Wayland or all multimedia codecs. These still require real-desktop verification.

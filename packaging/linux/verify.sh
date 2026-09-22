@@ -9,12 +9,6 @@ else
 fi
 test -x /usr/bin/asterpdf
 test -f /usr/share/applications/asterpdf.desktop
-if [[ "${PROBE_HOST_RUNTIME:-}" == 1 ]]; then
-  # Diagnostic container only: check whether old bundled runtimes shadow Mesa.
-  find /opt/asterpdf/_internal -name 'libstdc++.so*' -delete
-  find /opt/asterpdf/_internal -name 'libgcc_s.so*' -delete
-  export LIBGL_DEBUG=verbose
-fi
 # Fail early if the multimedia plugin cannot load on this distribution.
 plugin=$(find /opt/asterpdf -name libffmpegmediaplugin.so -print -quit)
 test -n "$plugin"

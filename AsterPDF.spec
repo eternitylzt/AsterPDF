@@ -36,6 +36,11 @@ if sys.platform == 'win32':
     existing = {entry[0].lower() for entry in filtered}
     filtered.extend((p.name, str(p), 'BINARY') for p in runtimes.values() if p.name.lower() not in existing)
     a.binaries = filtered
+if sys.platform == 'linux':
+    # The glibc 2.28 build also targets newer distributions. Its old C++ runtime
+    # must not shadow the runtime needed by the host Mesa/NVIDIA driver.
+    a.binaries = [entry for entry in a.binaries
+                  if not Path(entry[0]).name.startswith(('libstdc++.so', 'libgcc_s.so'))]
 pyz = PYZ(a.pure)
 icon = root/'assets'/('asterpdf.icns' if sys.platform=='darwin' else 'asterpdf.ico')
 exe = EXE(pyz,a.scripts,[],exclude_binaries=True,name='AsterPDF',debug=False,
