@@ -26,10 +26,10 @@ jobs:
       - run: python -m pip install -e ".[dev]"
       - name: Release workflow regressions (Windows/macOS)
         if: runner.os != 'Linux'
-        run: python -m pytest -q tests/test_release_101.py tests/test_release_11.py tests/test_pdf_workflows.py tests/test_preservation.py tests/test_release_120.py -k "not video_selection_layer_and_playback"
+        run: python -m pytest -q tests/test_release_101.py tests/test_release_11.py tests/test_pdf_workflows.py tests/test_preservation.py tests/test_release_120.py tests/test_release_121.py -k "not video_selection_layer_and_playback"
       - name: Release workflow regressions (Linux headless)
         if: runner.os == 'Linux'
-        run: python -m pytest -q tests/test_release_101.py tests/test_release_11.py tests/test_pdf_workflows.py tests/test_preservation.py tests/test_release_120.py -k "not video_selection_layer_and_playback"
+        run: python -m pytest -q tests/test_release_101.py tests/test_release_11.py tests/test_pdf_workflows.py tests/test_preservation.py tests/test_release_120.py tests/test_release_121.py -k "not video_selection_layer_and_playback"
         env:
           QT_QPA_PLATFORM: offscreen
       - run: python scripts/collect_licenses.py

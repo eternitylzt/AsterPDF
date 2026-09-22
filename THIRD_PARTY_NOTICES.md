@@ -50,7 +50,10 @@ No Google Fonts binaries are bundled. The optional font lookup connects to https
 Ghostscript is **not bundled, downloaded or installed by AsterPDF**. If the user has installed it, the image pane can invoke its console executable with `-dSAFER` to convert a user-chosen EPS/PS file to a temporary PDF, then insert the vector content. The external installation retains its own copyright and license terms. No proprietary fonts from the user's PDF or system are included in the software distribution; clipboard PDF/font data stays in the local workflow.
 
 
-## Python-Markdown 3.10.3
+## Markdown and offline mathematics
 
-Markdown and embedded-HTML parsing. BSD-3-Clause. https://python-markdown.github.io/
-License: [Markdown-LICENSE.md](licenses/Markdown-LICENSE.md). No browser engine is bundled.
+- markdown-it-py 4.0.0, mdit-py-plugins 0.5.0, linkify-it-py 2.0.3, mdurl and uc-micro-py: MIT; license texts under `licenses/` and versions in `licenses/inventory.json`.
+- MathJax 3.2.2: Apache-2.0, copyright The MathJax Consortium. [License](licenses/MathJax-LICENSE.txt). A custom bundle contains the TeX base/AMS/newcommand packages, LiteAdaptor and SVG output with TeX glyph paths. Upstream: https://github.com/mathjax/MathJax-src/tree/3.2.2 . Reproducible build entry and dependency lock: `scripts/mathjax/`.
+- quickjs-ng 0.16.2.1 and its embedded QuickJS-NG engine: MIT; distribution license texts under `licenses/quickjs-ng/` and [engine license](licenses/QuickJS-NG-LICENSE.txt). Used only for the bundled math renderer, without filesystem, network or document-script bindings.
+
+No browser, Node.js runtime, LaTeX installation or system printer is required to read Markdown or render mathematics. Externally linked images may use the network. Formula output is vector outlines; ordinary Markdown text remains searchable.

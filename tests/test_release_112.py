@@ -156,7 +156,10 @@ def test_page_operations_retain_other_previews(ui,monkeypatch):
     assert t.organizer.count()==2 and t.organizer.item(0) is before[2] and t.organizer.item(1) is before[1]
 
 
-def test_markdown_html_table_and_linked_images(ui,tmp_path):
+def test_markdown_html_table_and_linked_images(ui,tmp_path,monkeypatch):
+    from PySide6 import QtPrintSupport
+    def no_system_printer(*args,**kwargs):raise AssertionError("Markdown must not initialize a system printer")
+    monkeypatch.setattr(QtPrintSupport,"QPrinter",no_system_printer)
     from asterpdf.markdown_import import prepare,render
     Image.new('RGB',(60,40),'red').save(tmp_path/'figure.png')
     (tmp_path/'logo.svg').write_text('<svg xmlns="http://www.w3.org/2000/svg" width="100" height="40"><rect width="100" height="40" fill="blue"/></svg>')

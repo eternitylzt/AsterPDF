@@ -1,3 +1,15 @@
+# AsterPDF 1.2.1 · Markdown verification
+
+2026-09-22, Windows native Qt. Six focused checks passed: vector formula PDF output, code-dollar preservation, nested lists and tables, visible unsupported-formula fallback, background import/save, image resources, and absence of system-printer initialization. The printer constructor is replaced with a failing stub in import regressions.
+
+The user-supplied FastQSL2 README (https://github.com/el2718/FastQSL2/blob/main/README.md) was opened locally: all 123 math occurrences converted successfully. Native rendered pages were inspected for inline fractions/vectors, nested code, tables containing formulas and a longer solar-wind equation. The user's file is not redistributed.
+
+Math rendering uses a checked-in MathJax SVG bundle and a bounded local JS context, without browser or OS/network bindings. Formula paths remain vector content in exported PDFs; ordinary text remains searchable. Markdown paging/fonts are not pixel-identical to a GitHub browser page. Release CI runs native builds and regression tests on Windows, macOS and Linux; physical macOS/Linux desktop behavior remains unverified here.
+
+The Windows 1.2.1 frozen executable passed the desktop check in 18.70 seconds: the supplied README produced 18 pages, 35,144 searchable text characters, one linked image and 1,942 vector drawing records, with zero formula-error markers. The original math example produced one page and 94 vector drawing records without raster images. Save/reopen, navigation and decoded video playback checks also passed. [Report](evidence/desktop-1.2.1.json) · [Original example screenshot](evidence/markdown-1.2.1.png).
+
+---
+
 # AsterPDF 1.2.0 · Validation / 验证
 
 Windows native Qt validation, 2026-09-20. Cross-platform automated regression checks and native packaging run in the release workflow; this is separate from physical macOS/Linux desktop validation, which has not been performed here.

@@ -1,0 +1,10 @@
+{
+  "dependencies": {
+    "esbuild": "^0.25.12",
+    "mathjax-full": "^3.2.2"
+  },
+  "private": true,
+  "scripts": {
+    "build": "node build.cjs"
+  }
+}

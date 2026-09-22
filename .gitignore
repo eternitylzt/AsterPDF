@@ -15,3 +15,5 @@ dist/
 *.zip
 *.tar.gz
 _internal/
+
+node_modules/

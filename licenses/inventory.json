@@ -92,11 +92,52 @@
     ]
   },
   {
-    "name": "Markdown",
-    "version": "3.10.3",
-    "license": "BSD-3-Clause",
+    "name": "markdown-it-py",
+    "version": "4.0.0",
+    "license": "",
     "files": [
-      "licenses\\Markdown\\licenses\\LICENSE.md"
+      "licenses\\markdown-it-py\\licenses\\LICENSE",
+      "licenses\\markdown-it-py\\licenses\\LICENSE.markdown-it"
+    ]
+  },
+  {
+    "name": "mdit-py-plugins",
+    "version": "0.5.0",
+    "license": "",
+    "files": [
+      "licenses\\mdit-py-plugins\\licenses\\LICENSE"
+    ]
+  },
+  {
+    "name": "linkify-it-py",
+    "version": "2.0.3",
+    "license": "MIT",
+    "files": [
+      "licenses\\linkify-it-py\\LICENSE"
+    ]
+  },
+  {
+    "name": "uc-micro-py",
+    "version": "2.0.0",
+    "license": "MIT",
+    "files": [
+      "licenses\\uc-micro-py\\licenses\\LICENSE"
+    ]
+  },
+  {
+    "name": "mdurl",
+    "version": "0.1.2",
+    "license": "",
+    "files": [
+      "licenses\\mdurl\\LICENSE"
+    ]
+  },
+  {
+    "name": "quickjs-ng",
+    "version": "0.16.2.1",
+    "license": "",
+    "files": [
+      "licenses\\quickjs-ng\\licenses\\LICENSE"
     ]
   }
 ]

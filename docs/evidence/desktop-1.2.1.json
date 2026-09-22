@@ -1,0 +1,86 @@
+{
+  "frozen": true,
+  "elapsed_seconds": 18.7,
+  "print": {
+    "started": true,
+    "done": true,
+    "passed": true,
+    "pages": 1
+  },
+  "passed": true,
+  "navigation": [
+    {
+      "check": "single-page Right key",
+      "passed": true
+    },
+    {
+      "check": "presentation Left key",
+      "passed": true
+    },
+    {
+      "check": "presentation Escape",
+      "passed": true
+    },
+    {
+      "check": "single-page Right key",
+      "passed": true
+    },
+    {
+      "check": "presentation Left key",
+      "passed": true
+    },
+    {
+      "check": "presentation Escape",
+      "passed": true
+    },
+    {
+      "check": "single-page Right key",
+      "passed": true
+    },
+    {
+      "check": "presentation Left key",
+      "passed": true
+    },
+    {
+      "check": "presentation Escape",
+      "passed": true
+    }
+  ],
+  "text_edit": {
+    "done": true,
+    "passed": true,
+    "system_font_edit_save_reopen": true
+  },
+  "documents": [
+    {
+      "pages": 1,
+      "rendered_pages": 1,
+      "animation_frames": 0,
+      "video_frames": 51,
+      "media_position_ms": 2041
+    },
+    {
+      "pages": 1,
+      "rendered_pages": 2,
+      "animation_frames": 0,
+      "video_frames": 0,
+      "media_position_ms": 0,
+      "markdown_characters": 319,
+      "markdown_images": 0,
+      "markdown_vector_paths": 94,
+      "markdown_formula_errors": 0
+    },
+    {
+      "pages": 18,
+      "rendered_pages": 3,
+      "animation_frames": 0,
+      "video_frames": 0,
+      "media_position_ms": 0,
+      "markdown_characters": 35144,
+      "markdown_images": 1,
+      "markdown_vector_paths": 1942,
+      "markdown_formula_errors": 0
+    }
+  ],
+  "errors": []
+}

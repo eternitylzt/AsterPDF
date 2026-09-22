@@ -74,3 +74,15 @@ python -m asterpdf --smoke-test --data-dir ./test-data examples/AsterPDF-demo.pd
 ```
 
 This opens the desktop window and exits after four seconds. It proves startup only, not animation or video success. Dedicated workflow/decoder evidence is recorded separately.
+
+## Rebuilding the offline mathematics bundle (maintainers only)
+
+The checked-in `asterpdf/resources/mathjax-svg.js` is included in normal Python/source and desktop builds. Users need neither Node.js nor LaTeX. To regenerate it:
+
+```sh
+cd scripts/mathjax
+npm ci
+npm run build
+```
+
+Only MathJax modules imported by `entry.cjs` enter the bundle. Node packages, browser adapters, speech engines and network loaders are not shipped. Keep the generated bundle, wrapper source, dependency lock and MathJax license together.

@@ -17,6 +17,7 @@ An offline desktop PDF workspace for research and technical documents.
 ## What makes it useful
 
 - **Read animated papers.** Play recognized LaTeX `animate` icon/widget sequences and embedded video/audio inside the document, including presentation mode.
+- **Markdown and video.** Read mathematical Markdown and export PDF; insert videos, save embedded media and arrange media layers.
 - **Extract research figures.** Export high-resolution regions, extract embedded raster images at their original resolution, or save a cropped PDF that retains text and vectors.
 - **Edit real PDF content.** Modify identifiable text, images and vector groups. Preserve untouched glyphs; move, resize, delete and paste objects in place across documents. Insert vector PDF figures.
 - **Annotate and organize.** Standard PDF comments, character-range markup, reflowing text annotations, page drag/reorder, merge queues, extraction, rotation and adjustable cropping.
@@ -24,19 +25,17 @@ An offline desktop PDF workspace for research and technical documents.
 
 No account. No cloud dependency. PDF processing stays on your computer.
 
-## 1.2.0 · New since published 1.0.1
+## 1.2.1 · New since 1.2.0
 
-- **More document formats:** read Markdown with local/linked images and tables, then save as PDF. Import EPS/PS through optional Ghostscript.
-- **Video inside your document:** insert videos or replace images with video; right-click to save embedded media or export animation frames. Select existing/inserted media from a list and bring it forward or send it back.
-- **Direct drawing and annotation:** a shape palette, independent inline annotation styles, batch styling and replacement-text comments.
-- **Regional recoloring and arrangement:** recolor text, vectors and images using ordered color pairs and saved schemes; arrange text, images and shapes.
-- **Smoother everyday work:** preserve unchanged page previews; improve paste-in-place, transparent-image copying, recent files, playback controls and save-on-close.
+- **Offline mathematics:** inline/display TeX and fenced `math` blocks in Markdown, preserved as vector paths in exported PDF.
+- **Closer to GitHub formatting:** improved nested lists/code, tables, task lists, links and image proportions.
+- **No printer connection:** Markdown opens through a direct PDF writer, without querying the system default printer.
 
-[Release notes](docs/RELEASE_NOTES.md)
+[Release notes](docs/RELEASE_NOTES.md) · [Math example](examples/Markdown-math.md) · [Screenshot](docs/evidence/markdown-1.2.1.png)
 
 ## Run
 
-**Windows x64:** extract the complete `AsterPDF-1.2.0-windows-amd64.zip`, then run `AsterPDF/AsterPDF.exe`. Keep the accompanying `_internal` folder. No Python installation is required; the executable is unsigned.
+**Windows x64:** extract the complete `AsterPDF-1.2.1-windows-amd64.zip`, then run `AsterPDF/AsterPDF.exe`. Keep the accompanying `_internal` folder. No Python installation is required; the executable is unsigned.
 
 **macOS / Linux:** download the native archive from the GitHub Release. The automated build verifies packaging on each target; see the validation and compatibility documents for the features tested on real desktops.
 
@@ -81,4 +80,4 @@ Source and native Windows/macOS/Linux builds are published in [GitHub Releases](
 
 ### Format and media notes
 
-Markdown uses a lightweight parser to produce searchable PDF, including common tables and images; it is not a full browser layout engine and adds no WebEngine. EPS/PS requires a separate Ghostscript installation. Media layer controls reorder same-page media annotations; interactive players remain above ordinary page content. Animation export contains a vector-frame PDF and timing information, not a transcoded MP4. Media support varies by reader, system and codec.
+Markdown uses a lightweight parser to produce searchable PDF, including mathematics, common tables and images; it is not a full browser layout engine and adds no WebEngine. EPS/PS requires a separate Ghostscript installation. Media layer controls reorder same-page media annotations; interactive players remain above ordinary page content. Animation export contains a vector-frame PDF and timing information, not a transcoded MP4. Media support varies by reader, system and codec.

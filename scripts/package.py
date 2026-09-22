@@ -11,7 +11,7 @@ version=runpy.run_path(str(root/'asterpdf/__init__.py'))['__version__']
 osname={'win32':'windows','darwin':'macos'}.get(sys.platform,'linux')
 arch=platform.machine().lower()
 source=dist/f'AsterPDF-{version}-source.zip'
-excluded={'.git','.venv','dist','build','__pycache__','.pytest_cache','_internal'}
+excluded={'.git','.venv','dist','build','__pycache__','node_modules','.pytest_cache','_internal'}
 with zipfile.ZipFile(source,'w',zipfile.ZIP_DEFLATED,compresslevel=6) as z:
     for p in root.rglob('*'):
         if p.is_file() and p.suffix.lower() not in ('.exe','.zip','.gz') and not any(x in excluded or x.endswith('.egg-info') for x in p.relative_to(root).parts):

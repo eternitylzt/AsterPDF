@@ -1,8 +1,8 @@
-# AsterPDF 1.2.0 compatibility / 兼容性
+# AsterPDF 1.2.1 compatibility / 兼容性
 
 ## Formats, editing and media / 格式、编辑与媒体
 
-Markdown imports common tables, local/HTTP(S) images and SVG through a lightweight parser and Qt PDF printing, not a browser/CSS engine. Missing images show placeholders; mathematical extensions are not implemented. EPS/PS requires installed Ghostscript. Converted files use Save As PDF and leave the original source intact.
+Markdown uses a CommonMark/GFM-style parser for nested lists/code, tables, tasks, links and images. It writes PDF directly without the system printer. Offline MathJax renders `$...$`, `$$...$$` and fenced `math` blocks (base, AMS and bounded local macros) as vector paths. Unknown TeX remains visibly marked with its source; TikZ, arbitrary LaTeX packages and full browser CSS are unsupported. Formulas are vector outlines, not searchable/editable text; surrounding text remains searchable. Missing images show placeholders. Pagination and fonts differ from the continuous GitHub web page. EPS/PS requires installed Ghostscript. Converted files use Save As PDF and leave the original source intact.
 
 Video insertion uses Screen/Rendition annotations. Media layer controls reorder original Screen/Movie/RichMedia annotations, preserving payloads and actions; interactive playback stays above page content. Screen playback and overlapping-player masks were tested on Windows. Movie/RichMedia stacking has structural fixture tests, not independent real-world playback coverage.
 

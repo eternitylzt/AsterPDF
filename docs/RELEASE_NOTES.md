@@ -1,34 +1,28 @@
-# AsterPDF 1.2.0
+# AsterPDF 1.2.1
 
-**Read · Edit · Animate · Annotate · Extract**
+## 中文 · 相比 1.2.0
 
-## 中文 · 相比已发布的 1.0.1
+- 修复打开 Markdown 时出现“正在等待连接打印机”：改为直接生成 PDF，不再初始化系统打印机。
+- 支持离线数学公式：行内 `$...$`、独立 `$$...$$` 与 `math` 代码块，包含常见分式、积分、向量、上下标及矩阵。公式在导出的 PDF 中保留矢量质量。
+- 改善 GitHub 风格 Markdown 排版：嵌套列表、列表内代码块、表格、任务列表、链接和图片比例；代码中的美元符号保持原文。
+- 使用用户提供的 FastQSL2 README 验证：123 处公式全部成功排版，并检查实际页面效果。
 
-- 打开 Markdown，支持常见表格、本地及链接图片，并可另存为 PDF；通过可选 Ghostscript 打开 EPS/PS。
-- 插入视频或用视频替换图片；新插入与已有媒体可在列表和页面中选择、置顶/置底。右键保存内嵌音视频、导出动画帧、呼出悬浮播放控件。
-- 新形状面板，绘制后可选择、自由调整和设置样式；文字、图片、图形支持层级调整。
-- 独立的批注样式设置、批量选中修改，支持删除并添加文字的替换批注。
-- 区域换色覆盖文字、矢量和图片；多个颜色对按列表顺序生效，可仅应用选中项、保存及复用方案。
-- 改善页面操作时的预览复用、原位粘贴、透明图片复制、最近文件、文档链接、工具状态和关闭保存体验。
+## English · Changes since 1.2.0
 
-## English · Changes since published 1.0.1
+- Open Markdown without initializing the system printer, eliminating the wait-for-printer path.
+- Offline inline/display TeX and fenced `math` blocks: fractions, integrals, vectors, scripts and matrices, preserved as vector paths in PDF exports.
+- Improved GitHub-style nested lists/code, tables, tasks, links and image proportions. Dollar signs inside code remain literal.
+- Validated all 123 formula occurrences in the supplied FastQSL2 README and inspected the rendered pages.
 
-- Read Markdown with common tables and local/linked images; save as PDF. Open EPS/PS with optional Ghostscript.
-- Insert video or replace images with video. Select existing/inserted media on the page or in a list and arrange its stacking order. Right-click to save embedded media, export animation frames or show floating playback controls.
-- Draw from a shape palette, select and resize shapes, and change their styles. Arrange text, images and shapes.
-- Independent inline annotation presets, batch styling and replacement-text comments.
-- Regional recoloring of text, vectors and images, ordered color pairs, selected-pair application and reusable schemes.
-- Improved page-preview reuse, paste-in-place, transparent-image copying, recent files, document links, tool states and save-on-close behavior.
+No browser engine, Node.js runtime or LaTeX installation required. Formulas become vector outlines; surrounding text remains searchable. Unsupported TeX shows a visible source fallback. Browser CSS, TikZ and arbitrary LaTeX packages are not supported; PDF pagination and fonts differ from GitHub's web page.
+
+无需浏览器引擎、Node.js 或 LaTeX。公式导出为矢量轮廓，正文仍可搜索；不支持的公式会显示原文提示。分页和字体与 GitHub 网页存在差异，不支持完整网页 CSS、TikZ 或任意 LaTeX 宏包。
 
 ## Downloads / 下载
 
-- **Windows x64**: unzip the entire archive and run `AsterPDF/AsterPDF.exe`.
-- **macOS Apple Silicon**: unpack the archive and open `AsterPDF.app`. Unsigned / 未签名。
-- **Linux x64**: unpack the archive, then run `./AsterPDF/AsterPDF`; see [Linux setup](https://github.com/eternitylzt/AsterPDF/blob/main/docs/BUILDING.md) for system libraries.
-- Matching source ZIP is included / 同时提供对应源码 ZIP。无需逐平台 SHA 附件。
+- Windows x64: unzip completely, run `AsterPDF/AsterPDF.exe`.
+- macOS Apple Silicon: unpack, open `AsterPDF.app` (unsigned / 未签名).
+- Linux x64: unpack, run `./AsterPDF/AsterPDF`.
+- Matching source ZIP included. No separate per-platform SHA attachments.
 
-Media stacking changes annotation order; interactive video remains above page content. Animation export is a vector-frame PDF plus timing metadata. Codec support varies. / 媒体层级指批注叠放顺序，交互播放层仍在正文之上；动画导出为矢量帧 PDF 和帧率信息，编码支持因平台而异。
-
-Windows desktop playback and save/reopen workflows were tested. Native builds and regression checks run on all three platforms; macOS/Linux interactive desktop use still needs user verification. / 已实测 Windows 桌面播放及保存重开；三个平台均执行原生构建与回归检查，macOS/Linux 真机交互仍需用户验证。
-
-[Compatibility / 兼容性](https://github.com/eternitylzt/AsterPDF/blob/main/docs/COMPATIBILITY.md) · [Validation / 验证](https://github.com/eternitylzt/AsterPDF/blob/main/docs/VALIDATION.md)
+[Build / 安装与构建](https://github.com/eternitylzt/AsterPDF/blob/main/docs/BUILDING.md) · [Compatibility / 兼容性](https://github.com/eternitylzt/AsterPDF/blob/main/docs/COMPATIBILITY.md)

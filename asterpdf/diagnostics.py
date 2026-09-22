@@ -82,6 +82,8 @@ def start(window, directory, expected_files):
                 with ENGINE_LOCK,fitz.open(tab.document.path) as pdf:
                     sample['markdown_characters']=sum(len(page.get_text()) for page in pdf)
                     sample['markdown_images']=sum(len(page.get_images()) for page in pdf)
+                    sample['markdown_vector_paths']=sum(len(page.get_drawings()) for page in pdf)
+                    sample['markdown_formula_errors']=sum(page.get_text().count('[Formula:') for page in pdf)
             sample['rendered_pages']=max(sample['rendered_pages'],len(tab.canvas.cache))
             sample['animation_frames']=sum(p.rendered_frames for p in tab.players.values())
             sample['video_frames']=sum(p.actual_video_frames for p in tab.video_players)

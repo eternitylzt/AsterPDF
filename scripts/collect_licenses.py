@@ -7,7 +7,7 @@ import json
 ROOT=Path(__file__).resolve().parents[1]
 target=ROOT/'licenses';target.mkdir(exist_ok=True)
 packages=['PySide6','PySide6-Essentials','PySide6-Addons','shiboken6','PyMuPDF','pikepdf',
-          'Pillow','lxml','Deprecated','wrapt','packaging','Markdown']
+          'Pillow','lxml','Deprecated','wrapt','packaging','markdown-it-py','mdit-py-plugins','linkify-it-py','uc-micro-py','mdurl','quickjs-ng']
 inventory=[]
 for name in packages:
     dist=metadata.distribution(name)
