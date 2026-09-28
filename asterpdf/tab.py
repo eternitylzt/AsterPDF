@@ -152,6 +152,8 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
         self.thumbnail_timer.start(300)
         self.thumbnails.verticalScrollBar().valueChanged.connect(lambda: self.thumbnail_timer.start(100))
         self.organizer.verticalScrollBar().valueChanged.connect(lambda:self.thumbnail_timer.start(100))
+        from .form_controls import FormControls
+        self.forms=FormControls(self)
 
     def build(self):
         layout = QVBoxLayout(self); layout.setContentsMargins(0,0,0,0); layout.setSpacing(0)
@@ -249,7 +251,7 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
         self.outline = QTreeWidget(); self.outline.setHeaderHidden(True)
         self.outline.setStyleSheet('QTreeWidget::item {padding:5px 3px;min-height:22px;}');self.outline.setIndentation(16);self.outline.setUniformRowHeights(True)
         self.outline.setHorizontalScrollMode(QAbstractItemView.ScrollPerPixel);self.outline.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
-        self.outline.itemClicked.connect(lambda item,c: self.goto(item.data(0,Qt.UserRole)))
+        self.outline.itemClicked.connect(lambda item,c: self.activate_link(item.data(0,Qt.UserRole+1)) if item.data(0,Qt.UserRole+1) else self.goto(item.data(0,Qt.UserRole)))
         self.sidebar.addTab(self.outline, tr('outline'))
         from .ui_details import BookmarkDelegate
         self.bookmarks = QListWidget();self.bookmarks.setItemDelegate(BookmarkDelegate(self.bookmarks)); self.bookmarks.itemClicked.connect(lambda item:self.goto(item.data(Qt.UserRole)))
@@ -333,6 +335,9 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
         self.open_panel(key)
 
     def open_panel(self,key):
+        if hasattr(self,'forms'):
+            if self.forms.dirty or self.forms.writing:self.forms.flush(lambda:self.open_panel(key));return
+            self.forms.dismiss()
         if self.inline_editor and self.inline_dirty():
             self.leave_inline(lambda:self.open_panel(key));return
         self.leave_color_tools()
@@ -450,6 +455,8 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
         if self.job: self.job.cancelled = True
 
     def run(self, label, function, success=None, editing=False, cancellable=False, failure=None, fast_objects=False,local_edit=False,page_update=None):
+        if hasattr(self,'forms') and self.forms.dirty and not self.forms.writing:
+            self.forms.flush(lambda:self.run(label,function,success,editing,cancellable,failure,fast_objects,local_edit,page_update));return
         if self.busy: return
         self.busy = True
         edit_page=self.canvas.page
@@ -522,8 +529,9 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
             listing.blockSignals(False);listing.setUpdatesEnabled(True);listing.verticalScrollBar().setValue(scroll)
         self.page_spin.blockSignals(True);self.page_spin.setMaximum(self.info['count']);self.page_spin.blockSignals(False);self.page_count.setText(f" / {self.info['count']}  ")
         self.outline.clear();parents={0:self.outline.invisibleRootItem()}
-        for level,title,page in self.info['toc']:
+        for index,(level,title,page) in enumerate(self.info['toc']):
             item=QTreeWidgetItem([title]);item.setData(0,Qt.UserRole,max(0,page-1));parents.get(level-1,parents[0]).addChild(item);parents[level]=item
+            if index<len(self.info.get('toc_destinations',[])):item.setData(0,Qt.UserRole+1,self.info['toc_destinations'][index])
         self.outline.expandToDepth(1);self.refresh_bookmarks();self.zoom_organizer();self.canvas.layout_pages();self.current_changed(self.canvas.page)
         self.links.clear();self.object_cache.clear();self.image_cache.clear();self.load_annotations();self.load_characters(self.canvas.page)
         for p in self.video_players:p.shutdown();p.deleteLater()
@@ -587,8 +595,9 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
         for i in selected:
             if i<self.organizer.count():self.organizer.item(i).setSelected(True)
         self.outline.clear(); parents={0:self.outline.invisibleRootItem()}
-        for level,title,page in self.info['toc']:
+        for index,(level,title,page) in enumerate(self.info['toc']):
             item=QTreeWidgetItem([title]);item.setToolTip(0,title); item.setData(0,Qt.UserRole,max(0,page-1))
+            if index<len(self.info.get('toc_destinations',[])):item.setData(0,Qt.UserRole+1,self.info['toc_destinations'][index])
             parents.get(level-1,parents[0]).addChild(item); parents[level]=item
         self.outline.expandToDepth(1); self.refresh_bookmarks();self.zoom_organizer()
 
@@ -824,13 +833,16 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
         page=item.data(Qt.UserRole)
         if action==remove:self.bookmark_pages.discard(page)
         elif action==rename:
-            name,ok=QInputDialog.getText(self,L('重命名书签','Rename bookmark'),L('名称','Name'),text=item.text())
+            name,ok=QInputDialog.getText(self,L('重命名收藏','Rename favorite'),L('名称','Name'),text=item.text())
             if ok and name.strip():self.bookmark_names[str(page)]=name.strip()
         self.refresh_bookmarks()
 
     def save_state(self):
         state={'page':self.canvas.page,'zoom_factor':self.zoom_factor,'bookmarks':sorted(self.bookmark_pages),'bookmark_names':self.bookmark_names}
         self.window.settings.setValue(self.state_key,json.dumps(state))
+
+    def form_dirty(self):
+        return hasattr(self,'forms') and self.forms.dirty
 
     def show_search(self):
         self.sidebar.show();self.sidebar.setCurrentWidget(self.search_panel);self.search_input.setFocus();self.search_input.selectAll()

@@ -2,7 +2,7 @@
 
 ## Reading
 
-Use the pointer to select text and images, or the hand to pan. Left/right turns pages; up/down scrolls. In single page mode the wheel turns pages at the edge. F5 enters presentation; Escape exits. The sidebar contains Pages, Outline, Bookmarks, Search, Annotations and Images.
+Use the pointer to select text and images, or the hand to pan. Left/right turns pages; up/down scrolls. In single page mode the wheel turns pages at the edge. F5 enters presentation; Escape exits. The sidebar contains Pages, Outline, Favorites, Search, Annotations and Images.
 
 ## Object editing and fonts
 
@@ -75,7 +75,7 @@ Ctrl+, opens categorized preferences, with three interface font sizes and option
 
 Page transforms use the selected organizer item. Rotate/Flip acts immediately; Cancel reverses this tool session; leaving keeps changes. New text boxes start at caret width, expand while typing, wrap after border resizing and rotate with the circular handle or angle field. Ctrl+Enter applies; Esc cancels.
 
-Quick overview uses automatic dimensions, a half-screen height cap and 80% opacity. Ctrl+wheel changes scale gently. Bookmark stars track the current page; right-click a bookmark to rename.
+Quick overview uses automatic dimensions, a half-screen height cap and 80% opacity. Ctrl+wheel changes scale gently. Favorite stars track the current page; right-click a favorite to rename.
 
 
 ## 1.0 recoloring and search
@@ -95,3 +95,11 @@ Applied text is searchable. Use F3 / Shift+F3 or Previous/Next to cycle matches;
 ## usage
 
 Single-click recent files to select and double-click to open; right-click to copy names/paths or remove entries. Recolor region outlines disappear when leaving the tool. Image editing supports front/back stacking. Right-click media to extract original video/audio or animation source ZIP (all vector PDF frames plus timing). Playback controls float within the window, the right grip adjusts only their width, and presentation dismisses them. Organizer preview supports 2–50%. Preferences → General can restore the close confirmation.
+
+## 1.3 · Favorites, forms and reading
+
+Reading bookmarks are now Favorites. Existing records remain available through the sidebar, menus and star button.
+
+Use the pointer to fill pale-blue AcroForm fields in place. Tab/Shift+Tab moves focus; Space selects a check/radio button; common date fields offer a calendar. Ctrl+S saves an interactive form and unsaved input is recoverable. Toggle highlights in View or Reading preferences. Arbitrary scripts, XFA and filling signed documents are unsupported. Rich-text edits are plain text, with an inline notice.
+
+F11 shows only the document with previously visible media controls and overview; F11/Esc restores the interface. Markdown defaults to a long page with heading outlines and code blocks rendered directly in the document. Save As PDF defaults to A4 or offers a long page; edited content keeps its existing layout. Markdown options are grouped in Preferences. Double-click page gaps to collapse them and double-click the faint divider to expand them; hover cursors indicate the action.

@@ -119,7 +119,8 @@ class Document:
     def info(self):
         with fitz.open(self.path) as doc, pp.open(self.path) as pdf:
             return {'count': len(doc), 'sizes': [(p.rect.width, p.rect.height) for p in doc],
-                    'toc': doc.get_toc(), 'metadata': doc.metadata,
+                    'toc': doc.get_toc(), 'toc_destinations': [entry[3] for entry in doc.get_toc(simple=False)], 'metadata': doc.metadata,
+                    'has_forms': bool(pdf.Root.get('/AcroForm')),
                     'annotations': annotation_inventory(pdf),
                     'warnings': feature_warnings(pdf)}
 

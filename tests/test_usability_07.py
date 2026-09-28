@@ -96,6 +96,7 @@ def test_real_crash_recovery_and_draft(ui,tmp_path,monkeypatch):
 def test_close_all_activates_and_saves_each_dirty_tab(ui,tmp_path,monkeypatch):
     from asterpdf.tab import DocumentTab
     app,w,t,pump=ui
+    w.settings.setValue('window/confirm_close',False)
     t.document.add_annotation(0,'note',[(50,50),(50,50)],text='First changed')
     second_source=tmp_path/'second.pdf';second_source.write_bytes(Path(t.document.original).read_bytes())
     second=Document(second_source,tmp_path/'second-recovery');other=DocumentTab(w,second,second.info());w.tabs.addTab(other,'second');w.tabs.setCurrentWidget(t)

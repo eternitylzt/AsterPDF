@@ -21,15 +21,23 @@ An offline desktop PDF workspace for research and technical documents.
 - **Extract research figures.** Export high-resolution regions, extract embedded raster images at their original resolution, or save a cropped PDF that retains text and vectors.
 - **Edit real PDF content.** Modify identifiable text, images and vector groups. Preserve untouched glyphs; move, resize, delete and paste objects in place across documents. Insert vector PDF figures.
 - **Annotate and organize.** Standard PDF comments, character-range markup, reflowing text annotations, page drag/reorder, merge queues, extraction, rotation and adjustable cropping.
-- **Navigate comfortably.** Tabs, search, outlines, named bookmarks and a floating Quick overview. Native-DPI rendering, light/dark UI, Chinese/English, customizable tools and local crash recovery.
+- **Fill PDF forms in place.** Standard AcroForm text, checkboxes, radio groups, choices, multi-select lists and common dates, with field highlighting, Tab navigation, saving and recovery drafts.
+- **Navigate comfortably.** Tabs, search, outlines, named favorites and a floating Quick overview. Native-DPI rendering, light/dark UI, Chinese/English, customizable tools and local crash recovery.
 
 No account. No cloud dependency. PDF processing stays on your computer.
 
-## 1.2.1 · New since 1.2.0
+### Reading controls
 
-- **Offline mathematics:** inline/display TeX and fenced `math` blocks in Markdown, preserved as vector paths in exported PDF.
-- **Closer to GitHub formatting:** improved nested lists/code, tables, task lists, links and image proportions.
-- **No printer connection:** Markdown opens through a direct PDF writer, without querying the system default printer.
+- **F11:** document-only fullscreen; already visible playback controls and Quick overview remain available. Press F11 or Esc to restore the interface. F5 remains presentation mode.
+- **Markdown:** headings appear in Outline with jump destinations. Documents open as one continuous page by default. Save As offers A4 pagination (default) or a long page, independently of the reading layout. Code blocks use the original document layout without added scrolling overlays; export includes all code. Settings → Preferences → Markdown groups reading and export defaults. Reopen the document to change reading pagination. After PDF edits, Save As preserves the current layout to avoid losing those edits.
+- **Page gaps:** double-click between pages to remove the spacing, and double-click the faint divider to restore it. Hover cursors indicate collapse/expand. Also available in View → Hide / show page gaps. This changes display spacing only, not the page's own white margins or PDF content.
+
+## 1.3.0 · New since published 1.2.1
+
+- **Standard PDF form filling:** in-place input, date picking, linked fields, real field values and appearances, undo and recovery. [Supported scope](docs/FORMS.md)
+- **Markdown reading/export:** heading outlines, continuous long-page reading, independent A4/long-page export, native code-block rendering and grouped preferences.
+- **Document fullscreen and tight spacing:** F11 keeps existing playback/overview controls; double-click a page gap to hide or restore it.
+- **Favorites:** renamed personal reading bookmarks throughout the interface while retaining saved entries and custom names.
 
 [Release notes](docs/RELEASE_NOTES.md) · [Math example](examples/Markdown-math.md) · [Screenshot](docs/evidence/markdown-1.2.1.png)
 
@@ -37,7 +45,7 @@ No account. No cloud dependency. PDF processing stays on your computer.
 
 [Linux installation: deb / rpm / portable](docs/LINUX.md)
 
-**Windows x64:** extract the complete `AsterPDF-1.2.1-windows-amd64.zip`, then run `AsterPDF/AsterPDF.exe`. Keep the accompanying `_internal` folder. No Python installation is required; the executable is unsigned.
+**Windows x64:** extract the complete `AsterPDF-1.3.0-windows-amd64.zip`, then run `AsterPDF/AsterPDF.exe`. Keep the accompanying `_internal` folder. No Python installation is required; the executable is unsigned.
 
 **macOS / Linux:** download the native archive from the GitHub Release. The automated build verifies packaging on each target; see the validation and compatibility documents for the features tested on real desktops.
 

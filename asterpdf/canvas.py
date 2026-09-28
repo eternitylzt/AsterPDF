@@ -2,7 +2,7 @@ from __future__ import annotations
 from collections import OrderedDict
 import math
 from PySide6.QtCore import Qt, QRectF, QPointF, Signal, QSize, QTimer, QEvent
-from PySide6.QtGui import QColor, QPainter, QPen, QPixmap, QFont, QPolygonF, QPainterPath, QPainterPathStroker
+from PySide6.QtGui import QColor, QPainter, QPen, QPixmap, QFont, QPolygonF, QPainterPath, QPainterPathStroker, QCursor
 from PySide6.QtWidgets import QWidget, QScrollArea, QToolTip
 from .i18n import tr, L
 
@@ -25,6 +25,7 @@ class Canvas(QWidget):
         self.scale = 1.2
         self.continuous = True
         self.columns = 1
+        self.compact_pages = False
         self.laying_out = False
         self.fallback = {}
         self.cache_bytes=0;self.cache_limit=64*1024*1024;self.last_dpr=self.devicePixelRatioF();self.render_jobs={}
@@ -105,7 +106,8 @@ class Canvas(QWidget):
         rows = [list(range(i, min(i+cols, len(self.sizes)))) for i in range(0, len(self.sizes), cols)]
         if not self.continuous:
             rows = [row for row in rows if self.page in row]
-        width = max(available, int(max((sum(self.sizes[i][0]*self.scale for i in row)+16*(len(row)-1) for row in rows), default=600)+32))
+        gap_x=0 if self.compact_pages else 16;gap_y=0 if self.compact_pages else 28
+        width = max(available, int(max((sum(self.sizes[i][0]*self.scale for i in row)+gap_x*(len(row)-1) for row in rows), default=600)+32))
         self.rects = [QRectF() for _ in self.sizes]
         inset=getattr(self.tab,'reading_inset',0)
         viewport_height=self.tab.scroll.viewport().height()
@@ -114,13 +116,13 @@ class Canvas(QWidget):
             height=max(self.sizes[i][1]*self.scale for i in rows[0])
             y=inset+max(16,(viewport_height-inset-height)/2)
         for row in rows:
-            rowwidth = sum(self.sizes[i][0]*self.scale for i in row)+16*(len(row)-1)
+            rowwidth = sum(self.sizes[i][0]*self.scale for i in row)+gap_x*(len(row)-1)
             x = (width-rowwidth)/2
             for i in row:
                 w,h = self.sizes[i]
                 self.rects[i] = QRectF(x,y,w*self.scale,h*self.scale)
-                x += w*self.scale+16
-            y += max(self.sizes[i][1]*self.scale for i in row)+28
+                x += w*self.scale+gap_x
+            y += max(self.sizes[i][1]*self.scale for i in row)+gap_y
         self.resize(width, max(int(y if self.continuous else max((r.bottom()+16 for r in self.rects),default=0)), viewport_height))
         self.laying_out = False
         self.tab.position_video()
@@ -213,11 +215,12 @@ class Canvas(QWidget):
             if rect.isEmpty() or not rect.intersects(QRectF(event.rect())):
                 continue
             visible.append(i)
-            painter.fillRect(rect.translated(0, 3), QColor(0, 0, 0, 22))
+            if not self.compact_pages:painter.fillRect(rect.translated(0, 3), QColor(0, 0, 0, 22))
             painter.fillRect(rect, QColor('#18202c' if self.tab.night else 'white'))
             self.paint_page(painter,i,rect,QRectF(event.rect()))
+            if hasattr(self.tab,'forms'):self.tab.forms.paint(painter,i)
             painter.setPen(QColor('#8190a4'))
-            painter.drawText(QRectF(rect.x(), rect.bottom()+3, rect.width(), 22), Qt.AlignCenter, str(i+1))
+            if not self.compact_pages:painter.drawText(QRectF(rect.x(), rect.bottom()+3, rect.width(), 22), Qt.AlignCenter, str(i+1))
             for a in self.tab.animations:
                 if a.page == i:
                     frame = self.frame_pixmaps.get((a.page, a.key))
@@ -358,6 +361,10 @@ class Canvas(QWidget):
             for it in self.tab.annotation_list.selectedItems():
                 chosen=it.data(Qt.UserRole)
                 if chosen['page']==self.page:painter.drawRect(self.page_rect(chosen['page'],chosen['rect']))
+        if self.compact_pages:
+            painter.setPen(QPen(QColor('#768496' if self.tab.night else '#b5bdc8'),1))
+            for hit,start,end,axis in self.page_seams():
+                if hit.intersects(QRectF(event.rect())):painter.drawLine(start,end)
         painter.end()
 
     def active_text_annotation(self):
@@ -426,7 +433,14 @@ class Canvas(QWidget):
         return QRectF(box.right()-5,box.bottom()-5,10,10) if box else QRectF()
 
     def mousePressEvent(self, event):
-        if event.button() != Qt.LeftButton or self.tab.busy: return
+        if event.button() != Qt.LeftButton: return
+        if self.mode in ('select','hand') and self.on_page_seam(event.position()):
+            self.seam_pressed=True;self.drag_page=-1;self.points=[];self.pan_anchor=None;event.accept();return
+        if hasattr(self.tab,'forms') and self.tab.forms.enabled():
+            page,point=self.locate(event.position());field=self.tab.forms.hit(page,point)
+            if field:self.tab.forms.activate(field);event.accept();return
+            if self.tab.forms.editor:self.tab.forms.flush(self.tab.forms.dismiss);event.accept();return
+        if self.tab.busy:return
         if self.tab.inline_editor:
             self.tab.leave_inline(lambda:None);return
         self.setFocus()
@@ -524,6 +538,11 @@ class Canvas(QWidget):
         self.update()
 
     def mouseMoveEvent(self, event):
+        if self.drag_page<0 and not self.pan_anchor and self.mode in ('select','hand'):
+            seam=self.seam_at(event.position())
+            if seam is not None:
+                self.setCursor(self.page_seam_cursor(self.page_seams()[seam][3]));self.setToolTip(L('双击展开页间距','Double-click to expand page gaps') if self.compact_pages else L('双击合并页间距','Double-click to collapse page gaps'));return
+            if self.mode=='hand':self.setCursor(Qt.OpenHandCursor)
         if getattr(self,'shape_rotation',None):
             center,start,angle,box,preview=self.shape_rotation;delta=event.position()-center
             angle=math.degrees(math.atan2(delta.y(),delta.x())-start)
@@ -582,6 +601,11 @@ class Canvas(QWidget):
                 if any(asset.page==i and qrect(asset.rect).contains(p) for asset in self.tab.assets):self.setCursor(Qt.PointingHandCursor)
             if ann and self.tab.active_panel=='annotate'  and ann['type'] in ('Text','FreeText'):
                 self.setCursor(Qt.SizeAllCursor)
+            if hasattr(self.tab,'forms'):
+                field=self.tab.forms.hit(i,p)
+                if field:
+                    self.setCursor(Qt.IBeamCursor if field['kind']=='text' else Qt.PointingHandCursor)
+                    self.setToolTip(field['label']+(' · '+L('必填','Required') if field['required'] else ''))
             selected=self.active_text_annotation()
             if selected and self.tab.active_panel=='annotate' and selected['type']=='FreeText':
                 box=self.page_rect(selected['page'],selected['rect'])
@@ -617,6 +641,8 @@ class Canvas(QWidget):
         return chosen
 
     def mouseReleaseEvent(self, event):
+        if event.button()==Qt.LeftButton and getattr(self,'seam_pressed',False):
+            self.seam_pressed=False;event.accept();return
         if event.button()==Qt.RightButton:
             self.open_context_menu(event.position().toPoint(),event.globalPosition().toPoint());event.accept();return
         self.media_press=None;self.update()
@@ -655,7 +681,54 @@ class Canvas(QWidget):
             self.selection.emit(i,[(p.x(),p.y()) for p in points],self.mode)
         self.points = []; self.drag_objects = False; self.resizing = False; self.vertex_drag=None;self.drag_preview=None; self.update()
 
+    def toggle_page_gaps(self,seam=None):
+        bar=self.tab.scroll.verticalScrollBar();old=self.rects[self.page].top() if self.rects else 0;offset=bar.value()-old
+        anchor=self.page_seams()[seam][0].center() if seam is not None else None
+        self.compact_pages=not self.compact_pages;self.layout_pages()
+        if anchor is not None:
+            delta=self.page_seams()[seam][0].center()-anchor
+            bar.setValue(round(bar.value()+delta.y()))
+            horizontal=self.tab.scroll.horizontalScrollBar();horizontal.setValue(round(horizontal.value()+delta.x()))
+        elif self.rects:bar.setValue(round(self.rects[self.page].top()+offset))
+
+    def page_seams(self):
+        seams=[];rows=[]
+        for i in range(0,len(self.rects),self.columns):
+            row=[r for r in self.rects[i:i+self.columns] if not r.isEmpty()]
+            if not row:continue
+            rows.append(row)
+            if len(row)==2:
+                left,right=row;top=max(left.top(),right.top());bottom=min(left.bottom(),right.bottom());x=(left.right()+right.left())/2
+                seams.append((QRectF(left.right()-5,top,right.left()-left.right()+10,bottom-top),QPointF(x,top),QPointF(x,bottom),'x'))
+        if self.continuous:
+            for row,following in zip(rows,rows[1:]):
+                bottom=max(r.bottom() for r in row);top=min(r.top() for r in following)
+                left=max(min(r.left() for r in row),min(r.left() for r in following));right=min(max(r.right() for r in row),max(r.right() for r in following));y=(bottom+top)/2
+                seams.append((QRectF(left,bottom-5,right-left,top-bottom+10),QPointF(left,y),QPointF(right,y),'y'))
+        return seams
+
+    def seam_at(self,point):return next((i for i,(hit,*_) in enumerate(self.page_seams()) if hit.contains(point)),None)
+
+    def on_page_seam(self,point):return self.seam_at(point) is not None
+
+    def page_seam_cursor(self,axis):
+        key=(axis,self.compact_pages);cache=getattr(self,'seam_cursors',{})
+        if key not in cache:
+            pix=QPixmap(32,32);pix.fill(Qt.transparent);p=QPainter(pix);p.setRenderHint(QPainter.Antialiasing);p.translate(16,16)
+            if axis=='x':p.rotate(90)
+            path=QPainterPath();path.moveTo(-7,0);path.lineTo(7,0)
+            for sign in (-1,1):
+                tip=sign*(12 if self.compact_pages else 4);tail=sign*(4 if self.compact_pages else 12);wing=tip+sign*(-4 if self.compact_pages else 4)
+                path.moveTo(0,tail);path.lineTo(0,tip);path.moveTo(-4,wing);path.lineTo(0,tip);path.lineTo(4,wing)
+            p.setPen(QPen(Qt.white,4,Qt.SolidLine,Qt.RoundCap,Qt.RoundJoin));p.drawPath(path)
+            p.setPen(QPen(QColor('#276598'),2,Qt.SolidLine,Qt.RoundCap,Qt.RoundJoin));p.drawPath(path);p.end()
+            cache[key]=QCursor(pix,16,16);self.seam_cursors=cache
+        return cache[key]
+
     def mouseDoubleClickEvent(self,event):
+        if event.button()==Qt.LeftButton and self.mode in ('select','hand') and self.on_page_seam(event.position()):
+            seam=self.seam_at(event.position());self.drag_page=-1;self.points=[];self.pan_anchor=None;self.seam_pressed=True;self.toggle_page_gaps(seam)
+            self.setCursor(self.page_seam_cursor(self.page_seams()[seam][3]));self.setToolTip(L('双击展开页间距','Double-click to expand page gaps') if self.compact_pages else L('双击合并页间距','Double-click to collapse page gaps'));event.accept();return
         page,point=self.locate(event.position())
         over_note=self.tab.show_annotations.isChecked() and any(a['page']==page and a['type'] in ('Text','FreeText') and qrect(a['rect']).contains(point) for a in self.tab.annotations_data)
         if self.mode=='freetext' and not over_note:

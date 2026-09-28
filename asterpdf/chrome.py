@@ -178,7 +178,7 @@ class ChromeMixin:
         self.style_modules();self.navbar_host.update();self.tool_panels.update();self.update()
 
     def apply_chrome_visibility(self,auto_hidden=False):
-        visible=not self.window.settings.value('toolbar/hidden',False,type=bool) and not auto_hidden and not self.window.presentation
+        visible=not self.window.settings.value('toolbar/hidden',False,type=bool) and not auto_hidden and not self.window.presentation and not self.window.document_fullscreen
         self.navbar_host.setVisible(visible);self.navbar.setVisible(visible)
         self.tool_panels.setVisible(visible and getattr(self,'active_panel','read')!='read')
         self.position_chrome()

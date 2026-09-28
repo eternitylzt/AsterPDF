@@ -41,7 +41,8 @@ class PlaybackControls(QFrame):
         self.setStyleSheet('QFrame#playbackControls{border:1px solid #718ba7;border-radius:5px;background:'+background+';} QWidget#playbackContent{background:'+background+';}QToolButton:hover{background:#6686aa;}QToolButton:pressed{background:#4569b0;}')
         self.timer=QTimer(self);self.timer.setInterval(150);self.timer.timeout.connect(self.sync);self.timer.start();self.hide()
     def bounds(self):
-        return self.parentWidget().rect().adjusted(4,self.tab.window.menuBar().height()+3,-4,-4)
+        menu=self.tab.window.menuBar()
+        return self.parentWidget().rect().adjusted(4,(menu.height() if menu.isVisible() else 0)+3,-4,-4)
     def dismiss(self):self.requested=False;self.hide()
     def present(self):self.requested=True;self.sync();self.reposition()
     def video(self):

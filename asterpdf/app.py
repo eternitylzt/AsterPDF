@@ -104,7 +104,7 @@ class Window(QMainWindow):
         self.dark=self.settings.value('dark',True,type=bool)
         self.icon=QIcon(str(resource('asterpdf.png')));self.setWindowIcon(self.icon)
         self.queue=Queue(self)
-        self.opening=set();self.presentation=False;self._previous_tab=None
+        self.opening=set();self.presentation=False;self.document_fullscreen=False;self._previous_tab=None
         self.setAcceptDrops(True);self.resize(1380,920)
         self.build();QApplication.instance().installEventFilter(self);self.apply_theme();self.setWindowTitle('✦ AsterPDF')
         self.position_timer=QTimer(self);self.position_timer.timeout.connect(self.persist_positions);self.position_timer.start(15000)
@@ -195,8 +195,10 @@ class Window(QMainWindow):
         paste=edit.addAction(L('粘贴','Paste'));paste.setShortcut(QKeySequence.Paste);paste.triggered.connect(lambda:self.with_tab(lambda t:t.paste()))
         view=self.menuBar().addMenu(tr('view'))
         self.action(view,'minimap',lambda:self.with_tab(lambda t:t.minimap.toggle()))
+        view.addAction(L('高亮 / 隐藏可填写区域','Show / hide fillable areas'),lambda:self.toggle_form_highlight())
         for label,columns,continuous in [(L('单页视图','Single page'),1,False),(L('启用滚动','Continuous'),1,True),(L('双页视图','Two pages'),2,False),(L('双页并排滚动','Continuous two pages'),2,True)]:
             view.addAction(label,lambda c=columns,b=continuous:self.with_tab(lambda t:t.set_view(c,b)))
+        view.addAction(L('隐藏 / 显示页间空隙','Hide / show page gaps'),lambda:self.with_tab(lambda t:t.canvas.toggle_page_gaps()))
         view.addAction(L('自定义工具栏…','Customize toolbar…'),self.customize_toolbar)
         for label,key in [(L('显示 / 隐藏工具栏','Show / hide toolbar'),'hidden'),(L('自动隐藏工具栏','Auto-hide toolbar'),'autohide')]:
             view.addAction(label,lambda k=key:self.with_tab(lambda t:t.set_chrome_option(k,not self.settings.value('toolbar/'+k,False,type=bool))))
@@ -282,9 +284,12 @@ class Window(QMainWindow):
         if event.type()!=QEvent.KeyPress:return False
         tab=self.current()
         if not tab or not isinstance(obj,QWidget) or QWidget.window(obj)!=self:return super().eventFilter(obj,event)
+        if hasattr(tab,'forms') and obj is tab.canvas and tab.forms.enabled() and event.key() in (Qt.Key_Tab,Qt.Key_Backtab):
+            tab.forms.advance(-1 if event.key()==Qt.Key_Backtab or event.modifiers()&Qt.ShiftModifier else 1);return True
         text_input=isinstance(obj,(QLineEdit,QTextEdit,QPlainTextEdit,QAbstractSpinBox,QComboBox))
         if event.type()==QEvent.KeyPress:
-            if self.presentation and event.key()==Qt.Key_Escape:self.escape();return True
+            if (self.presentation or self.document_fullscreen) and event.key()==Qt.Key_Escape:self.escape();return True
+            if hasattr(tab,'forms') and tab.forms.editor and (obj is tab.forms.editor or tab.forms.editor.isAncestorOf(obj)):return False
             if text_input:return False
             if event.key() in (Qt.Key_Escape,Qt.Key_Left,Qt.Key_Right,Qt.Key_Up,Qt.Key_Down,Qt.Key_PageUp,Qt.Key_PageDown,Qt.Key_Home,Qt.Key_End,Qt.Key_Space,Qt.Key_Delete):
                 # Preserve native thumbnail multi-select navigation outside presentation.
@@ -295,7 +300,10 @@ class Window(QMainWindow):
 
     def action(self,menu,key,callback,shortcut=None):
         action=menu.addAction(tr(key));action.triggered.connect(callback)
-        if shortcut:action.setShortcut(shortcut)
+        if shortcut:
+            action.setShortcut(shortcut)
+            # Window shortcuts must survive hiding the menu in document view.
+            self.addAction(action)
         return action
 
     def current(self):
@@ -323,7 +331,7 @@ class Window(QMainWindow):
         self.opening.add(filename);self.statusBar().showMessage(tr('working')+' '+Path(filename).name)
         source=filename
         import tempfile
-        temporary=None
+        temporary=None;markdown_snapshot=None
         if Path(filename).suffix.lower() in ('.md','.markdown'):
             from .file_open import markdown_pdf
             temporary=tempfile.TemporaryDirectory(prefix='aster-import-')
@@ -341,6 +349,8 @@ class Window(QMainWindow):
             except Exception:doc.close();raise
         def done(result):
             doc,info=result;tab=DocumentTab(self,doc,info)
+            if markdown_snapshot is not None:
+                tab.markdown_prepared=markdown_snapshot
             index=self.tabs.addTab(tab,Path(filename).name);self.tabs.setCurrentIndex(index)
             self.tabs.setTabToolTip(index,filename)
             recent=self.settings.value('recent',[],type=list)
@@ -356,8 +366,9 @@ class Window(QMainWindow):
         if temporary:
             from .markdown_import import prepare
             def ready(prepared):
-                nonlocal source
-                try:source=markdown_pdf(filename,Path(temporary.name)/'document.pdf',prepared)
+                nonlocal source,markdown_snapshot
+                markdown_snapshot=prepared
+                try:source=markdown_pdf(filename,Path(temporary.name)/'document.pdf',prepared,paginate=self.settings.value('markdown/paginate',False,type=bool))
                 except Exception as error:failed(error);cleanup();return
                 submit()
             self.queue.submit(lambda j:prepare(filename),ready,lambda message:(failed(message),cleanup()),priority=3)
@@ -399,7 +410,7 @@ class Window(QMainWindow):
     def update_title(self):
         for i in range(self.tabs.count()):
             tab=self.tabs.widget(i)
-            if isinstance(tab,DocumentTab):self.tabs.setTabText(i,Path(tab.document.original).name+(' *' if tab.document.dirty or tab.inline_dirty() or tab.suspended_inline else ''))
+            if isinstance(tab,DocumentTab):self.tabs.setTabText(i,Path(tab.document.original).name+(' *' if tab.document.dirty or tab.inline_dirty() or tab.suspended_inline or tab.form_dirty() else ''))
         tab=self.current()
         if hasattr(self,'dark_action'):
             self.dark_action.blockSignals(True);self.dark_action.setChecked(self.dark);self.dark_action.blockSignals(False)
@@ -407,21 +418,42 @@ class Window(QMainWindow):
         if tab:
             tab.quick_actions['undo'].setEnabled(tab.inline_editor.document().isUndoAvailable() if tab.inline_editor else tab.document.index>0)
             tab.quick_actions['redo'].setEnabled(tab.inline_editor.document().isRedoAvailable() if tab.inline_editor else tab.document.index+1<len(tab.document.history))
-        self.setWindowTitle((Path(tab.document.original).name+(' *' if tab.document.dirty or tab.inline_dirty() or tab.suspended_inline else '')+' — ' if tab else '')+'AsterPDF')
+        self.setWindowTitle((Path(tab.document.original).name+(' *' if tab.document.dirty or tab.inline_dirty() or tab.suspended_inline or tab.form_dirty() else '')+' — ' if tab else '')+'AsterPDF')
 
     def tab_changed(self,index):
+        if self.document_fullscreen:self.fullscreen()
         if isinstance(self._previous_tab,DocumentTab) and self._previous_tab is not self.current():self._previous_tab.release_memory()
         self._previous_tab=self.current();self.update_title()
         if self.current():self.current().current_changed(self.current().canvas.page);self.current().canvas.update()
 
     def save_tab(self,save_as=False,after=None,on_failure=None):
         tab=self.current()
-        if not tab or tab.busy:return
+        if not tab:return
+        if tab.forms.dirty or tab.forms.writing:
+            tab.forms.flush(lambda:self.save_tab(save_as,after,on_failure));return
+        if tab.busy:return
         if tab.suspended_inline:tab.restore_inline()
         if tab.inline_editor:
             tab.commit_inline(lambda:self.save_tab(save_as,after,on_failure),on_failure=on_failure);return
         destination=None
-        if save_as or Path(tab.document.original).suffix.lower()!='.pdf':
+        if hasattr(tab,'markdown_prepared') and Path(tab.document.original).suffix.lower() in ('.md','.markdown'):
+            from .markdown_reading import MarkdownSaveDialog,export_markdown
+            dialog=MarkdownSaveDialog(self,tab)
+            if not dialog.exec():
+                if after:self._close_pending=False;self._closing_all=False
+                return
+            destination=dialog.selectedFiles()[0];paginate=dialog.layout_choice.currentData()
+            if paginate is not None:
+                tab.busy=True;QApplication.setOverrideCursor(Qt.WaitCursor)
+                try:export_markdown(tab,destination,paginate)
+                except Exception as error:
+                    if on_failure:on_failure(str(error))
+                    else:tab.error(str(error))
+                    return
+                finally:tab.busy=False;QApplication.restoreOverrideCursor()
+                if after:after()
+                return
+        if not destination and (save_as or Path(tab.document.original).suffix.lower()!='.pdf'):
             destination,_=QFileDialog.getSaveFileName(self,tr('save_as'),str(Path(tab.document.original).with_suffix('.pdf')),'PDF (*.pdf)')
             if not destination:
                 if after:self._close_pending=False;self._closing_all=False
@@ -430,6 +462,13 @@ class Window(QMainWindow):
 
     def history(self,redo):
         tab=self.current()
+        if tab and tab.forms.editor:
+            editor=tab.forms.input
+            if isinstance(editor,(QLineEdit,QTextEdit,QPlainTextEdit)):
+                editor.redo() if redo else editor.undo()
+                tab.forms.change(editor.text() if isinstance(editor,QLineEdit) else editor.toPlainText());return
+            tab.forms.dismiss()
+        if tab and (tab.forms.dirty or tab.forms.writing):tab.forms.flush(lambda:self.history(redo));return
         if tab and tab.suspended_inline:tab.restore_inline()
         if tab and tab.inline_editor:
             tab.inline_editor.redo() if redo else tab.inline_editor.undo();return
@@ -442,9 +481,9 @@ class Window(QMainWindow):
         if tab.busy:
             QMessageBox.information(self,'AsterPDF',tr('working'));return False
         self._close_pending=True
-        if tab.document.dirty or tab.inline_dirty() or tab.suspended_inline:self.tabs.setCurrentWidget(tab)
+        if tab.document.dirty or tab.inline_dirty() or tab.suspended_inline or tab.form_dirty():self.tabs.setCurrentWidget(tab)
         if tab.suspended_inline:tab.restore_inline()
-        dirty=tab.document.dirty or tab.inline_dirty()
+        dirty=tab.document.dirty or tab.inline_dirty() or tab.form_dirty()
         if dirty and not discard:
             choice=QMessageBox.question(self,'AsterPDF',tr('unsaved'),QMessageBox.Save|QMessageBox.Discard|QMessageBox.Cancel,QMessageBox.Save)
             if choice==QMessageBox.Cancel:
@@ -456,7 +495,7 @@ class Window(QMainWindow):
                 def saved(_=None):QTimer.singleShot(0,lambda:self.finish_close_tab(tab))
                 def save():
                     if tab.busy:QTimer.singleShot(20,save);return
-                    self.save_tab(after=saved,on_failure=failed) if Path(tab.document.original).suffix.lower()!='.pdf' else tab.run(tr('save'),lambda j:tab.document.save(),saved,failure=failed)
+                    self.save_tab(after=saved,on_failure=failed)
                 if tab.inline_editor:tab.commit_inline(save,on_failure=failed)
                 else:save()
                 return False
@@ -494,7 +533,7 @@ class Window(QMainWindow):
             QTimer.singleShot(150,lambda:self.close() if getattr(self,'_closing_all',False) else None);return
         tabs=self.document_tabs()
         if tabs:
-            tab=next((t for t in reversed(tabs) if t.document.dirty or t.inline_dirty() or t.suspended_inline),tabs[-1])
+            tab=next((t for t in reversed(tabs) if t.document.dirty or t.inline_dirty() or t.suspended_inline or t.form_dirty()),tabs[-1])
             self.close_tab(self.tabs.indexOf(tab));return
         self.queue.pool.waitForDone(30000)
         self._closing_all=False;self.settings.sync();event.accept()
@@ -508,6 +547,10 @@ class Window(QMainWindow):
 
     def set_dark(self,value):
         self.dark=value;self.settings.setValue('dark',value);self.apply_theme()
+
+    def toggle_form_highlight(self):
+        self.settings.setValue('forms/highlight',not self.settings.value('forms/highlight',True,type=bool))
+        for tab in self.document_tabs():tab.canvas.update()
 
     def apply_theme(self):
         palette=QApplication.style().standardPalette()
@@ -583,7 +626,7 @@ class Window(QMainWindow):
 
     def tick_chrome(self):
         tab=self.current()
-        if not tab or self.presentation or QApplication.mouseButtons()!=Qt.NoButton:return
+        if not tab or self.presentation or self.document_fullscreen or QApplication.mouseButtons()!=Qt.NoButton:return
         pos=self.mapFromGlobal(QCursor.pos())
         if self.settings.value('toolbar/autohide',False,type=bool):
             near_top=pos.y()<self.menuBar().height()+self.tabs.tabBar().height()+tab.navbar.height()+12
@@ -607,9 +650,29 @@ class Window(QMainWindow):
         print_document(tab)
 
     def fullscreen(self):
-        self.showNormal() if self.isFullScreen() else self.showFullScreen()
+        if self.document_fullscreen:
+            tab,widgets,view,mode,editing,maximized,sizes=self._fullscreen_state
+            self.document_fullscreen=False
+            for widget,visible in widgets:widget.setVisible(visible)
+            tab.document_views.setCurrentWidget(view);tab.canvas.mode=mode;tab.editing_objects=editing
+            tab.splitter.setSizes(sizes);tab.position_chrome()
+            self.showMaximized() if maximized else self.showNormal()
+            tab.canvas.setFocus();return
+        tab=self.current()
+        if not tab:return
+        if tab.inline_editor:
+            tab.leave_inline(self.fullscreen);return
+        if self.presentation:self.toggle_presentation()
+        widgets=[self.menuBar(),self.tabs.tabBar(),self.document_switcher]
+        widgets.extend(getattr(tab,name) for name in ('navbar_host','navbar','tool_panels','sidebar_container','sidebar_toggle','text_container','property_container') if hasattr(tab,name))
+        self._fullscreen_state=(tab,[(w,not w.isHidden()) for w in widgets],tab.document_views.currentWidget(),tab.canvas.mode,tab.editing_objects,self.isMaximized(),tab.splitter.sizes())
+        self.document_fullscreen=True
+        for widget in widgets:widget.hide()
+        tab.editing_objects=False;tab.canvas.mode='select';tab.document_views.setCurrentWidget(tab.scroll)
+        tab.position_chrome();self.showFullScreen();tab.canvas.setFocus()
 
     def toggle_presentation(self):
+        if self.document_fullscreen:self.fullscreen()
         tab=self.current()
         if not tab:return
         if tab.inline_editor:
@@ -645,7 +708,8 @@ class Window(QMainWindow):
         super().keyPressEvent(event)
 
     def escape(self):
-        if self.presentation:self.toggle_presentation()
+        if self.document_fullscreen:self.fullscreen()
+        elif self.presentation:self.toggle_presentation()
         elif self.isFullScreen():self.showNormal()
         else:self.with_tab(lambda t:t.set_mode('select'))
 
@@ -672,9 +736,11 @@ class Window(QMainWindow):
                 if not lock.tryLock(0):continue
                 try:
                     data=json.loads(manifest.read_text(encoding='utf-8'));revision=Path(data.get('revision',''));draft=manifest.parent/'draft.json'
-                    if not data.get('dirty') and not draft.exists():continue
+                    form_draft=manifest.parent/'form-draft.json'
+                    if not data.get('dirty') and not draft.exists() and not form_draft.exists():continue
                     if not revision.is_file() or revision.parent.resolve()!=manifest.parent.resolve():continue
                     data['draft']=json.loads(draft.read_text(encoding='utf-8')) if draft.exists() else None
+                    data['form_draft']=json.loads(form_draft.read_text(encoding='utf-8')) if form_draft.exists() else None
                     answer=QMessageBox.question(self,L('恢复未保存文档','Recover unsaved document'),Path(data.get('original','')).name+'\n'+L('发现意外退出前的修改。恢复后可另存为；原文件不会自动覆盖。','Unsaved changes were found. Recover and use Save As; the original is never overwritten automatically.'),QMessageBox.Yes|QMessageBox.No,QMessageBox.Yes)
                     if answer==QMessageBox.Yes:self.open_recovery(data,manifest)
                 except (OSError,ValueError):continue
@@ -685,13 +751,17 @@ class Window(QMainWindow):
             doc=Document(data['revision'],self.recovery_root);doc.original=data['original'];doc.saved_revision='';doc._metadata();return doc,doc.info()
         def done(result):
             doc,info=result;tab=DocumentTab(self,doc,info);index=self.tabs.addTab(tab,Path(doc.original).name+' *');self.tabs.setCurrentIndex(index)
+            if data.get('form_draft'):
+                from .core import atomic_json
+                atomic_json(doc.folder/'form-draft.json',data['form_draft'])
+                tab.forms.restored=data['form_draft'].get('values',{});tab.forms.revision=-1;tab.forms.reload()
             if data.get('draft'):
                 tab.restore_recovery_draft(data['draft'])
                 if data['draft'].get('source')!=data['revision']:tab.inline_source_path=data['draft'].get('source','stale-recovery-draft')
             # Mark the old snapshot as offered/recovered only after the new one
             # exists. Retain its PDF until normal cleanup, avoiding any data loss.
             from .core import atomic_json
-            old=dict(data);old.pop('draft',None);old['dirty']=False;atomic_json(manifest,old);(manifest.parent/'draft.json').unlink(missing_ok=True)
+            old=dict(data);old.pop('draft',None);old.pop('form_draft',None);old['dirty']=False;atomic_json(manifest,old);(manifest.parent/'draft.json').unlink(missing_ok=True);(manifest.parent/'form-draft.json').unlink(missing_ok=True)
             self.update_title()
         self.queue.submit(work,done,lambda e:QMessageBox.warning(self,'AsterPDF',e))
 

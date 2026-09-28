@@ -19,6 +19,6 @@ class DesktopApplication(QApplication):
         for filename in self.open_requests:window.open_file(filename)
         self.open_requests.clear()
 
-def markdown_pdf(filename,destination,prepared=None):
+def markdown_pdf(filename,destination,prepared=None,*,paginate=False):
     from .markdown_import import render
-    return render(filename,destination,prepared)
+    return render(filename,destination,prepared,paginate=paginate)

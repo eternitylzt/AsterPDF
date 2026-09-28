@@ -99,7 +99,7 @@ def _prepare(filename):
     return ''.join(parser.output),resources,failures
 
 
-def render(filename,destination,prepared=None):
+def render(filename,destination,prepared=None,*,paginate=False):
     from PySide6.QtCore import QUrl,Qt,QSize,QBuffer,QByteArray,QIODevice,QSizeF,QMarginsF
     from PySide6.QtGui import QTextDocument,QPageSize,QFont,QTextCursor,QTextCharFormat,QColor,QImage,QPainter,QImageReader,QPdfWriter,QPyTextObject,QTextFormat,QTextOption,QFontDatabase
     from PySide6.QtSvg import QSvgRenderer
@@ -161,5 +161,30 @@ def render(filename,destination,prepared=None):
     # QPdfWriter never enumerates or connects to physical/network printers.
     # Pre-paginate so QTextDocument.print_ retains our vector object handler.
     writer=QPdfWriter(str(destination));writer.setResolution(96);writer.setPageSize(QPageSize(QPageSize.A4));writer.setPageMargins(QMarginsF(15,15,15,15))
-    doc.documentLayout().setPaintDevice(writer);doc.setPageSize(QSizeF(writer.width(),writer.height()));doc.print_(writer)
+    doc.documentLayout().setPaintDevice(writer)
+    if not paginate:
+        import math
+        doc.setPageSize(QSizeF(writer.width(),-1))
+        content_height=math.ceil(doc.documentLayout().documentSize().height())+2
+        writer.setPageSize(QPageSize(QSizeF(210,content_height*25.4/96+30),QPageSize.Millimeter,'Markdown',QPageSize.ExactMatch))
+    doc.setPageSize(QSizeF(writer.width(),writer.height()));doc.print_(writer)
+    # Read heading destinations from the final paginated layout. Repeated
+    # headings, inline formatting and code blocks need no text-search guesses.
+    headings=[];levels=[];block=doc.begin();height=doc.pageSize().height()
+    margins=writer.pageLayout().marginsPoints()
+    while block.isValid():
+        level=block.blockFormat().headingLevel();title=block.text().replace('\ufffc','').strip()
+        if level and title:
+            while levels and levels[-1]>=level:levels.pop()
+            levels.append(level)
+            rect=doc.documentLayout().blockBoundingRect(block);page=int(rect.top()//height)
+            headings.append([len(levels),title,page+1,{'kind':1,'page':page,'to':(margins.left()+rect.left()*72/96,margins.top()+(rect.top()-page*height)*72/96)}])
+        block=block.next()
+    # Finalize QPdfWriter before adding a standard PDF outline, which also
+    # survives Save As and is available in other readers.
+    del writer
+    if headings:
+        import pymupdf as fitz
+        with fitz.open(destination) as pdf:
+            pdf.set_toc(headings);pdf.saveIncr()
     return str(destination)

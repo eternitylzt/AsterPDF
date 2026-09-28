@@ -1,4 +1,18 @@
-# AsterPDF 0.7 compatibility / 兼容性
+# AsterPDF 1.3.0 compatibility / 兼容性
+
+## PDF forms / PDF 表单
+
+Standard AcroForm text, check/radio buttons, editable/noneditable combos, single/multiple lists and common numeric dates are filled in place. Tab/Shift+Tab moves focus; highlights are display-only. Save retains field trees, values and appearance streams. Editing uses the existing transaction, undo and recovery system. User input is not sent anywhere. Rich-text edits become plain text with a visible notice; arbitrary field scripts are not executed. XFA, signing and editing already-signed documents are unsupported. No additional browser or runtime was introduced. Windows native UI and the supplied 16-page/108-widget questionnaire were checked; Acrobat and physical macOS/Linux interaction remain unverified. [Usage and details](FORMS.md).
+
+支持标准 AcroForm 原位填写、高亮、Tab 切换、日期选择、保存和恢复。保留表单交互，原文件仅在用户保存时修改。不执行表单脚本；富文本编辑按纯文本保存。不支持 XFA、数字签名或已签名文档的填写。本轮验证限 Windows，详情见表单说明。
+
+## Formats, editing and media / 格式、编辑与媒体
+
+Markdown uses a CommonMark/GFM-style parser for nested lists/code, tables, tasks, links and images. It writes PDF directly without the system printer. Offline MathJax renders `$...$`, `$$...$$` and fenced `math` blocks (base, AMS and bounded local macros) as vector paths. Unknown TeX remains visibly marked with its source; TikZ, arbitrary LaTeX packages and full browser CSS are unsupported. Formulas are vector outlines, not searchable/editable text; surrounding text remains searchable. Missing images show placeholders. Pagination and fonts differ from the continuous GitHub web page. EPS/PS requires installed Ghostscript. Converted files use Save As PDF and leave the original source intact.
+
+Video insertion uses Screen/Rendition annotations. Media layer controls reorder original Screen/Movie/RichMedia annotations, preserving payloads and actions; interactive playback stays above page content. Screen playback and overlapping-player masks were tested on Windows. Movie/RichMedia stacking has structural fixture tests, not independent real-world playback coverage.
+
+Embedded audio/video exports preserve original bytes. LaTeX animation export is a ZIP containing vector frames in `frames.pdf` and `timing.json`, not a generated MP4/GIF. Color pairs cascade in list order for text, vectors and image pixels, including selected regions. Text/image/shape arrangement preserves vector content. Independent annotation styles, batch editing and grouped replacement-text comments are supported; rich comment formatting is reader-dependent.
 
 This document describes implemented behavior, not a roadmap. 此文档描述当前实现，未将计划中的功能列为完成。
 
@@ -7,14 +21,14 @@ This document describes implemented behavior, not a roadmap. 此文档描述当�
 | Platform | Source/configuration | Actual verification in this delivery |
 | --- | --- | --- |
 | Windows x64 | PySide6/Qt + PyInstaller directory bundle; optional Inno Setup configuration | Python 3.12 desktop UI, PDF backend, animation and video/audio workflows tested. See VALIDATION.md for packaged build result. |
-| macOS | `.app` bundle + tar.gz workflow, icon and document type metadata | Not run; signing/notarization not configured or performed |
-| Linux x64 | Qt directory bundle + tar.gz, `.desktop` file | Not run; FFmpeg/runtime platform dependencies must be verified on target |
+| macOS | `.app` bundle + tar.gz workflow, icon and document type metadata | Native CI tests/build configured; interactive desktop unverified; unsigned, not notarized |
+| Linux x64 | Qt directory bundle + tar.gz, `.desktop` file | Native CI tests/build configured; interactive desktop and codecs require target verification |
 
 ## Reading / 阅读
 
-Implemented: local PDFs, file drop, multiple tabs, recent files, position/zoom restore, thumbnails, outline, reading bookmarks, page navigation, case-insensitive MuPDF text search with result rectangles, character-caret text selection/copy, pointer image selection, hand pan, zoom/fit, single/two-page and continuous single/two-page layouts, full screen and presentation. Standard internal page links and explicit HTTP(S) links are clickable. File-launch actions and arbitrary action scripts are not run.
+Implemented: local PDFs, file drop, multiple tabs, recent files, position/zoom restore, thumbnails, outline, reading favorites, page navigation, case-insensitive MuPDF text search with result rectangles, character-caret text selection/copy, pointer image selection, hand pan, zoom/fit, single/two-page and continuous single/two-page layouts, full screen and presentation. Standard internal page links and explicit HTTP(S) links are clickable. File-launch actions and arbitrary action scripts are not run.
 
-Selection follows individual character boundaries within one page; it requires an existing text layer and does not span pages. Single-page wheel navigation turns at the scroll boundary; arrows and Escape are routed even when the canvas has focus. Personal bookmarks are stored locally per original file path, not written into the PDF outline. Night colors affect rendered reading pages only; exports always use original page colors. Text and annotation coordinates use rotation/crop transformations.
+Selection follows individual character boundaries within one page; it requires an existing text layer and does not span pages. Single-page wheel navigation turns at the scroll boundary; arrows and Escape are routed even when the canvas has focus. Personal favorites are stored locally per original file path, not written into the PDF outline. Night colors affect rendered reading pages only; exports always use original page colors. Text and annotation coordinates use rotation/crop transformations.
 
 ## Animation and media / 动态内容
 
@@ -35,7 +49,7 @@ Declared FPS is the document's requested rate. The player paces against wall tim
 
 ## Page tools and preservation / 页面工具与保留
 
-Merge through a preview/reorder/remove queue, extraction into one PDF or individual page PDFs, delete, rotate, multi-selection, reorder, blank insertion and crop are implemented. Home opens a standalone merge queue; Page operations uses a docked queue. Both produce a new PDF. Add open PDFs uses their current edited snapshots; additional files can be queued, reordered or removed. The separate Split UI has been removed; choose Crop before drawing the region. Reorder changes the page tree while retaining existing page objects; the current document catalog remains authoritative. Local reading bookmarks are page-number based.
+Merge through a preview/reorder/remove queue, extraction into one PDF or individual page PDFs, delete, rotate, multi-selection, reorder, blank insertion and crop are implemented. Home opens a standalone merge queue; Page operations uses a docked queue. Both produce a new PDF. Add open PDFs uses their current edited snapshots; additional files can be queued, reordered or removed. The separate Split UI has been removed; choose Crop before drawing the region. Reorder changes the page tree while retaining existing page objects; the current document catalog remains authoritative. Local reading favorites are page-number based.
 
 **Operation bounds:** page reorder/import can affect absolute page-index JavaScript, destinations and forms. Selected-page import/export does not transfer the source document-level outline, script name tree, form field tree, or attachment name tree. Page annotations and embedded objects on retained/copied pages are retained by pikepdf, but cross-document navigation may require repair in the source authoring system. Keep-outside cropping can hide annotation/media controls; they remain in the file. Destructive crop removes outside/crossing annotations and refuses interactive pages.
 
@@ -43,7 +57,7 @@ Merge through a preview/reorder/remove queue, extraction into one PDF or individ
 
 ## Annotations / 批注
 
-Standard Highlight, Underline, StrikeOut, Text, FreeText, Ink, Line/arrow, Square and Circle annotations are written with appearance streams. Annotations can be selected and deleted in batches; style/content editing remains limited to AsterPDF-owned annotations. Stroke color, opacity and applicable border width are editable; text-note content is editable. FreeText content, supported font/size and color can be changed. Annotation text uses standard Latin/CJK PDF fonts; content editing supports installed system fonts. Closed arrow endings have matching solid fill and independently adjustable head size through a standard annotation appearance. FreeText borders default to zero and can have a separate width/color/dash style. Single-click selects a note or shape for sidebar/style editing; double-click edits note content. Author names are configurable; ownership uses an AsterPDF-prefixed annotation ID, independent of the author. Legacy AsterPDF-authored annotations are also recognized. Sticky notes move by dragging; note/shape text is previewed on hover. Marquee selection and Delete work on canvas/list. The document-wide sidebar visually separates metadata and comment, sorted by creation time or document position. A view-only checkbox hides annotations without changing the list or saved PDF. FreeText boxes can be created by double-clicking, grow to fit, and have draggable edges/corners for reflow and repositioning. Other annotation types do not offer arbitrary vertex resizing or multi-annotation group transforms.
+Standard Highlight, Underline, StrikeOut, Text, FreeText, Ink, Line/arrow, Square and Circle annotations are written with appearance streams. Annotations can be selected and deleted in batches; standard annotation style/content editing applies to selected supported annotations, including imported comments; unfamiliar multimedia, widget and vendor-specific types are not general-purpose editable shapes. Stroke color, opacity and applicable border width are editable; text-note content is editable. FreeText content, supported font/size and color can be changed. Annotation text uses standard Latin/CJK PDF fonts; content editing supports installed system fonts. Closed arrow endings have matching solid fill and independently adjustable head size through a standard annotation appearance. FreeText borders default to zero and can have a separate width/color/dash style. Single-click selects a note or shape for sidebar/style editing; double-click edits note content. Author names are configurable; ownership uses an AsterPDF-prefixed annotation ID, independent of the author. Legacy AsterPDF-authored annotations are also recognized. Sticky notes move by dragging; note/shape text is previewed on hover. Marquee selection and Delete work on canvas/list. The document-wide sidebar visually separates metadata and comment, sorted by creation time or document position. A view-only checkbox hides annotations without changing the list or saved PDF. FreeText boxes can be created by double-clicking, grow to fit, and have draggable edges/corners for reflow and repositioning. Other annotation types do not offer arbitrary vertex resizing or multi-annotation group transforms.
 
 Tests reopen written PDFs and inspect subtype, ownership, content and appearance streams. A Poppler render is also used for independent visual validation. Acrobat itself was not run in this delivery; do not interpret standards conformance as an Acrobat application test.
 
@@ -74,7 +88,7 @@ Every successful mutation produces a separate on-disk revision and atomic recove
 
 Editing encrypted PDFs is refused in 0.7. Signature invalidation warnings exist for recognized signature permissions, but signatures are not created or validated. The app does not promise preservation of signed validity. The engine lock serializes MuPDF work across background tasks; queued computation does not run concurrently inside MuPDF.
 
-Changing language translates existing controls in place, preserving documents, canvases, scroll positions, drafts and playback objects. UI labels, dialogs and built-in messages follow the selected language; raw errors from external libraries may retain their technical English text. Update checking requires `REPOSITORY` in `asterpdf/release.py` (or a previously saved setting) and user action. It compares stable numeric release versions and offers a download-page button. The repository remains unset pending upload; the network endpoint has not been live-tested for this unpublished project. Offline reading never depends on it.
+Changing language translates existing controls in place, preserving documents, canvases, scroll positions, drafts and playback objects. UI labels, dialogs and built-in messages follow the selected language; raw errors from external libraries may retain their technical English text. Update checking requires `REPOSITORY` in `asterpdf/release.py` (or a previously saved setting) and user action. It compares stable numeric release versions and offers a download-page button. The configured release repository is `eternitylzt/AsterPDF`. Offline reading never depends on it.
 
 ## Explicitly outside this implementation
 
@@ -138,3 +152,15 @@ Destructive crop removes outside content using page-local redaction and cleaned 
 New AsterPDF text boxes use native PDF text and embedded fonts, with explicit coordinate isolation. They support mixed Latin/CJK input, wrapping by width and rotation, with editable box metadata kept in marked content. Existing arbitrary text blocks retain the conservative local-edit path; this does not enable Word-like paragraph layout. Complex shaping and vertical writing remain unsupported.
 
 新建文本框支持自动扩展、边框调宽换行、旋转及保存后再次编辑；不会转换成图片。PDF 中文本框可读取性不依赖本软件的私有状态。框的二次编辑参数使用标记内容元数据；第三方软件若移除该元数据，仍可显示文字，但不保证继续作为同一个可重排文本框识别。
+
+
+## 1.0 recoloring and search
+
+Solid gray/RGB/CMYK operators and common decodable raster XObjects can be recolored. Multiple pairs match original values once; raster pixels use an RGB tolerance. Raster dimensions and alpha masks are retained, but changed images are stored as lossless RGB rather than retaining original JPEG compression or CMYK space. Matching paper white also paints the new background. Sampling provides at most 64 representative colors sorted by estimated visible coverage for the selected scope; it does not enumerate every internal color. The exact rendered-color picker remains available. Vector shadings/patterns, annotations and animation frames are not recolored. Stencil/color-key images and unsupported content streams produce errors. Region clipping preserves vector content but can duplicate boundary text in some extractors.
+
+Applied native text is searchable immediately and after reopening. Search refreshes after edits and supports previous/next results plus overview markers. A font/application failure retains the draft instead of presenting it as saved searchable PDF content.
+
+
+## 1.0.1 palette and shape interaction
+
+The source palette now clusters by the selected tolerance and displays at most 32 swatches (default 8%). Shape selection tests native paths/filled interiors rather than the entire bounding rectangle. New shapes return to direct selection and support a mouse rotation handle. Each newly opened overview fits its own document, regardless of a previous tab’s manually resized height.

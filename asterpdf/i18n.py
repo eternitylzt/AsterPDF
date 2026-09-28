@@ -24,7 +24,7 @@ STRINGS = {
     'annotate': ('批注', 'Annotate'), 'objects': ('对象编辑', 'Edit objects'),
     'pages': ('页面操作', 'Page operations'), 'extract': ('提取 / 导出', 'Extract / export'),
     'media': ('动画 / 媒体', 'Animation / media'), 'outline': ('目录', 'Outline'),
-    'bookmarks': ('书签', 'Bookmarks'), 'bookmark': ('添加 / 移除阅读书签', 'Toggle reading bookmark'),
+    'bookmarks': ('收藏', 'Favorites'), 'bookmark': ('添加 / 移除收藏', 'Add / remove favorite'),
     'search': ('搜索', 'Search'), 'search_hint': ('搜索文档，按 Enter', 'Search document, press Enter'),
     'thumbnails': ('缩略图', 'Thumbnails'), 'rotate': ('旋转 90°', 'Rotate 90°'),
     'delete_pages': ('删除页面…', 'Delete pages…'), 'blank': ('插入空白页', 'Insert blank page'),

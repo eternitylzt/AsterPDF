@@ -1,4 +1,10 @@
-# AsterPDF 1.2.1 compatibility / 兼容性
+# AsterPDF 1.3.0 compatibility / 兼容性
+
+## PDF forms / PDF 表单
+
+Standard AcroForm text, check/radio buttons, editable/noneditable combos, single/multiple lists and common numeric dates are filled in place. Tab/Shift+Tab moves focus; highlights are display-only. Save retains field trees, values and appearance streams. Editing uses the existing transaction, undo and recovery system. User input is not sent anywhere. Rich-text edits become plain text with a visible notice; arbitrary field scripts are not executed. XFA, signing and editing already-signed documents are unsupported. No additional browser or runtime was introduced. Windows native UI and the supplied 16-page/108-widget questionnaire were checked; Acrobat and physical macOS/Linux interaction remain unverified. [Usage and details](FORMS.md).
+
+支持标准 AcroForm 原位填写、高亮、Tab 切换、日期选择、保存和恢复。保留表单交互，原文件仅在用户保存时修改。不执行表单脚本；富文本编辑按纯文本保存。不支持 XFA、数字签名或已签名文档的填写。本轮验证限 Windows，详情见表单说明。
 
 ## Formats, editing and media / 格式、编辑与媒体
 
@@ -20,9 +26,9 @@ This document describes implemented behavior, not a roadmap. 此文档描述当�
 
 ## Reading / 阅读
 
-Implemented: local PDFs, file drop, multiple tabs, recent files, position/zoom restore, thumbnails, outline, reading bookmarks, page navigation, case-insensitive MuPDF text search with result rectangles, character-caret text selection/copy, pointer image selection, hand pan, zoom/fit, single/two-page and continuous single/two-page layouts, full screen and presentation. Standard internal page links and explicit HTTP(S) links are clickable. File-launch actions and arbitrary action scripts are not run.
+Implemented: local PDFs, file drop, multiple tabs, recent files, position/zoom restore, thumbnails, outline, reading favorites, page navigation, case-insensitive MuPDF text search with result rectangles, character-caret text selection/copy, pointer image selection, hand pan, zoom/fit, single/two-page and continuous single/two-page layouts, full screen and presentation. Standard internal page links and explicit HTTP(S) links are clickable. File-launch actions and arbitrary action scripts are not run.
 
-Selection follows individual character boundaries within one page; it requires an existing text layer and does not span pages. Single-page wheel navigation turns at the scroll boundary; arrows and Escape are routed even when the canvas has focus. Personal bookmarks are stored locally per original file path, not written into the PDF outline. Night colors affect rendered reading pages only; exports always use original page colors. Text and annotation coordinates use rotation/crop transformations.
+Selection follows individual character boundaries within one page; it requires an existing text layer and does not span pages. Single-page wheel navigation turns at the scroll boundary; arrows and Escape are routed even when the canvas has focus. Personal favorites are stored locally per original file path, not written into the PDF outline. Night colors affect rendered reading pages only; exports always use original page colors. Text and annotation coordinates use rotation/crop transformations.
 
 ## Animation and media / 动态内容
 
@@ -43,7 +49,7 @@ Declared FPS is the document's requested rate. The player paces against wall tim
 
 ## Page tools and preservation / 页面工具与保留
 
-Merge through a preview/reorder/remove queue, extraction into one PDF or individual page PDFs, delete, rotate, multi-selection, reorder, blank insertion and crop are implemented. Home opens a standalone merge queue; Page operations uses a docked queue. Both produce a new PDF. Add open PDFs uses their current edited snapshots; additional files can be queued, reordered or removed. The separate Split UI has been removed; choose Crop before drawing the region. Reorder changes the page tree while retaining existing page objects; the current document catalog remains authoritative. Local reading bookmarks are page-number based.
+Merge through a preview/reorder/remove queue, extraction into one PDF or individual page PDFs, delete, rotate, multi-selection, reorder, blank insertion and crop are implemented. Home opens a standalone merge queue; Page operations uses a docked queue. Both produce a new PDF. Add open PDFs uses their current edited snapshots; additional files can be queued, reordered or removed. The separate Split UI has been removed; choose Crop before drawing the region. Reorder changes the page tree while retaining existing page objects; the current document catalog remains authoritative. Local reading favorites are page-number based.
 
 **Operation bounds:** page reorder/import can affect absolute page-index JavaScript, destinations and forms. Selected-page import/export does not transfer the source document-level outline, script name tree, form field tree, or attachment name tree. Page annotations and embedded objects on retained/copied pages are retained by pikepdf, but cross-document navigation may require repair in the source authoring system. Keep-outside cropping can hide annotation/media controls; they remain in the file. Destructive crop removes outside/crossing annotations and refuses interactive pages.
 
