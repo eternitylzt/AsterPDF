@@ -2,8 +2,17 @@
 from pathlib import Path
 from PySide6.QtCore import Qt,QSize,QRect
 from PySide6.QtGui import QPalette,QFontMetrics
-from PySide6.QtWidgets import QStyledItemDelegate,QStyleOptionViewItem,QStyle
+from PySide6.QtWidgets import QStyledItemDelegate,QStyleOptionViewItem,QStyle,QTreeWidget
 from .i18n import L
+
+class RecentFiles(QTreeWidget):
+    """Prefer five complete recent entries; allow shrinkage on small screens."""
+    def sizeHint(self):
+        row=max(60,QFontMetrics(self.font()).height()*2+22)
+        return QSize(740,self.header().sizeHint().height()+5*row+2*self.frameWidth()+4)
+
+    def minimumSizeHint(self):
+        return QSize(300,150)
 
 class RecentDelegate(QStyledItemDelegate):
     def sizeHint(self,option,index):

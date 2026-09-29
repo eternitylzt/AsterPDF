@@ -103,3 +103,9 @@ Reading bookmarks are now Favorites. Existing records remain available through t
 Use the pointer to fill pale-blue AcroForm fields in place. Tab/Shift+Tab moves focus; Space selects a check/radio button; common date fields offer a calendar. Ctrl+S saves an interactive form and unsaved input is recoverable. Toggle highlights in View or Reading preferences. Arbitrary scripts, XFA and filling signed documents are unsupported. Rich-text edits are plain text, with an inline notice.
 
 F11 shows only the document with previously visible media controls and overview; F11/Esc restores the interface. Markdown defaults to a long page with heading outlines and code blocks rendered directly in the document. Save As PDF defaults to A4 or offers a long page; edited content keeps its existing layout. Markdown options are grouped in Preferences. Double-click page gaps to collapse them and double-click the faint divider to expand them; hover cursors indicate the action.
+
+## 1.3.2 · HTML and fullscreen
+
+**Markdown:** opens inside AsterPDF first, then asks whether to open a local HTML preview in the default browser. Remember Yes or No with “Do not ask again”; Preferences → Markdown offers Ask each time / Always open / Stay in AsterPDF. Save As offers HTML or PDF (A4 by default, or one long page). HTML embeds loaded images and formulas for sharing and reflects the opened Markdown snapshot; save subsequent PDF edits/annotations as PDF. In-app reading defaults to a long page with heading outlines, and edited PDFs retain their current layout.
+
+F11 defaults to fit width. Move to the top edge for fit, zoom, layout and exit controls. Ctrl+1 fits width, Ctrl+0 fits page, Ctrl+wheel zooms and Esc/F11 exits. Reading / Toolbar preferences control the initial fullscreen fit.

@@ -10,7 +10,7 @@ import urllib.request
 from PySide6.QtCore import Qt, QSettings, QStandardPaths, QTimer, QUrl, QEvent, QTranslator, QLibraryInfo
 from PySide6.QtGui import QAction, QIcon, QKeySequence, QDesktopServices, QFont, QCursor, QPalette, QColor
 from PySide6.QtWidgets import (QApplication, QMainWindow, QTabWidget, QWidget, QVBoxLayout,
-    QLabel, QPushButton, QFileDialog, QMessageBox, QInputDialog, QDialog, QHBoxLayout, QLineEdit, QTextEdit, QPlainTextEdit, QAbstractSpinBox, QComboBox, QTabBar, QToolButton, QMenu, QStyle, QListWidget, QListWidgetItem, QTreeWidget, QTreeWidgetItem, QHeaderView)
+    QLabel, QPushButton, QFileDialog, QMessageBox, QInputDialog, QDialog, QHBoxLayout, QLineEdit, QTextEdit, QPlainTextEdit, QAbstractSpinBox, QComboBox, QTabBar, QToolButton, QMenu, QStyle, QListWidget, QListWidgetItem, QTreeWidget, QTreeWidgetItem, QHeaderView, QCheckBox)
 from . import __version__, i18n
 from .i18n import tr, L
 from .core import Document
@@ -92,6 +92,8 @@ class Window(QMainWindow):
     def __init__(self, data_dir=None):
         super().__init__()
         self.settings=QSettings(str(Path(data_dir)/'settings.ini'),QSettings.IniFormat) if data_dir else QSettings('AsterPDF','AsterPDF')
+        if not self.settings.contains('markdown/browser_mode'):
+            self.settings.setValue('markdown/browser_mode','ask' if self.settings.value('markdown/preview_browser',True,type=bool) else 'never')
         if not self.settings.value('color/palette32',False,type=bool):
             if self.settings.value('color/tolerance',2.,type=float)==2.:self.settings.setValue('color/tolerance',8.)
             self.settings.setValue('color/palette32',True)
@@ -162,8 +164,9 @@ class Window(QMainWindow):
             item=QPushButton(text);item.setFixedSize(210,42);item.clicked.connect(callback);row.addWidget(item)
         row.addStretch();layout.addLayout(row)
         layout.addSpacing(24)
-        self.home_recent=QTreeWidget();self.home_recent.setColumnCount(3);self.home_recent.setRootIsDecorated(False);self.home_recent.setItemsExpandable(False)
-        self.home_recent.setMaximumSize(740,225);self.home_recent.setMinimumWidth(680)
+        from .recent_files import RecentFiles
+        self.home_recent=RecentFiles();self.home_recent.setColumnCount(3);self.home_recent.setRootIsDecorated(False);self.home_recent.setItemsExpandable(False)
+        self.home_recent.setMaximumWidth(740);self.home_recent.setMinimumWidth(680)
         self.home_recent.header().setStretchLastSection(False);self.home_recent.header().setSectionResizeMode(0,QHeaderView.Stretch)
         self.home_recent.header().setSectionResizeMode(1,QHeaderView.Fixed);self.home_recent.header().setSectionResizeMode(2,QHeaderView.Fixed)
         self.home_recent.setColumnWidth(1,90);self.home_recent.setColumnWidth(2,175)
@@ -225,6 +228,7 @@ class Window(QMainWindow):
         self.action(view,'width_fit',lambda:self.with_tab(lambda t:t.fit(True)),'Ctrl+1')
         self.action(view,'bookmark',lambda:self.with_tab(lambda t:t.toggle_bookmark()),'Ctrl+D')
         self.action(view,'fullscreen',self.fullscreen,'F11');self.action(view,'presentation',self.toggle_presentation,'F5')
+        self.markdown_preview_action=view.addAction(L('Markdown HTML 预览（系统浏览器）','Markdown HTML preview (system browser)'),self.show_markdown_preview)
         dark=view.addAction(tr('dark'));self.dark_action=dark;dark.setCheckable(True);dark.setChecked(self.dark);dark.toggled.connect(self.set_dark)
         night=view.addAction(tr('night'));self.night_action=night;night.setCheckable(True);night.toggled.connect(lambda b:self.with_tab(lambda t:(setattr(t,'night',b),t.canvas.invalidate(False))))
         language=view.addMenu('语言/Language');self.language_menu=language
@@ -350,13 +354,14 @@ class Window(QMainWindow):
         def done(result):
             doc,info=result;tab=DocumentTab(self,doc,info)
             if markdown_snapshot is not None:
-                tab.markdown_prepared=markdown_snapshot
+                tab.markdown_prepared=markdown_snapshot;tab.markdown_source=filename
             index=self.tabs.addTab(tab,Path(filename).name);self.tabs.setCurrentIndex(index)
             self.tabs.setTabToolTip(index,filename)
             recent=self.settings.value('recent',[],type=list)
             self.settings.setValue('recent',([filename]+[x for x in recent if x!=filename])[:15])
             import hashlib,datetime
             self.settings.setValue('recent_opened/'+hashlib.sha256(filename.encode()).hexdigest(),datetime.datetime.now().isoformat(timespec='seconds'));self.refresh_recent()
+            if markdown_snapshot is not None:QTimer.singleShot(200,lambda:self.offer_markdown_preview(tab))
         def cleanup():
             self.opening.discard(filename);self.tabs.removeTab(self.tabs.indexOf(loading));loading.deleteLater()
             if temporary:temporary.cleanup()
@@ -371,8 +376,41 @@ class Window(QMainWindow):
                 try:source=markdown_pdf(filename,Path(temporary.name)/'document.pdf',prepared,paginate=self.settings.value('markdown/paginate',False,type=bool))
                 except Exception as error:failed(error);cleanup();return
                 submit()
-            self.queue.submit(lambda j:prepare(filename),ready,lambda message:(failed(message),cleanup()),priority=3)
+            self.queue.submit(lambda job:prepare(filename),ready,lambda message:(failed(message),cleanup()),priority=3)
         else:submit()
+
+    def offer_markdown_preview(self,tab):
+        if tab.closed or self.tabs.indexOf(tab)<0:return
+        mode=self.settings.value('markdown/browser_mode','ask')
+        if mode=='never':return
+        # Wait for the visible document's first rendered tiles. Background tabs
+        # are offered when revisited, and multiple opens never stack dialogs.
+        if self.current()!=tab or not (tab.canvas.cache or tab.canvas.failed) or getattr(self,'_markdown_prompt',None):
+            QTimer.singleShot(200,lambda:self.offer_markdown_preview(tab));return
+        if mode=='always':self.show_markdown_preview(tab);return
+        prompt=QMessageBox(self);prompt.setWindowTitle(L('Markdown HTML 预览','Markdown HTML preview'));prompt.setIcon(QMessageBox.Question)
+        prompt.setTextFormat(Qt.PlainText)
+        prompt.setText(L('已在 AsterPDF 中打开。是否也用默认浏览器打开 HTML 预览？','Opened in AsterPDF. Also open an HTML preview in your default browser?'))
+        prompt.setInformativeText(Path(tab.markdown_source).name)
+        prompt.setStandardButtons(QMessageBox.Yes|QMessageBox.No);prompt.setDefaultButton(QMessageBox.No);prompt.setEscapeButton(QMessageBox.No)
+        remember=QCheckBox(L('不再提示（记住本次选择）','Do not ask again (remember this choice)'));prompt.setCheckBox(remember)
+        prompt.setWindowModality(Qt.WindowModal);self._markdown_prompt=prompt
+        def chosen(result):
+            self._markdown_prompt=None
+            if result in (QMessageBox.Yes,QMessageBox.No) and remember.isChecked():
+                self.settings.setValue('markdown/browser_mode','always' if result==QMessageBox.Yes else 'never');self.settings.sync()
+            prompt.deleteLater()
+            if result==QMessageBox.Yes and not tab.closed:self.show_markdown_preview(tab)
+        prompt.finished.connect(chosen);prompt.open()
+
+    def show_markdown_preview(self,tab=None):
+        tab=tab if isinstance(tab,DocumentTab) else self.current()
+        if not tab or not hasattr(tab,'markdown_prepared'):return
+        from .markdown_html import write_preview
+        source=getattr(tab,'markdown_source',tab.document.original);prepared=tab.markdown_prepared;dark=tab.dark
+        def ready(path):
+            if not tab.closed and not QDesktopServices.openUrl(QUrl.fromLocalFile(str(path))):tab.error(L('无法启动默认浏览器。','Could not open the default browser.'))
+        self.queue.submit(lambda j:write_preview(source,prepared,self.data_dir/'markdown-preview',dark),ready,tab.error,engine=False)
 
     def customize_toolbar(self,parent=None):
         from .chrome import customize_window_toolbar
@@ -408,6 +446,7 @@ class Window(QMainWindow):
 
 
     def update_title(self):
+        if hasattr(self,'markdown_preview_action'):self.markdown_preview_action.setEnabled(bool(self.current() and hasattr(self.current(),'markdown_prepared')))
         for i in range(self.tabs.count()):
             tab=self.tabs.widget(i)
             if isinstance(tab,DocumentTab):self.tabs.setTabText(i,Path(tab.document.original).name+(' *' if tab.document.dirty or tab.inline_dirty() or tab.suspended_inline or tab.form_dirty() else ''))
@@ -437,12 +476,15 @@ class Window(QMainWindow):
             tab.commit_inline(lambda:self.save_tab(save_as,after,on_failure),on_failure=on_failure);return
         destination=None
         if hasattr(tab,'markdown_prepared') and Path(tab.document.original).suffix.lower() in ('.md','.markdown'):
-            from .markdown_reading import MarkdownSaveDialog,export_markdown
-            dialog=MarkdownSaveDialog(self,tab)
+            from .markdown_reading import MarkdownSaveDialog,export_markdown,export_markdown_html
+            dialog=MarkdownSaveDialog(self,tab,allow_html=not after)
             if not dialog.exec():
                 if after:self._close_pending=False;self._closing_all=False
                 return
             destination=dialog.selectedFiles()[0];paginate=dialog.layout_choice.currentData()
+            if dialog.html_selected:
+                tab.run(tr('save_as'),lambda j:export_markdown_html(tab,destination))
+                return
             if paginate is not None:
                 tab.busy=True;QApplication.setOverrideCursor(Qt.WaitCursor)
                 try:export_markdown(tab,destination,paginate)
@@ -653,10 +695,17 @@ class Window(QMainWindow):
         if self.document_fullscreen:
             tab,widgets,view,mode,editing,maximized,sizes=self._fullscreen_state
             self.document_fullscreen=False
+            if hasattr(self,'fullscreen_controls'):self.fullscreen_controls.sync()
             for widget,visible in widgets:widget.setVisible(visible)
             tab.document_views.setCurrentWidget(view);tab.canvas.mode=mode;tab.editing_objects=editing
             tab.splitter.setSizes(sizes);tab.position_chrome()
             self.showMaximized() if maximized else self.showNormal()
+            scale,fit_mode=self._fullscreen_zoom
+            def restore_zoom():
+                if tab.closed or self.document_fullscreen:return
+                if fit_mode:tab.fit(fit_mode=='width_fit')
+                else:tab.set_zoom(scale)
+            QTimer.singleShot(100,restore_zoom)
             tab.canvas.setFocus();return
         tab=self.current()
         if not tab:return
@@ -666,10 +715,20 @@ class Window(QMainWindow):
         widgets=[self.menuBar(),self.tabs.tabBar(),self.document_switcher]
         widgets.extend(getattr(tab,name) for name in ('navbar_host','navbar','tool_panels','sidebar_container','sidebar_toggle','text_container','property_container') if hasattr(tab,name))
         self._fullscreen_state=(tab,[(w,not w.isHidden()) for w in widgets],tab.document_views.currentWidget(),tab.canvas.mode,tab.editing_objects,self.isMaximized(),tab.splitter.sizes())
+        self._fullscreen_zoom=(tab.canvas.scale,tab.fit_mode)
         self.document_fullscreen=True
         for widget in widgets:widget.hide()
         tab.editing_objects=False;tab.canvas.mode='select';tab.document_views.setCurrentWidget(tab.scroll)
         tab.position_chrome();self.showFullScreen();tab.canvas.setFocus()
+        from .fullscreen_controls import FullscreenControls
+        if not hasattr(self,'fullscreen_controls'):self.fullscreen_controls=FullscreenControls(self)
+        def fit_fullscreen():
+            if not self.document_fullscreen or tab.closed:return
+            fit=self.settings.value('reader/fullscreen_fit','width')
+            if fit in ('width','page'):tab.fit(fit=='width')
+            else:tab.fit_mode=None;tab.sync_tool_states()
+            self.fullscreen_controls.present()
+        QTimer.singleShot(150,fit_fullscreen)
 
     def toggle_presentation(self):
         if self.document_fullscreen:self.fullscreen()

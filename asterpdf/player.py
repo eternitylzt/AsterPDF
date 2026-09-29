@@ -139,6 +139,43 @@ class AnimationPlayer(QObject):
         self.changed.emit()
 
 
+def use_widget_video_surface():
+    import sys
+    return sys.platform=='darwin'
+
+
+class WidgetVideoSurface(QWidget):
+    """Keep macOS video and mouse handling in one ordinary Qt widget.
+
+    Native video child windows can consume the first click. Decode through the
+    same QMediaPlayer, retaining only the most recent image for this surface.
+    """
+    def __init__(self,parent):
+        super().__init__(parent)
+        from PySide6.QtMultimedia import QVideoSink
+        from PySide6.QtGui import QImage
+        self.sink=QVideoSink(self);self.image=QImage();self.sink.videoFrameChanged.connect(self.present)
+        self.setAttribute(Qt.WA_OpaquePaintEvent);self.setFocusPolicy(Qt.StrongFocus)
+
+    def videoSink(self):return self.sink
+
+    def present(self,frame):
+        if frame.isValid():self.image=frame.toImage();self.update()
+
+    def paintEvent(self,event):
+        from PySide6.QtGui import QPainter
+        from PySide6.QtCore import QRectF,QSizeF
+        painter=QPainter(self);painter.fillRect(self.rect(),Qt.black)
+        if not self.image.isNull():
+            size=QSizeF(self.image.size());size.scale(QSizeF(self.size()),Qt.KeepAspectRatio)
+            rect=QRectF((self.width()-size.width())/2,(self.height()-size.height())/2,size.width(),size.height())
+            painter.setRenderHint(QPainter.SmoothPixmapTransform);painter.drawImage(rect,self.image)
+
+    def clear(self):
+        from PySide6.QtGui import QImage
+        self.image=QImage();self.update()
+
+
 class VideoPlayer(QWidget):
     def __init__(self, tab, asset, filename):
         super().__init__(tab.canvas)
@@ -150,8 +187,8 @@ class VideoPlayer(QWidget):
         self.audio = QAudioOutput(self)
         self.audio.setVolume(.65)
         self.player.setAudioOutput(self.audio)
-        self.video = QVideoWidget(self)
-        self.player.setVideoOutput(self.video)
+        self.video = WidgetVideoSurface(self) if use_widget_video_surface() else QVideoWidget(self)
+        self.player.setVideoOutput(self.video.videoSink() if isinstance(self.video,WidgetVideoSurface) else self.video)
         self.actual_video_frames = 0
         self.video.videoSink().videoFrameChanged.connect(self.frame_received)
         layout = QVBoxLayout(self); layout.setContentsMargins(0,0,0,0); layout.setSpacing(2)
@@ -178,7 +215,7 @@ class VideoPlayer(QWidget):
         loop.setToolTip(tr('loop'));close.setToolTip(tr('close'));self.video.setCursor(Qt.PointingHandCursor);self.video.setContextMenuPolicy(Qt.PreventContextMenu);self.video.installEventFilter(self)
         self.setStyleSheet(self.styleSheet()+' QPushButton:hover{background:#496580;} QPushButton:pressed{background:#7894b8;}')
         self.player.mediaStatusChanged.connect(self.media_status)
-        self.player.playbackStateChanged.connect(self.sync_play_icon)
+        self.player.playbackStateChanged.connect(self.state_changed)
         self.player.playbackStateChanged.connect(lambda *_:self.tab.player_changed())
         self.show(); self.player.play()
 
@@ -192,6 +229,10 @@ class VideoPlayer(QWidget):
         self.play_button.setIcon(icon('media_pause' if self.want_playing else 'media_play',True))
         self.play_button.setToolTip(L('暂停','Pause') if self.want_playing else L('播放','Play'))
 
+    def state_changed(self,state):
+        from PySide6.QtMultimedia import QMediaPlayer
+        self.want_playing=state==QMediaPlayer.PlayingState;self.sync_play_icon()
+
     def contextMenuEvent(self,event):
         from PySide6.QtWidgets import QMenu
         menu=QMenu(self);menu.addAction(L('保存原始媒体…','Save original media…'),lambda:self.tab.export_embedded_media(self.asset));menu.addAction(L('多媒体控件','Playback controls'),self.show_controls)
@@ -201,7 +242,8 @@ class VideoPlayer(QWidget):
         self.tab.media_choice.setCurrentIndex(len(self.tab.animations)+self.tab.assets.index(self.asset));self.tab.show_playback_controls()
 
     def toggle(self):
-        self.want_playing=not self.want_playing
+        from PySide6.QtMultimedia import QMediaPlayer
+        self.want_playing=self.player.playbackState()!=QMediaPlayer.PlayingState
         self.player.play() if self.want_playing else self.player.pause()
         self.sync_play_icon()
 
@@ -214,6 +256,10 @@ class VideoPlayer(QWidget):
             if self.tab.active_panel=='objects' and self.tab.edit_tool=='video':
                 self.tab.select_media(self.asset);event.accept();return True
             self.toggle();event.accept();return True
+        if source is self.video and event.type() in (QEvent.MouseButtonRelease,QEvent.MouseButtonDblClick) and event.button()==Qt.LeftButton:
+            # Consume the remaining click events; never let the PDF canvas
+            # interpret them as another media activation.
+            event.accept();return True
         return super().eventFilter(source,event)
 
     def frame_received(self, frame):
@@ -221,3 +267,4 @@ class VideoPlayer(QWidget):
 
     def shutdown(self):
         self.want_playing=False;self.player.stop(); self.player.setSource(QUrl()); self.hide()
+        if isinstance(self.video,WidgetVideoSurface):self.video.clear()

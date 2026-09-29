@@ -15,9 +15,12 @@ from asterpdf.core import Document
 @pytest.fixture
 def ui(document,tmp_path,monkeypatch):
     app=QApplication.instance() or QApplication([])
+    from PySide6.QtGui import QDesktopServices
+    monkeypatch.setattr(QDesktopServices,'openUrl',lambda url:True)
     errors=[]
     monkeypatch.setattr(QMessageBox,'warning',lambda *args:errors.append(str(args[-1])))
     window=Window(tmp_path/'ui');window.show()
+    window.settings.setValue('markdown/browser_mode','never')
     tab=DocumentTab(window,document,document.info());window.tabs.addTab(tab,'sample');window.tabs.setCurrentWidget(tab)
     def pump(predicate=lambda:True,timeout=20):
         start=time.monotonic()

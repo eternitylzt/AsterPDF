@@ -792,6 +792,12 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
 
 
     def fit(self,width):
+        if self.window.document_fullscreen:
+            row=(self.canvas.page//self.canvas.columns)*self.canvas.columns;sizes=self.info['sizes'][row:row+self.canvas.columns]
+            gap=0 if self.canvas.compact_pages else 16*(len(sizes)-1);available=self.scroll.viewport().size()
+            scale=(available.width()-32-gap)/sum(w for w,h in sizes)
+            if not width:scale=min(scale,(available.height()-32)/max(h for w,h in sizes))
+            self.set_zoom(scale);self.fit_mode='width_fit' if width else 'page_fit';self.sync_tool_states();return
         w,h=self.info['sizes'][self.canvas.page]
         if self.canvas.columns==2:
             row=(self.canvas.page//2)*2

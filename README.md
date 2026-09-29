@@ -17,7 +17,7 @@ An offline desktop PDF workspace for research and technical documents.
 ## What makes it useful
 
 - **Read animated papers.** Play recognized LaTeX `animate` icon/widget sequences and embedded video/audio inside the document, including presentation mode.
-- **Markdown and video.** Read mathematical Markdown and export PDF; insert videos, save embedded media and arrange media layers.
+- **Markdown and video.** Read mathematical Markdown, preview HTML in your browser and export PDF/HTML; insert videos, save embedded media and arrange media layers.
 - **Extract research figures.** Export high-resolution regions, extract embedded raster images at their original resolution, or save a cropped PDF that retains text and vectors.
 - **Edit real PDF content.** Modify identifiable text, images and vector groups. Preserve untouched glyphs; move, resize, delete and paste objects in place across documents. Insert vector PDF figures.
 - **Annotate and organize.** Standard PDF comments, character-range markup, reflowing text annotations, page drag/reorder, merge queues, extraction, rotation and adjustable cropping.
@@ -28,16 +28,16 @@ No account. No cloud dependency. PDF processing stays on your computer.
 
 ### Reading controls
 
-- **F11:** document-only fullscreen; already visible playback controls and Quick overview remain available. Press F11 or Esc to restore the interface. F5 remains presentation mode.
-- **Markdown:** headings appear in Outline with jump destinations. Documents open as one continuous page by default. Save As offers A4 pagination (default) or a long page, independently of the reading layout. Code blocks use the original document layout without added scrolling overlays; export includes all code. Settings → Preferences → Markdown groups reading and export defaults. Reopen the document to change reading pagination. After PDF edits, Save As preserves the current layout to avoid losing those edits.
+- **F11:** document-only fullscreen defaults to fit width; move to the top edge for fit/zoom/layout/exit controls. Existing media controls and Quick overview remain available. Press F11 or Esc to restore the interface. F5 remains presentation mode.
+- **Markdown:** opens inside AsterPDF first, then asks whether to open a local HTML preview in the default browser. Remember Yes or No with “Do not ask again”; Preferences → Markdown offers Ask each time / Always open / Stay in AsterPDF. Save As offers HTML or PDF (A4 by default, or one long page). HTML embeds loaded images and formulas for sharing and reflects the opened Markdown snapshot; save subsequent PDF edits/annotations as PDF. In-app reading defaults to a long page with heading outlines, and edited PDFs retain their current layout.
 - **Page gaps:** double-click between pages to remove the spacing, and double-click the faint divider to restore it. Hover cursors indicate collapse/expand. Also available in View → Hide / show page gaps. This changes display spacing only, not the page's own white margins or PDF content.
 
-## 1.3.0 · New since published 1.2.1
+## 1.3.2 · Changes since 1.3.0
 
-- **Standard PDF form filling:** in-place input, date picking, linked fields, real field values and appearances, undo and recovery. [Supported scope](docs/FORMS.md)
-- **Markdown reading/export:** heading outlines, continuous long-page reading, independent A4/long-page export, native code-block rendering and grouped preferences.
-- **Document fullscreen and tight spacing:** F11 keeps existing playback/overview controls; double-click a page gap to hide or restore it.
-- **Favorites:** renamed personal reading bookmarks throughout the interface while retaining saved entries and custom names.
+- **Markdown preview and export:** opens inside AsterPDF first, then offers a local HTML preview in the default browser. Remember Yes/No or change the choice in preferences. Outlines, formulas, images, tables and code copying are supported; Save As now offers HTML. No browser engine is bundled.
+- **Fullscreen reading:** fit width by default, with auto-hiding fit, zoom, layout and exit controls; restores the previous zoom on exit.
+- **Recent files on Home:** space for five complete entries, with scrolling in smaller windows.
+- **macOS video interaction:** revised click handling and playback-state synchronization address the double-click-to-pause report; confirmation on affected users’ Macs is still needed.
 
 [Release notes](docs/RELEASE_NOTES.md) · [Math example](examples/Markdown-math.md) · [Screenshot](docs/evidence/markdown-1.2.1.png)
 
@@ -45,7 +45,7 @@ No account. No cloud dependency. PDF processing stays on your computer.
 
 [Linux installation: deb / rpm / portable](docs/LINUX.md)
 
-**Windows x64:** extract the complete `AsterPDF-1.3.0-windows-amd64.zip`, then run `AsterPDF/AsterPDF.exe`. Keep the accompanying `_internal` folder. No Python installation is required; the executable is unsigned.
+**Windows x64:** extract the complete `AsterPDF-1.3.2-windows-amd64.zip`, then run `AsterPDF/AsterPDF.exe`. Keep the accompanying `_internal` folder. No Python installation is required; the executable is unsigned.
 
 **macOS / Linux:** download the native archive from the GitHub Release. The automated build verifies packaging on each target; see the validation and compatibility documents for the features tested on real desktops.
 

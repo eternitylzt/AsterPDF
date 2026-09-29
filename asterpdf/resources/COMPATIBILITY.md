@@ -1,4 +1,12 @@
-# AsterPDF 1.3.0 compatibility / 兼容性
+# AsterPDF 1.3.2 compatibility / 兼容性
+
+## HTML preview and fullscreen / HTML 预览与全屏
+
+Markdown uses the existing parser and offline math renderer to build a self-contained local HTML file, opened by the system browser. Loaded images and vector formulas are embedded; remote images require a connection only during preparation. Untrusted scripts, active embeds and unsafe links are excluded; a content policy permits only the app's own theme/copy controls. Browser preview reflects the opened Markdown snapshot, not later PDF edits. Relative non-anchor document links are omitted; HTTP(S), mail and heading links work. Browser fonts/layout can differ from PDF export. The preview cache retains the latest 20 files under the app data folder. The in-app document renders before the browser prompt. Remember Yes/No or choose Ask each time / Always open / Stay in AsterPDF in Markdown preferences; View provides a manual command. Save As offers portable HTML with embedded resources. HTML export neither clears unsaved PDF changes nor replaces the PDF-saving step when closing a modified document. No WebEngine dependency was added.
+
+F11 defaults to fit width and shows a compact auto-hiding control strip; move to the top edge to reveal it. Fit page/width, direct percentage, layout and exit are available. Preferences can default to fit page or keep zoom. Leaving fullscreen restores the previous zoom mode. Previously visible media/overview controls are retained.
+
+macOS uses a regular QWidget + QVideoSink surface, retaining only the latest decoded image, to avoid native video child-window click routing. Windows/Linux use QVideoWidget. Repeated single-click pause/resume and actual decoded output were tested for both paths on Windows; physical macOS remains unverified. Automatic browser visual inspection of local file URLs was unavailable in the current tool environment; HTML content, resource embedding and launch routing were checked separately.
 
 ## PDF forms / PDF 表单
 

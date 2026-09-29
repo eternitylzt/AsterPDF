@@ -2,12 +2,12 @@
 [Setup]
 AppId={{7DDA0BC4-4D07-4EEC-8D84-CBDCEBA6E3A9}
 AppName=AsterPDF
-AppVersion=1.3.0
+AppVersion=1.3.2
 DefaultDirName={localappdata}\Programs\AsterPDF
 DefaultGroupName=AsterPDF
 PrivilegesRequired=lowest
 OutputDir=..\..\dist
-OutputBaseFilename=AsterPDF-1.3.0-windows-setup
+OutputBaseFilename=AsterPDF-1.3.2-windows-setup
 SetupIconFile=..\..\assets\asterpdf.ico
 LicenseFile=..\..\LICENSE
 Compression=lzma2

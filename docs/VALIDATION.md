@@ -1,3 +1,23 @@
+# AsterPDF 1.3.2 · Markdown preview choices and HTML export
+
+2026-09-29, Windows native Qt: **57 tests passed, 1 deselected, in 137.22 seconds**. Coverage includes rendering Markdown before offering browser preview, Yes/No with and without a remembered choice, applying the preference to subsequent files, switching preferences back to Ask, manual previews, HTML/PDF save-format switching, formula/image embedding, keeping unsaved PDF edits dirty after HTML export, five complete recent-file rows, fullscreen zoom, real video frames and repeated single-click pause/resume, forms, PDF mutations and preservation. The deselected overlapping-media selection test is also excluded from the existing release workflow and is unrelated to these changes. Two save-dialog tests passed again after refining the default filename display.
+
+Native screenshots of Home, the browser prompt and HTML Save As were inspected. Home shows five complete aligned records at 1200 × 900; the prompt includes a remember-choice checkbox, and the save dialog explains which content HTML retains. The bundled browser engine remains excluded. The three-platform build workflow runs the new Markdown/HTML UI regressions as well as the existing release tests; real video input is tested locally, with physical Mac confirmation still pending. The earlier browser-tool restriction described below still applies to browser screenshot validation.
+
+The final rebuilt Windows executable passed its packaged check in 14.58 seconds, opening PDF, animation/video and mathematical Markdown, navigating pages, printing to PDF, and editing/saving/reopening text. Formula rendering reported no errors. [Packaged report](evidence/desktop-1.3.2.json). Six new reading tests also passed with the offscreen Qt platform used by Linux CI (two local video tests excluded).
+
+---
+
+# AsterPDF 1.3.1 · Local HTML/fullscreen/video update
+
+Windows: **24 targeted tests passed in 53.66 seconds** for HTML generation/browser launch routing/settings/snapshot consistency, formulas and local images, HTML script/link filtering, fullscreen fit-width and manual controls/zoom restoration, existing page seams, Markdown export, AcroForm filling, and actual MP4 decoding with repeated single-click pause/resume. Both the native QVideoWidget path and the macOS-specific QWidget/QVideoSink path were exercised on Windows. Tests confirmed that video click events do not reach the PDF canvas. No claim of physical Mac verification is made.
+
+The supplied README produced a self-contained 803,849-byte HTML preview with 123 vector formula resources and one image. The current automated browser forbids local file URLs, so browser screenshot validation was unavailable; content/resource/launch checks were performed without bypassing that restriction. No bundled browser dependency was added. No GitHub push or publication was requested.
+
+The follow-up fullscreen regression passed (1 test, 3.67 seconds), including keeping the existing scale when entering from a fitted view. A native fullscreen screenshot was inspected: the document fits the screen width, the compact controls are visible, and the existing minimap remains visible. The rebuilt Windows executable passed its packaged diagnostic in 13.25 seconds with no errors: document navigation, presentation exit, print-to-PDF, text edit/save/reopen, 36 animation frames and 57 decoded video frames. These checks do not substitute for testing the macOS mouse interaction on a physical Mac.
+
+---
+
 # AsterPDF 1.3.0 · Forms and Favorites / 表单与收藏
 
 ## Release revision · Markdown and page-gap correction
