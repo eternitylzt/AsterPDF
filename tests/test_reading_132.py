@@ -78,8 +78,15 @@ def test_html_save_action_format_switch_and_pdf_edits_remain_dirty(ui,tmp_path,m
 def test_home_recent_shows_five_complete_rows(ui,tmp_path):
     app,w,t,pump=ui
     w.settings.setValue('recent',[str(tmp_path/f'History {i}.pdf') for i in range(9)]);w.refresh_recent()
-    w.tabs.setCurrentWidget(w.welcome);w.resize(1250,900);pump();w.welcome.layout().activate();pump()
+    w.tabs.setCurrentWidget(w.welcome);w.resize(1250,900);QTest.qWait(250);pump();w.welcome.layout().activate();pump()
     tree=w.home_recent;fifth=tree.visualItemRect(tree.topLevelItem(4))
-    assert fifth.bottom()<tree.viewport().height()
+    assert tree.sizeHint().height()>=5*fifth.height()+tree.header().height()
+    # macOS limits top-level windows to the runner's small desktop. Five rows
+    # are preferred; a shorter actual window must still scroll to every row.
+    if w.height()>=850:assert fifth.bottom()<tree.viewport().height()
+    else:
+        assert tree.viewport().height()>=120
+        tree.scrollToItem(tree.topLevelItem(8));pump()
+        assert tree.viewport().rect().contains(tree.visualItemRect(tree.topLevelItem(8)).center())
     assert tree.topLevelItem(0).text(0).startswith('History 0.pdf') and tree.topLevelItemCount()==9
     assert tree.verticalScrollBar().maximum()>0

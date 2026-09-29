@@ -26,7 +26,10 @@ class RecentDelegate(QStyledItemDelegate):
         painter.save();painter.setClipRect(area)
         selected=bool(option.state&QStyle.State_Selected)
         color=option.palette.color(QPalette.HighlightedText if selected else QPalette.Text)
-        font=option.font;font.setPointSizeF(font.pointSizeF()+1);painter.setFont(font);painter.setPen(color)
+        font=option.font
+        if font.pixelSize()>0:font.setPixelSize(font.pixelSize()+1)
+        else:font.setPointSizeF(font.pointSizeF()+1)
+        painter.setFont(font);painter.setPen(color)
         fm=QFontMetrics(font);height=fm.height()
         painter.drawText(QRect(area.x(),area.y(),area.width(),height),Qt.AlignVCenter,fm.elidedText(file.name,Qt.ElideMiddle,area.width()))
         painter.setFont(option.font);color.setAlpha(190);painter.setPen(color)

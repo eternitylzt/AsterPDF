@@ -4,6 +4,8 @@
 
 Native screenshots of Home, the browser prompt and HTML Save As were inspected. Home shows five complete aligned records at 1200 × 900; the prompt includes a remember-choice checkbox, and the save dialog explains which content HTML retains. The bundled browser engine remains excluded. The three-platform build workflow runs the new Markdown/HTML UI regressions as well as the existing release tests; real video input is tested locally, with physical Mac confirmation still pending. The earlier browser-tool restriction described below still applies to browser screenshot validation.
 
+The first macOS CI attempt passed 46 checks and exposed a recent-list test assuming a 900-pixel window on a shorter desktop. The regression now waits for native sizing and checks scrolling when macOS constrains window height. Recent-file font sizing also respects pixel-sized fonts, eliminating the warning seen on Mac. The two affected recent-file checks passed locally after this adjustment.
+
 The final rebuilt Windows executable passed its packaged check in 14.58 seconds, opening PDF, animation/video and mathematical Markdown, navigating pages, printing to PDF, and editing/saving/reopening text. Formula rendering reported no errors. [Packaged report](evidence/desktop-1.3.2.json). Six new reading tests also passed with the offscreen Qt platform used by Linux CI (two local video tests excluded).
 
 ---
