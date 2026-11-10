@@ -1,3 +1,55 @@
+# AsterPDF 1.3.6 · Editing responsiveness / 编辑响应
+
+2026-11-09, Windows local update. The final focused regression run passed **135 tests in 49.01 seconds**, exit code 0. It includes native Qt edit-mode/tab-menu stability, toolbar overflow and resizing, latest-draft preview scheduling, cancellation and deferred commit, cached object transforms after deletion, plus the prior text/font, graphics/image, PDF preservation and highlight suites. A Windows COM first-chance diagnostic (`0x8001010d`) was printed during Qt fixture startup; execution continued and all 135 tests passed. This is not a claim that the entire repository suite was run.
+
+Compared with the source shipped in the installed 1.3.5 bundle:
+
+- The document-tab dropdown made 10 move events on entering Edit, alternating between competing positions. After allowing the Qt tab layout to own its geometry, the same probe recorded 0 move events. Idle move events also fell from 4 to 0.
+- A generated 401-object page took 0.5702 seconds to scale/rotate one selected vector before the change and 0.1001 seconds afterward (5.7 times faster in this single local run). All returned object bounds were checked against a fresh full scan. First-time page discovery is still required; this measurement concerns subsequent edits.
+- Matching installed font names 1,000 times across a 242-family catalog took 0.762 seconds before and 0.074 seconds afterward. This measures name lookup, not end-to-end text editing.
+
+A separate native Qt smoke used `science.ads9412.pdf`: entering Edit took 0.656 seconds, opening a text block 0.045 seconds, inserting the test string 0.009 seconds, and applying it through completion 1.228 seconds. The edited private copy was saved and reopened, then undo/redo and cancellation were checked. The original file's SHA-256 remained unchanged. These are single-run samples, not performance guarantees; dense documents and save/preview work can still take time.
+
+The final frozen Windows executable passed its desktop diagnostic in 18.12 seconds, including rendering/navigation, actual animation/video frames, printing, and text edit/save/reopen. The captured native window was also visually checked. [Packaged check](evidence/desktop-1.3.6.json).
+
+Only Windows was built and verified for this local update. Existing editing compatibility limits remain in force. No GitHub push or release was performed. [Performance evidence](evidence/editing-performance-1.3.6.json).
+
+---
+
+# AsterPDF 1.3.5 · Graphics and image editing / 图形与图片
+
+2026-11-09, Windows local build. Final targeted regression result: **127 passed in 67.55s (0:01:07)**, process exit code 0. The nine suites cover graphics, image replacement, real UI callbacks, previous text/font fixes, PDF workflows, preservation and highlight roundtrips. The run printed a Windows COM first-chance diagnostic (`0x8001010d`) from Qt event processing; pytest continued and all 127 cases passed. This is not a claim that the log was free of diagnostics or that the entire repository suite passed.
+
+The final installed 1.3.5 executable passed its frozen desktop diagnostic (10.34 seconds): rendering/navigation, printing and text edit/save/reopen. Separately, actual installed GUI actions moved/scaled/rotated an image, replaced it with a different aspect ratio, and moved/scaled/rotated a native vector. The file was saved, the editing process closed, and the installed program launched again. Both pages, including the 90-degree rotated page, were visually checked. Independent PDF inspection checks transforms, path points, image pixels/alpha and untouched neighbors. Acrobat separately closed/reopened/read the final file, and its GUI rendered both pages. Poppler rendered both pages for visual review; it reported missing Symbol/ArialUnicode display fonts, without visible fixture defects.
+
+REA static declarations and controlled Acrobat edits guided the source comparison. The matched AsterPDF/Acrobat image transform differs by at most 0.001221 pt, with identical vector bounds. Acrobat's automated resize drag did not produce a confirmed change, so it is not counted as a successful Acrobat operation. AsterPDF scaling was tested independently and through the installed GUI. See [research and boundaries](GRAPHICS_IMAGE_RESEARCH.md) and [verification evidence](evidence/graphics-image-1.3.5.json).
+
+The previous installation is retained at `C:\Users\ztli\Downloads\AsterPDF-1.3.4-backup-20261109`. Only Windows was built and checked. Complex paths containing internal cm/q/Q and nested Form child editing remain explicit boundaries. Ghidra was not configured because the available evidence was sufficient for these repairs.
+
+---
+
+# AsterPDF 1.3.4 · Text and font editing / 文字与字体
+
+2026-11-06, Windows local build. Final regression result: **52 passed in 66.21s (0:01:06)**. This group includes text-font, text-geometry, PDF workflow, preservation, rotated highlight and highlight-property tests, run with native Windows Qt. The final installed executable also passed the frozen desktop diagnostic (13.86 seconds): rendering/navigation, printing and text edit/save/reopen.
+
+REA inspected local Acrobat PE import/export declarations; a controlled native Acrobat editing experiment preserved 150% horizontal scaling, 2 pt character spacing, bold/italic, RGB color and Chinese text. AsterPDF's corresponding saved results matched both new glyph widths; maximum baseline-position deviation was below 0.001 pt. Acrobat closed and reopened the AsterPDF result and read back Chinese plus mathematical italic alpha. The final installed program was separately used for an additional edit and save/reopen check. See [research](TEXT_FONT_RESEARCH.md) and [installed evidence](evidence/text-font-1.3.4.json).
+
+An earlier broader selection encountered the existing `tests/test_usability_05.py::test_annotation_selection_styles_and_border` timeout while waiting for annotation-width auto-apply. This text/font update does not claim that unrelated test passes or that the entire repository suite was green. Earlier two skipped subset-space tests were replaced with dependency-free fixtures and passed in the final run. Only Windows was built and verified. Complex shaping and unsupported text directions remain explicit limitations in the research note.
+
+---
+
+# AsterPDF 1.3.3 · Highlight roundtrip / 高亮往返保存
+
+2026-11-06, Windows local build. Four page rotations (0/90/180/270 degrees), two-line highlights, RGB colors, opacity and Unicode comments were exercised in the installed executable and local Acrobat Pro DC 32-bit. The final sample contains eight highlights. Page content streams retain their SHA-256 values. Maximum geometric deviation is 0.00001526 pt.
+
+Release tests: 53 passed and two Markdown tests failed on Windows with QT_QPA_PLATFORM=offscreen; both passed when repeated with native Windows Qt (11.94 seconds). Three pre-existing video cases were deselected by the release filter. After the opacity correction, 12 focused tests passed (30.85 seconds), including eight rotation cases, two comment-only style-preservation cases and real mouse switching between differently styled highlights.
+
+The final installed executable also passed its packaged diagnostic (14.25 seconds): PDF rendering/navigation, printing and text edit/save/reopen. The native GUI was used to create highlights on all four rotations, edit Chinese comments, save, then reopen Acrobat's resaved output. Color/opacity preservation during comment edits was verified against PDF data. Only Windows was built and verified in this update; no new macOS/Linux verification is claimed.
+
+[Packaged check](evidence/desktop-1.3.3.json) · [Highlight evidence](evidence/highlight-1.3.3.json)
+
+---
+
 # AsterPDF 1.3.2 · Markdown preview choices and HTML export
 
 2026-09-29, Windows native Qt: **57 tests passed, 1 deselected, in 137.22 seconds**. Coverage includes rendering Markdown before offering browser preview, Yes/No with and without a remembered choice, applying the preference to subsequent files, switching preferences back to Ask, manual previews, HTML/PDF save-format switching, formula/image embedding, keeping unsaved PDF edits dirty after HTML export, five complete recent-file rows, fullscreen zoom, real video frames and repeated single-click pause/resume, forms, PDF mutations and preservation. The deselected overlapping-media selection test is also excluded from the existing release workflow and is unrelated to these changes. Two save-dialog tests passed again after refining the default filename display.

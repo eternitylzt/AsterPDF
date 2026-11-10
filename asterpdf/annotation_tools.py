@@ -27,7 +27,7 @@ def build(tab,kind,selected=None,author=False):
         ann=selected[0];values.update(color=QColor.fromRgbF(*(ann.get('color') or (0,0,0))).name(),width=ann.get('width',2),opacity=ann.get('opacity',1),size=ann.get('fontsize',12),font=ann.get('fontname','china-s'),end=ann.get('line_end') or 5,head=ann.get('head_size',10),dash=ann.get('dash','dash' if ann.get('dashed') else 'solid'),fill=bool(ann.get('fill')),fill_color=QColor.fromRgbF(*(ann.get('fill') or (1,1,1))).name(),border=ann.get('width',0))
     color=tab.color_button(pane,tr('color'),QColor(values['color']))
     pane.number('width',tr('width'),max(0,values['width']),0,30,1)
-    pane.number('opacity',L('不透明度（%）','Opacity (%)'),values['opacity']*100,5,100,0)
+    pane.number('opacity',L('不透明度（%）','Opacity (%)'),round(values['opacity']*100),5,100,0)
     dash=pane.choice('dash',L('线型','Line style'),[(L('实线','Solid'),'solid'),(L('虚线','Dashed'),'dash'),(L('点线','Dotted'),'dot'),(L('点划线','Dash-dot'),'dashdot')]+([(L('波浪线','Wave'),'wave')] if kind in ('underline','squiggly') else []));dash.setCurrentIndex(max(0,dash.findData(values['dash'])))
     if (selected and len(selected)>1) or kind in ('highlight','note'):
         dash.hide();pane.form.labelForField(dash).hide()
@@ -66,6 +66,12 @@ def build(tab,kind,selected=None,author=False):
         v=current();changes=[]
         for ann in chosen:
             options=dict(color=color.color.getRgbF()[:3],width=v['width'],opacity=v['opacity'],dashed=v['dash']!='solid' if len(chosen)==1 else ann.get('dashed',False),dash=v['dash'] if len(chosen)==1 else ann.get('dash','solid'),line_end=v['end'] if len(chosen)==1 else ann.get('line_end'),head_size=v['head'] if len(chosen)==1 else ann.get('head_size'))
+            # Editing only a comment must not quantize the original PDF color
+            # or opacity through the 8-bit picker / whole-percent controls.
+            if len(chosen)==1:
+                original_color=ann.get('color')
+                if original_color and color.color.name()==QColor.fromRgbF(*original_color).name():options['color']=original_color
+                if round(v['opacity']*100)==round(ann.get('opacity',1)*100):options['opacity']=ann.get('opacity',1)
             if editor is not None and len(chosen)==1:options['text']=editor.toPlainText()
             if ann['type'] in ('FreeText','Text') and len(chosen)==1:options.update(fontsize=v['size'],fontname=v['font'],width=v['border'])
             if fill:options['fill']=QColor(v['fill_color']).getRgbF()[:3] if v['fill'] else ()

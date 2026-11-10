@@ -74,32 +74,29 @@ def draw_shape(document,page,rect,kind,color,fill,width,dash='solid'):
     document.edit('draw vector shape',mutate)
 
 def style_vectors(document,page,selected,color,fill,width,dash='solid'):
+    from .objects import _graphics_state_replay
     if any(o.kind!='vector' for o in selected):raise Unsupported(L('样式修改适用于直接绘制的路径；组合图可整体移动、缩放。','Style changes apply to painted paths; Form groups support moving and scaling.'))
+    for obj in selected:
+        if obj.reason:raise Unsupported(obj.reason)
     stroke=(' '.join(map(str,color))+' RG '+str(width)+' w '+DASHES.get(dash,'[] 0')+' d\n').encode();paint=(' '.join(map(str,fill))+' rg\n').encode() if fill is not None else b''
     def mutate(pdf):
         p=pdf.pages[page];data=content_bytes(p)
         for o in sorted(selected,key=lambda o:o.start,reverse=True):
-            parts=[]
-            for c in commands(data[o.start:o.end]):
+            block=data[o.start:o.end];parsed=commands(block);parts=[]
+            if any(c.op in ('cm','q','Q') for c in parsed):
+                raise Unsupported(L('含内部变换的路径暂不支持样式编辑。','Paths with internal transforms do not support style editing.'))
+            for c in parsed:
                 if c.op in ('RG','G','K','w','rg','g','k','d'):continue
-                if c.op in ('f','F','f*','B','B*','b','b*','S','s'):parts.append(b'B' if fill is not None else b'S')
+                if c.op in ('f','F','f*','B','B*','b','b*','S','s'):
+                    closed=c.op in ('s','b','b*')
+                    paint_op=('b' if closed else 'B')+('*' if c.op.endswith('*') else '') if fill is not None else ('s' if closed else 'S')
+                    parts.append(paint_op.encode())
                 else:parts.append(c.raw)
-            data=data[:o.start]+b' q '+stroke+paint+b'\n'.join(parts)+b' Q '+data[o.end:]
+            data=data[:o.start]+b' q '+stroke+paint+b'\n'.join(parts)+b' Q '+_graphics_state_replay(block)+data[o.end:]
         p.Contents=pdf.make_stream(data)
     document.edit('style vectors',mutate)
 
 
-def rotate(document,page,selected,angle):
-    from .objects import _transform_bytes
-    bounds=fitz.Rect(selected[0].bbox)
-    for obj in selected[1:]:bounds |= fitz.Rect(obj.bbox)
-    cx,cy=(bounds.x0+bounds.x1)/2,(bounds.y0+bounds.y1)/2
-    screen=fitz.Matrix(1,0,0,1,-cx,-cy)*fitz.Matrix(angle)*fitz.Matrix(1,0,0,1,cx,cy)
-    with fitz.open(document.path) as view:
-        p=view[page];coord=p.transformation_matrix*p.rotation_matrix;matrix=coord*screen*~coord
-    def mutate(pdf):
-        p=pdf.pages[page];data=content_bytes(p)
-        for obj in sorted(selected,key=lambda o:o.start,reverse=True):
-            data=data[:obj.start]+_transform_bytes(data,obj,matrix)+data[obj.end:]
-        p.Contents=pdf.make_stream(data)
-    document.edit('rotate shapes',mutate)
+def rotate(document,page,selected,angle,all_objects=None):
+    from .objects import transform
+    return transform(document,page,selected,rotate=angle,all_objects=all_objects)

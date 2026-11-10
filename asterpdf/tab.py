@@ -276,6 +276,7 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
         self.annotation_list=QListWidget();self.annotation_list.setWordWrap(True);self.annotation_list.setSelectionMode(QAbstractItemView.ExtendedSelection);self.annotation_list.setItemDelegate(AnnotationDelegate(self.annotation_list));annlayout.addWidget(self.annotation_list)
         self.annotation_text=QTextEdit();self.annotation_text.setReadOnly(True);self.annotation_text.setMaximumHeight(180);annlayout.addWidget(self.annotation_text)
         self.annotation_list.currentItemChanged.connect(self.annotation_selected)
+        self.annotation_list.itemSelectionChanged.connect(self.annotation_selection_changed)
         self.annotation_list.itemDoubleClicked.connect(lambda item:self.edit_selected_annotation())
         annbuttons=QHBoxLayout();annlayout.addLayout(annbuttons)
         for text,callback in [(L('修改','Edit'),self.edit_selected_annotation),(L('删除','Delete'),self.delete_annotation)]:
@@ -369,8 +370,10 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
     def style_modules(self):
         color='#26364b' if self.window.dark else '#edf1f8'
         alpha=self.window.settings.value('toolbar/opacity',100,type=int)*255//100;c=QColor(color)
-        self.tools.setStyleSheet(f'QToolBar {{background:transparent;}} QToolButton:checked {{background:{color};border-bottom:2px solid #647eea;}}')
-        self.tool_panels.setStyleSheet(f'QToolBar {{background:rgba({c.red()},{c.green()},{c.blue()},{alpha});}}')
+        tools_style=f'QToolBar {{background:transparent;}} QToolButton:checked {{background:{color};border-bottom:2px solid #647eea;}}'
+        panel_style=f'QToolBar {{background:rgba({c.red()},{c.green()},{c.blue()},{alpha});}}'
+        if self.tools.styleSheet()!=tools_style:self.tools.setStyleSheet(tools_style)
+        if self.tool_panels.styleSheet()!=panel_style:self.tool_panels.setStyleSheet(panel_style)
 
     def pointer(self):
         if self.inline_editor and self.inline_dirty():
@@ -1375,6 +1378,12 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
         self._sync_annotation=False
         if self.active_panel=='annotate':self.show_annotation_properties('select_annot',[it.data(Qt.UserRole) for it in self.annotation_list.selectedItems()] or [ann])
 
+    def annotation_selection_changed(self):
+        # Qt can emit currentItemChanged before updating selectedItems().
+        # Refresh after selection settles so Apply cannot reuse the prior style.
+        chosen=[it.data(Qt.UserRole) for it in self.annotation_list.selectedItems()]
+        if chosen and self.active_panel=='annotate':self.show_annotation_properties('select_annot',chosen)
+
     def select_annotation(self,ann,additive=False):
         if self.active_panel=='annotate' and self.canvas.mode!='select_annot':self.set_mode('select_annot')
         for i in range(self.annotation_list.count()):
@@ -1448,10 +1457,13 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
         form.number('dx','Δ X (pt)',0,-10000,10000,2);form.number('dy','Δ Y (pt)',0,-10000,10000,2)
         form.number('sx',L('横向缩放','Scale X'),1,.01,100,3);form.number('sy',L('纵向缩放','Scale Y'),1,.01,100,3)
         form.check('ratio',L('保持比例','Keep aspect ratio'),True)
+        if all(o.kind in ('image','vector','group') for o in selected):
+            form.number('rotate',L('顺时针旋转（°）','Clockwise rotation (°)'),0,-360,360,2)
+            form.note(L('旋转以选中对象的中心为基准；负值为逆时针。','Rotation uses the selection center; negative values turn counterclockwise.'))
         if form.finish().exec()==QDialog.Accepted:
             v=form.values()
             if v.pop('ratio'):v['sy']=v['sx']
-            self.run(tr('objects'),lambda j:objects.transform(self.document,page,selected,**v),editing=True)
+            self.run(tr('objects'),lambda j:objects.transform(self.document,page,selected,all_objects=self.canvas.objects,**v),editing=True,fast_objects=True)
 
     def delete_objects(self):
         selected=self.selected_objects();page=self.canvas.object_page
@@ -1469,7 +1481,8 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
             action=menu.exec(self.cursor().pos())
             if action==replace:
                 filename,_=QFileDialog.getOpenFileName(self,tr('replace_image'),'',L('图片 (*.png *.jpg *.jpeg *.tif *.webp)','Images (*.png *.jpg *.jpeg *.tif *.webp)'))
-                if filename:self.run(tr('replace_image'),lambda j:objects.replace_image(self.document,page,obj,filename),editing=True)
+                keep_ratio=self.keep_image_ratio.isChecked()
+                if filename:self.run(tr('replace_image'),lambda j:objects.replace_image(self.document,page,obj,filename,keep_proportion=keep_ratio),editing=True)
             elif action==extract:self.save_image_xref(page,obj.xref)
             elif action==move:self.transform_dialog()
         else:self.transform_dialog()

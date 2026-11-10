@@ -106,6 +106,7 @@ class Window(QMainWindow):
         self.dark=self.settings.value('dark',True,type=bool)
         self.icon=QIcon(str(resource('asterpdf.png')));self.setWindowIcon(self.icon)
         self.queue=Queue(self)
+        self.corner_timer=QTimer(self);self.corner_timer.setSingleShot(True);self.corner_timer.timeout.connect(self.sync_tab_corner)
         self.opening=set();self.presentation=False;self.document_fullscreen=False;self._previous_tab=None
         self.setAcceptDrops(True);self.resize(1380,920)
         self.build();QApplication.instance().installEventFilter(self);self.apply_theme();self.setWindowTitle('✦ AsterPDF')
@@ -179,7 +180,8 @@ class Window(QMainWindow):
         layout.addStretch();self.home_footer=QLabel();self.home_footer.setAlignment(Qt.AlignCenter);self.home_footer.setStyleSheet('color:#71829a;padding:18px;line-height:150%;');layout.addWidget(self.home_footer);self.update_home_footer()
         home=self.tabs.addTab(self.welcome,L('首页','Home'))
         for side in (QTabBar.LeftSide,QTabBar.RightSide):self.tabs.tabBar().setTabButton(home,side,None)
-        self.document_switcher=QToolButton();self.document_switcher.setIcon(self.style().standardIcon(QStyle.SP_ArrowDown));self.document_switcher.setFixedWidth(30);self.document_switcher.setAutoFillBackground(True)
+        from .ui_details import DocumentMenuButton
+        self.document_switcher=DocumentMenuButton(self.tabs);self.document_switcher.setIcon(self.style().standardIcon(QStyle.SP_ArrowDown));self.document_switcher.setFixedWidth(30);self.document_switcher.setAutoFillBackground(True)
         self.document_switcher.setToolTip(L('所有文档标签','All document tabs'));self.document_switcher.setPopupMode(QToolButton.InstantPopup)
         switch_menu=QMenu(self.document_switcher);switch_menu.aboutToShow.connect(lambda:self.populate_tab_menu(switch_menu));self.document_switcher.setMenu(switch_menu);self.tabs.setCornerWidget(self.document_switcher)
         self.menuBar().clear()
@@ -284,7 +286,7 @@ class Window(QMainWindow):
     def eventFilter(self,obj,event):
         from shiboken6 import isValid
         if hasattr(self,'tabs') and not isValid(self.tabs):return False
-        if event.type() in (QEvent.Resize,QEvent.LayoutRequest) and hasattr(self,'tabs') and obj in (self.tabs,self.tabs.tabBar()):QTimer.singleShot(0,self.sync_tab_corner)
+        if event.type() in (QEvent.Resize,QEvent.LayoutRequest) and hasattr(self,'tabs') and obj in (self.tabs,self.tabs.tabBar()):self.corner_timer.start(0)
         if event.type()!=QEvent.KeyPress:return False
         tab=self.current()
         if not tab or not isinstance(obj,QWidget) or QWidget.window(obj)!=self:return super().eventFilter(obj,event)
@@ -624,19 +626,21 @@ class Window(QMainWindow):
                 try:ctypes.windll.dwmapi.DwmSetWindowAttribute(int(self.winId()),attribute,ctypes.byref(value),ctypes.sizeof(value))
                 except (AttributeError,OSError):pass
         self.applied_font_size=self.settings.value('ui/font_size','medium')
-        QTimer.singleShot(0,self.sync_tab_corner)
+        self.corner_timer.start(0)
 
     def sync_tab_corner(self):
         from shiboken6 import isValid
         if not isValid(self) or not isValid(self.tabs):return
+        self.corner_timer.stop()
         from .ui_icons import icon
         bar=self.tabs.tabBar();button=self.document_switcher
         if getattr(self,'_corner_dark',None)!=self.dark:
             button.setIcon(icon('tabs',self.dark));self._corner_dark=self.dark
-        if button.height()!=bar.height():button.setFixedHeight(bar.height())
-        button.move(self.tabs.width()-button.width(),bar.y())
         style='QToolButton {border:0;border-radius:0;padding:0;background:'+('#172232' if self.dark else '#eef2f7')+';} QToolButton::menu-indicator {image:none;width:0;height:0;}'
         if button.styleSheet()!=style:button.setStyleSheet(style)
+        hint=button.sizeHint()
+        if getattr(self,'_corner_hint',None)!=hint:
+            self._corner_hint=hint;button.updateGeometry()
 
     def change_language(self,code):
         # Translate existing controls; documents, canvases, drafts, players and

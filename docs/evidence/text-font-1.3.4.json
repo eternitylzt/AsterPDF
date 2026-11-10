@@ -1,0 +1,729 @@
+{
+  "installed": {
+    "passed": true,
+    "version": "1.3.4",
+    "verified_at": "2026-11-06T17:58:20.123740+08:00",
+    "method": "Final installed Windows executable, native GUI edits followed by Ctrl+S, process exit and reopening in a new process/profile; independent saved-PDF inspection and Acrobat IAC close/reopen/readback.",
+    "file": "C:\\Users\\ztli\\Documents\\Codex\\2026-11-06\\ru-h\\outputs\\text-font-research\\04-installed-edited.pdf",
+    "pdf_sha256": "ec74434b09ea6a4d154114ce2e170ce1c4b6d6f20c75069df0b3fcdc77bfe584",
+    "installed_executable": "C:\\Users\\ztli\\Downloads\\AsterPDF\\AsterPDF.exe",
+    "installed_matches_build": true,
+    "exe_sha256": "f627c27b02e987a148f123f49b61e077507a8085a7ec3889fe47f5da6ee78099",
+    "gui": {
+      "editing_process_id": 33380,
+      "reopened_process_id": 60516,
+      "closed_before_reopen": true,
+      "saved_title_no_modified_marker": true,
+      "reopened_page_visually_inspected": true,
+      "scaled_text": "ABYDE",
+      "cjk_and_math": "中文字体测试修复：保存后重新打开。 𝛼 乙𝛽",
+      "plain_text_paste_kept_arial": true
+    },
+    "poppler": {
+      "render": "C:\\Users\\ztli\\Documents\\Codex\\2026-11-06\\ru-h\\outputs\\text-font-research\\04-installed-edited.png",
+      "scale_to_pixels": 1200,
+      "visually_inspected": true
+    },
+    "acrobat": {
+      "closed_and_reopened": true,
+      "readback_file": "C:\\Users\\ztli\\Documents\\Codex\\2026-11-06\\ru-h\\outputs\\text-font-research\\04-installed-edited.acrobat-readback.json",
+      "text": "Text and font editing comparison \nControlled local fixture - existing content, not annotations \nALPHA regular text \nBOLD STYLE saxmple \n150% horizontal scaling, 20 pt font: \nABYDE \n2 pt character spacing, 20 pt font: \nABXDE \nIndependent neighbor and vector shape must remain unchanged: \nNEIGHBOR \n中文字体测试修复：保存后重新打开。 𝛼 乙𝛽 \nEmbedded subset fonts, RGB text, scaling and spacing.\r\n"
+    },
+    "independent_pdf_review": {
+      "passed": true,
+      "scope": "Independent read-only saved-PDF review; installed GUI actions and native Acrobat reopen recorded by parent",
+      "checks": {
+        "wide_text_ABYDE": true,
+        "spaced_text_ABXDE": true,
+        "chinese_and_math_append": true,
+        "no_missing_glyph_or_nul": true,
+        "wide_other_characters_unchanged": true,
+        "spaced_line_exactly_unchanged": true,
+        "bold_text_exactly_unchanged": true,
+        "vector_shapes_unchanged": true,
+        "all_original_font_resources_retained": true,
+        "all_previous_font_resources_retained": true,
+        "page_count_rotation_unchanged": true,
+        "wide_Y_matches_20pt_times_150percent": true,
+        "two_point_spacing_preserved": true,
+        "neighbor_pixels_unchanged": true,
+        "vector_pixels_unchanged": true,
+        "bold_pixels_unchanged": true,
+        "bold_18pt_italic_blue_retained": true
+      },
+      "installed_file": "C:\\Users\\ztli\\Documents\\Codex\\2026-11-06\\ru-h\\outputs\\text-font-research\\04-installed-edited.pdf",
+      "installed_sha256": "ec74434b09ea6a4d154114ce2e170ce1c4b6d6f20c75069df0b3fcdc77bfe584",
+      "text": "Text and font editing comparison\nControlled local fixture - existing content, not annotations\nALPHA regular text\nBOLD STYLE saxmple\n150% horizontal scaling, 20 pt font:\nABYDE\n2 pt character spacing, 20 pt font:\nABXDE\nIndependent neighbor and vector shape must remain unchanged:\nNEIGHBOR\n中文字体测试修复：保存后重新打开。 𝛼 乙𝛽\nEmbedded subset fonts, RGB text, scaling and spacing.\n",
+      "wide_line": {
+        "text": "ABYDE",
+        "Y_origin": [
+          94.02000427246094,
+          267.0
+        ],
+        "Y_width_pt": 20.009765625,
+        "expected_Arial_20pt_150percent_width_pt": 20.009765625,
+        "baseline_y_pt": 267
+      },
+      "spaced_line": {
+        "text": "ABXDE",
+        "measured_gaps_pt": [
+          2.0001602172851562,
+          2.0001602172851562,
+          2.0,
+          1.99664306640625
+        ]
+      },
+      "bold_line": {
+        "text": "BOLD STYLE saxmple",
+        "fonts": [
+          "Arial Bold Italic",
+          "Arial-BoldItalicMT"
+        ],
+        "size_pt": 18,
+        "color_RGB": [
+          0.1,
+          0.25,
+          0.65
+        ],
+        "observed_color_variants": [
+          {
+            "font": "Arial-BoldItalicMT",
+            "color_RGB": [
+              0.10000000149011612,
+              0.25,
+              0.6499999761581421
+            ],
+            "RGB8": [
+              26,
+              64,
+              166
+            ]
+          },
+          {
+            "font": "Arial Bold Italic",
+            "color_RGB": [
+              0.10196078568696976,
+              0.250980406999588,
+              0.6509804129600525
+            ],
+            "RGB8": [
+              26,
+              64,
+              166
+            ]
+          }
+        ],
+        "all_per_glyph_values_equal_before_installed": true
+      },
+      "chinese_line": {
+        "text": "中文字体测试修复：保存后重新打开。 𝛼 乙𝛽",
+        "fonts": [
+          "Cambria Math Regular",
+          "Microsoft YaHei Regular",
+          "MicrosoftYaHei-0"
+        ]
+      },
+      "original_fonts": {
+        "F1": {
+          "base": "Helvetica",
+          "kind": "Type1",
+          "bytes": 0,
+          "sha256": null
+        },
+        "F2+0": {
+          "base": "AAAAAA+ArialMT",
+          "kind": "TrueType",
+          "bytes": 65796,
+          "sha256": "9dfa37c3b47f9cdb7d94b566e6c43a8a3f01603e1dc77e36e8171c91b00e1e68"
+        },
+        "F3+0": {
+          "base": "AAAAAA+Arial-BoldItalicMT",
+          "kind": "TrueType",
+          "bytes": 52608,
+          "sha256": "67bd8733b962aef8cf3b3ee51740297ec7fb56d17df7b5f5b8f447932c524c07"
+        },
+        "F4+0": {
+          "base": "AAAAAA+MicrosoftYaHei-0",
+          "kind": "TrueType",
+          "bytes": 29176,
+          "sha256": "0912815e27a76cbeab796e4ac3a2d005b3fd1a009a19d03956c11a6d12c022bd"
+        }
+      },
+      "installed_fonts": {
+        "AsterDelta1_0": {
+          "base": "QICLIX+Arial Bold Italic",
+          "kind": "Type0",
+          "bytes": 41063,
+          "sha256": "c1cc2b27f31e9cac9d6225080c3d56179e8a56898c205a2c5e8f57f10a99155c"
+        },
+        "AsterDelta1_0x": {
+          "base": "IAOOCD+Arial Regular",
+          "kind": "Type0",
+          "bytes": 48967,
+          "sha256": "22e1c92fd15c05fcc6d68cd9369f61759ab930858e99507964266d3b43b16aba"
+        },
+        "AsterDelta1_0xx": {
+          "base": "EKQQFK+Arial Regular",
+          "kind": "Type0",
+          "bytes": 48693,
+          "sha256": "508ef44c68e4960c1109f449cb2b5aeddc7da52e36973edf007c4ebbca6c9c44"
+        },
+        "AsterDelta2_0": {
+          "base": "GDPCMT+Microsoft YaHei Regular",
+          "kind": "Type0",
+          "bytes": 190118,
+          "sha256": "aad1295f5fdfb2458acc24f3758d1e8634a9b2facc3c850a3c283bdec7553765"
+        },
+        "AsterDelta2_0x": {
+          "base": "IAOOCD+Arial Regular",
+          "kind": "Type0",
+          "bytes": 48967,
+          "sha256": "22e1c92fd15c05fcc6d68cd9369f61759ab930858e99507964266d3b43b16aba"
+        },
+        "AsterDelta2_0xx": {
+          "base": "BNNSPF+Microsoft YaHei Regular",
+          "kind": "Type0",
+          "bytes": 188672,
+          "sha256": "4514b94f5a5c2cfc25d5e2ea214731c9f6d732ab17a7c87a961ad7db97113bb6"
+        },
+        "AsterDelta2_1": {
+          "base": "GHSZQL+Cambria Math Regular",
+          "kind": "Type0",
+          "bytes": 62974,
+          "sha256": "56589eeb8c4853733c153c5dbea5804e47f8043d1444ad675e1fcebe88e00af4"
+        },
+        "AsterDelta2_1x": {
+          "base": "TSEMXM+Cambria Math Regular",
+          "kind": "Type0",
+          "bytes": 62958,
+          "sha256": "e8c04e476cb654583aef43605d5d274bb89dcd967cd84cb53ef5757b7ca960f2"
+        },
+        "F1": {
+          "base": "Helvetica",
+          "kind": "Type1",
+          "bytes": 0,
+          "sha256": null
+        },
+        "F2+0": {
+          "base": "AAAAAA+ArialMT",
+          "kind": "TrueType",
+          "bytes": 65796,
+          "sha256": "9dfa37c3b47f9cdb7d94b566e6c43a8a3f01603e1dc77e36e8171c91b00e1e68"
+        },
+        "F3+0": {
+          "base": "AAAAAA+Arial-BoldItalicMT",
+          "kind": "TrueType",
+          "bytes": 52608,
+          "sha256": "67bd8733b962aef8cf3b3ee51740297ec7fb56d17df7b5f5b8f447932c524c07"
+        },
+        "F4+0": {
+          "base": "AAAAAA+MicrosoftYaHei-0",
+          "kind": "TrueType",
+          "bytes": 29176,
+          "sha256": "0912815e27a76cbeab796e4ac3a2d005b3fd1a009a19d03956c11a6d12c022bd"
+        }
+      },
+      "notes": [
+        "The inserted x in 03 already uses 8-bit QColor RGB (26/255,64/255,166/255), while original glyphs retain PDF RGB (0.1,0.25,0.65). 04 preserves both exactly. Thus verification asserts per-glyph preservation against 03 and 18pt bold/italic blue, not identical unquantized original RGB for a previously authored x."
+      ]
+    }
+  },
+  "geometry": {
+    "passed": true,
+    "source": "C:\\Users\\ztli\\Documents\\Codex\\2026-11-06\\ru-h\\work\\text-edit-research\\03-font-only-snapshot.pdf",
+    "saved_and_reopened": "C:\\Users\\ztli\\Documents\\Codex\\2026-11-06\\ru-h\\outputs\\text-font-research\\03-asterpdf-edited.pdf",
+    "acrobat_reference": "C:\\Users\\ztli\\Documents\\Codex\\2026-11-06\\ru-h\\outputs\\text-font-research\\02-acrobat-edited.pdf",
+    "sha256": "30cbb735e2ad00f26dc3b67784add340aa62473da8bb38a78666350efcc932f3",
+    "other_glyph_records_unchanged": true,
+    "drawings_and_image_count_unchanged": true,
+    "comparisons": [
+      {
+        "baseline_y": 267,
+        "original_glyphs": [
+          [
+            65,
+            34,
+            [
+              54.0,
+              267.0
+            ],
+            [
+              54.0,
+              243.7273712158203,
+              74.009765625,
+              273.72735595703125
+            ]
+          ],
+          [
+            66,
+            35,
+            [
+              74.01000213623047,
+              267.0
+            ],
+            [
+              74.01000213623047,
+              243.7273712158203,
+              94.01976776123047,
+              273.72735595703125
+            ]
+          ],
+          [
+            67,
+            36,
+            [
+              94.02000427246094,
+              267.0
+            ],
+            [
+              94.02000427246094,
+              243.7273712158203,
+              115.68504333496094,
+              273.72735595703125
+            ]
+          ],
+          [
+            68,
+            37,
+            [
+              115.68000793457031,
+              267.0
+            ],
+            [
+              115.68000793457031,
+              243.7273712158203,
+              137.3450469970703,
+              273.72735595703125
+            ]
+          ],
+          [
+            69,
+            38,
+            [
+              137.3400115966797,
+              267.0
+            ],
+            [
+              137.3400115966797,
+              243.7273712158203,
+              157.3497772216797,
+              273.72735595703125
+            ]
+          ]
+        ],
+        "input_font": "Arial",
+        "saved_glyphs": [
+          [
+            65,
+            34,
+            [
+              54.0,
+              267.0
+            ],
+            [
+              54.0,
+              243.7273712158203,
+              74.009765625,
+              273.72735595703125
+            ]
+          ],
+          [
+            66,
+            35,
+            [
+              74.01000213623047,
+              267.0
+            ],
+            [
+              74.01000213623047,
+              243.7273712158203,
+              94.01976776123047,
+              273.72735595703125
+            ]
+          ],
+          [
+            88,
+            59,
+            [
+              94.02000427246094,
+              267.0
+            ],
+            [
+              94.02000427246094,
+              242.6720428466797,
+              114.02976989746094,
+              272.6720275878906
+            ]
+          ],
+          [
+            68,
+            37,
+            [
+              114.02976989746094,
+              267.0
+            ],
+            [
+              114.02976989746094,
+              243.7273712158203,
+              135.69480895996094,
+              273.72735595703125
+            ]
+          ],
+          [
+            69,
+            38,
+            [
+              135.6897735595703,
+              267.0
+            ],
+            [
+              135.6897735595703,
+              243.7273712158203,
+              155.6995391845703,
+              273.72735595703125
+            ]
+          ]
+        ],
+        "acrobat_glyphs": [
+          [
+            65,
+            34,
+            [
+              54.0,
+              267.0
+            ],
+            [
+              54.0,
+              243.7273712158203,
+              74.009765625,
+              273.72735595703125
+            ]
+          ],
+          [
+            66,
+            35,
+            [
+              74.01000213623047,
+              267.0
+            ],
+            [
+              74.01000213623047,
+              243.7273712158203,
+              94.01976776123047,
+              273.72735595703125
+            ]
+          ],
+          [
+            88,
+            59,
+            [
+              94.0199966430664,
+              267.0
+            ],
+            [
+              94.0199966430664,
+              244.14285278320312,
+              114.0297622680664,
+              274.1428527832031
+            ]
+          ],
+          [
+            68,
+            37,
+            [
+              114.02999877929688,
+              267.0
+            ],
+            [
+              114.02999877929688,
+              243.7273712158203,
+              135.69503784179688,
+              273.72735595703125
+            ]
+          ],
+          [
+            69,
+            38,
+            [
+              135.69000244140625,
+              267.0
+            ],
+            [
+              135.69000244140625,
+              243.7273712158203,
+              155.69976806640625,
+              273.72735595703125
+            ]
+          ]
+        ],
+        "max_origin_delta_vs_acrobat_pt": 0.0002288818359375,
+        "new_x_width_pt": 20.009765625,
+        "acrobat_x_width_pt": 20.009765625
+      },
+      {
+        "baseline_y": 352,
+        "original_glyphs": [
+          [
+            65,
+            34,
+            [
+              54.0,
+              352.0
+            ],
+            [
+              54.0,
+              336.48492431640625,
+              67.33984375,
+              356.48492431640625
+            ]
+          ],
+          [
+            66,
+            35,
+            [
+              69.34000396728516,
+              352.0
+            ],
+            [
+              69.34000396728516,
+              336.48492431640625,
+              82.67984771728516,
+              356.48492431640625
+            ]
+          ],
+          [
+            67,
+            36,
+            [
+              84.68000793457031,
+              352.0
+            ],
+            [
+              84.68000793457031,
+              336.48492431640625,
+              99.12336730957031,
+              356.48492431640625
+            ]
+          ],
+          [
+            68,
+            37,
+            [
+              101.12001037597656,
+              352.0
+            ],
+            [
+              101.12001037597656,
+              336.48492431640625,
+              115.56336975097656,
+              356.48492431640625
+            ]
+          ],
+          [
+            69,
+            38,
+            [
+              117.56001281738281,
+              352.0
+            ],
+            [
+              117.56001281738281,
+              336.48492431640625,
+              130.8998565673828,
+              356.48492431640625
+            ]
+          ]
+        ],
+        "input_font": "Arial",
+        "saved_glyphs": [
+          [
+            65,
+            34,
+            [
+              54.0,
+              352.0
+            ],
+            [
+              54.0,
+              336.48492431640625,
+              67.33984375,
+              356.48492431640625
+            ]
+          ],
+          [
+            66,
+            35,
+            [
+              69.34000396728516,
+              352.0
+            ],
+            [
+              69.34000396728516,
+              336.48492431640625,
+              82.67984771728516,
+              356.48492431640625
+            ]
+          ],
+          [
+            88,
+            59,
+            [
+              84.68000793457031,
+              352.0
+            ],
+            [
+              84.68000793457031,
+              335.7813720703125,
+              98.01985168457031,
+              355.7813720703125
+            ]
+          ],
+          [
+            68,
+            37,
+            [
+              100.01985168457031,
+              352.0
+            ],
+            [
+              100.01985168457031,
+              336.48492431640625,
+              114.46321105957031,
+              356.48492431640625
+            ]
+          ],
+          [
+            69,
+            38,
+            [
+              116.45985412597656,
+              352.0
+            ],
+            [
+              116.45985412597656,
+              336.48492431640625,
+              129.79969787597656,
+              356.48492431640625
+            ]
+          ]
+        ],
+        "acrobat_glyphs": [
+          [
+            65,
+            34,
+            [
+              53.999996185302734,
+              352.0
+            ],
+            [
+              53.999996185302734,
+              336.48492431640625,
+              67.33984375,
+              356.48492431640625
+            ]
+          ],
+          [
+            66,
+            35,
+            [
+              69.33999633789062,
+              352.0
+            ],
+            [
+              69.33999633789062,
+              336.48492431640625,
+              82.67984008789062,
+              356.48492431640625
+            ]
+          ],
+          [
+            88,
+            59,
+            [
+              84.68000030517578,
+              352.0
+            ],
+            [
+              84.68000030517578,
+              336.76190185546875,
+              98.01984405517578,
+              356.76190185546875
+            ]
+          ],
+          [
+            68,
+            37,
+            [
+              100.0199966430664,
+              352.0
+            ],
+            [
+              100.0199966430664,
+              336.48492431640625,
+              114.4633560180664,
+              356.48492431640625
+            ]
+          ],
+          [
+            69,
+            38,
+            [
+              116.45999908447266,
+              352.0
+            ],
+            [
+              116.45999908447266,
+              336.48492431640625,
+              129.79983520507812,
+              356.48492431640625
+            ]
+          ]
+        ],
+        "max_origin_delta_vs_acrobat_pt": 0.00014495849609375,
+        "new_x_width_pt": 13.33984375,
+        "acrobat_x_width_pt": 13.33984375
+      }
+    ]
+  },
+  "desktop": {
+    "frozen": true,
+    "elapsed_seconds": 13.86,
+    "print": {
+      "started": true,
+      "done": true,
+      "passed": true,
+      "pages": 1
+    },
+    "passed": true,
+    "navigation": [
+      {
+        "check": "single-page Right key",
+        "passed": true
+      },
+      {
+        "check": "presentation Left key",
+        "passed": true
+      },
+      {
+        "check": "presentation Escape",
+        "passed": true
+      }
+    ],
+    "text_edit": {
+      "done": true,
+      "passed": true,
+      "system_font_edit_save_reopen": true
+    },
+    "documents": [
+      {
+        "pages": 1,
+        "rendered_pages": 6,
+        "animation_frames": 0,
+        "video_frames": 0,
+        "media_position_ms": 0
+      }
+    ],
+    "errors": []
+  },
+  "regression": "52 passed in 66.21s (0:01:06)"
+}

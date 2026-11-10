@@ -1,10 +1,11 @@
 """Selection-based rich text editing with safe draft suspension."""
+import unicodedata
 from PySide6.QtCore import Qt,Signal,QTimer,QPointF,QRectF
 from PySide6.QtGui import QFont,QFontDatabase,QTextCharFormat,QTextCursor,QColor,QFontMetricsF,QRawFont,QPainter
 from PySide6.QtWidgets import (QWidget,QVBoxLayout,QHBoxLayout,QFormLayout,QLabel,QComboBox,QDoubleSpinBox,
     QPushButton,QToolButton,QTextEdit,QColorDialog,QMessageBox,QDialog)
 from .i18n import L,tr
-from .fonts import matched_family,font_bytes
+from .fonts import matched_family,font_bytes,font_name_key
 from .core import Unsupported,ENGINE_LOCK
 from . import objects,text_patch
 
@@ -35,7 +36,13 @@ class InlineEditor(QTextEdit):
         mime.setData('application/x-asterpdf-text',json.dumps({'runs':runs,'fonts':fonts}).encode('utf-8'));return mime
 
     def insertFromMimeData(self,mime):
-        if not mime.hasFormat('application/x-asterpdf-text'):super().insertFromMimeData(mime);return
+        if not mime.hasFormat('application/x-asterpdf-text'):
+            # QTextEdit's generic plain-MIME insertion can discard custom
+            # char-format properties when replacing a whole selected block.
+            # Use the normal typing path so PDF family/size/style survive.
+            if mime.hasText():self.insertPlainText(mime.text())
+            else:super().insertFromMimeData(mime)
+            return
         import json,base64
         data=json.loads(bytes(mime.data('application/x-asterpdf-text')));self.owner.clipboard_fonts={k:base64.b64decode(v) for k,v in data.get('fonts',{}).items()}
         cursor=self.textCursor();cursor.beginEditBlock()
@@ -128,43 +135,60 @@ class FontPicker(QComboBox):
         if previous!=font.family():self.currentFontChanged.emit(font)
 
 
-def resolve_font(family,text,bold=False,italic=False):
+def resolve_font(family,text,bold=False,italic=False,_cache=None):
     import pymupdf as fitz
-    installed=QFontDatabase.families();match,exact=matched_family(family)
+    cache={} if _cache is None else _cache
+    if 'installed' not in cache:cache['installed']=QFontDatabase.families()
+    installed=cache['installed'];matches=cache.setdefault('matches',{})
+    if family not in matches:matches[family]=matched_family(family)
+    match,exact=matches[family];faces=cache.setdefault('system_faces',{})
     choices=[family,match,'Arial','Times New Roman','Microsoft YaHei','SimSun','Cambria Math','Segoe UI Symbol','Noto Sans','Noto Sans CJK SC','DejaVu Sans','PingFang SC']
     for candidate in dict.fromkeys(choices):
         if candidate not in installed:continue
-        qfont=QFont(candidate);qfont.setBold(bold);qfont.setItalic(italic);raw=QRawFont.fromFont(qfont)
-        if any(not raw.supportsCharacter(ord(c)) for c in text if not c.isspace()):continue
+        key=(candidate,bold,italic)
+        if key not in faces:
+            qfont=QFont(candidate);qfont.setBold(bold);qfont.setItalic(italic)
+            faces[key]=[QRawFont.fromFont(qfont),None,None]
+        raw,data,pdf_font=faces[key]
+        if data is False:continue
+        if any(not raw.supportsCharacter(ord(c)) for c in text if c not in '\r\n'):continue
         try:
-            data=font_bytes(candidate,bold,italic)
             with ENGINE_LOCK:
-                pdf_font=fitz.Font(fontbuffer=data)
-                if all(pdf_font.has_glyph(ord(c)) for c in text if not c.isspace()):return data,candidate
-        except (ValueError,RuntimeError):continue
+                if data is None:
+                    data=font_bytes(candidate,bold,italic);pdf_font=fitz.Font(fontbuffer=data)
+                    faces[key][1:]=[data,pdf_font]
+                if all(pdf_font.has_glyph(ord(c)) for c in text if c not in '\r\n'):return data,candidate
+        except (ValueError,RuntimeError):faces[key][1]=False
     raise Unsupported(L('当前字体无法覆盖输入字形或不允许嵌入。草稿已保留；可撤销、取消，或选择 / 下载其它字体。','No suitable embeddable font covers these characters. The draft is retained: undo, cancel, or choose/download another font.'))
 
 
-def embedded_font(document,page,family,text,bold,italic,obj):
+def embedded_font(document,page,family,text,bold,italic,obj,_cache=None):
     """Reuse an embedded face only when it covers the new input and same style."""
     import pymupdf as fitz
     import re
     def normalized(name):
-        return re.sub(r'(regular|psmt|mt)$','',re.sub('[^a-z0-9]','',name.split('+')[-1].lower()))
+        return re.sub(r'(regular|psmt|mt)$','',font_name_key(name))
     spans=obj.details.get('spans',[])
     if not any(s['font']==family for s in spans) and not any(style and style[0]==family for _,style in obj.details.get('edit_styles',[])):return None
-    with ENGINE_LOCK,fitz.open(document.path) as pdf:
-        for xref,ext,kind,base,*_ in pdf[page].get_fonts():
-            if normalized(base)!=normalized(family):continue
-            try:
-                data=pdf.extract_font(xref)[3]
-                if not data:
-                    try:data=fitz.Font(base).buffer
-                    except (ValueError,RuntimeError):continue
-                font=fitz.Font(fontbuffer=data)
-                if (font.is_bold and not bold) or (font.is_italic and not italic):continue
-                if all(font.has_glyph(ord(c)) for c in text if not c.isspace()):return data,family
-            except (RuntimeError,ValueError):continue
+    cache={} if _cache is None else _cache;faces=cache.setdefault('embedded_faces',{})
+    key=(str(document.path),page,family,bold,italic)
+    with ENGINE_LOCK:
+        if key not in faces:
+            faces[key]=[]
+            with fitz.open(document.path) as pdf:
+                for xref,ext,kind,base,*_ in pdf[page].get_fonts():
+                    if normalized(base)!=normalized(family):continue
+                    try:
+                        data=pdf.extract_font(xref)[3]
+                        if not data:
+                            try:data=fitz.Font(base).buffer
+                            except (ValueError,RuntimeError):continue
+                        font=fitz.Font(fontbuffer=data)
+                        if (font.is_bold and not bold) or (font.is_italic and not italic):continue
+                        faces[key].append((data,font))
+                    except (RuntimeError,ValueError):continue
+        for data,font in faces[key]:
+            if all(font.has_glyph(ord(c)) for c in text if c not in '\r\n'):return data,family
     return None
 
 
@@ -349,22 +373,58 @@ class TextEditingMixin:
         self.inline_editor.recovery_timer.start(350)
 
     def resolve_inline_fonts(self,lines):
-        buffers={};substitutes=set()
-        runs=[run for line in lines for run in line if run['text']] if self.inline_object.details.get('box') else text_patch.changed_runs(self.inline_original_runs,lines)
-        for run in runs:
-            if self.inline_object.details.get('box'):run['delta_text']=run['text']
-            key=(run['family'],run['bold'],run['italic'],run['delta_text'])
+        buffers={};substitutes=set();split_fonts={}
+        editor=getattr(self,'inline_editor',None)
+        installed=tuple(QFontDatabase.families())
+        token=(str(self.document.path),installed)
+        if editor is not None:
+            if getattr(editor,'font_cache_token',None)!=token:
+                editor.font_cache_token=token;editor.font_cache={'installed':installed}
+            font_cache=editor.font_cache
+        else:font_cache={'installed':installed}
+        def resolve(key):
             if key not in buffers:
-                found=embedded_font(self.document,self.inline_page,key[0],key[3],key[1],key[2],self.inline_object)
+                found=embedded_font(self.document,self.inline_page,key[0],key[3],key[1],key[2],self.inline_object,font_cache)
                 cached=getattr(self,'clipboard_fonts',{}).get(key[0])
                 if not found and cached:
                     import pymupdf as fitz
                     with ENGINE_LOCK:
                         font=fitz.Font(fontbuffer=cached)
-                        if all(font.has_glyph(ord(c)) for c in key[3] if not c.isspace()):found=(cached,key[0])
-                buffers[key]=found or resolve_font(key[0],key[3],key[1],key[2])
-            run['fontbuffer'],actual=buffers[key]
-            if actual!=run['family']:substitutes.add(actual)
+                        if not (font.is_bold and not key[1] or font.is_italic and not key[2]) and all(font.has_glyph(ord(c)) for c in key[3] if c not in '\r\n'):found=(cached,key[0])
+                buffers[key]=found or resolve_font(key[0],key[3],key[1],key[2],font_cache)
+            data,actual=buffers[key]
+            if actual!=key[0]:substitutes.add(actual)
+            return data
+        runs=list(run for line in lines for run in line if run['text']) if self.inline_object.details.get('box') else list(text_patch.changed_runs(self.inline_original_runs,lines))
+        for run in runs:
+            if self.inline_object.details.get('box'):run['delta_text']=run['text']
+            key=(run['family'],run['bold'],run['italic'],run['delta_text'])
+            try:run['fontbuffer']=resolve(key)
+            except Unsupported:
+                # Mixed scripts can need several installed fonts even though
+                # every character is supported. Only new characters need a
+                # fallback; untouched PDF codes keep their original resources.
+                # A combining/variation/joiner sequence must stay in one face.
+                # Keep the draft if it cannot be covered as a whole rather than
+                # silently splitting a shaping cluster between fonts.
+                if any(unicodedata.category(ch).startswith('M') or ch in '\u200c\u200d' for ch in key[3]):raise
+                by_char={ch:resolve((*key[:3],ch)) for ch in dict.fromkeys(key[3])}
+                split_fonts[id(run)]=by_char
+        if split_fonts:
+            for line in lines:
+                expanded=[]
+                for run in line:
+                    by_char=split_fonts.get(id(run))
+                    if by_char is None:expanded.append(run);continue
+                    current=None;previous=None
+                    for ch in run['text']:
+                        data=by_char.get(ch)
+                        if current is None or data!=previous:
+                            current=dict(run,text='');current.pop('fontbuffer',None);current.pop('delta_text',None)
+                            if data is not None:current['fontbuffer']=data
+                            expanded.append(current);previous=data
+                        current['text']+=ch
+                line[:]=expanded
         return substitutes
 
     def preview_inline(self):
@@ -372,12 +432,20 @@ class TextEditingMixin:
         from types import SimpleNamespace
         editor=self.inline_editor
         if not editor:return
+        if getattr(editor,'commit_pending',False):return
+        # Keep at most one queued/running preview. The finished callback starts
+        # the latest draft if typing superseded it, rather than accumulating
+        # outdated PDF renders behind a slow page scan.
+        if getattr(editor,'preview_job',None) in self.queue.jobs:return
+        if not ENGINE_LOCK.acquire(blocking=False):
+            editor.preview_timer.start(40);return
         import copy
         serial=editor.preview_serial;lines=self.text_runs();old=self.inline_original_runs;obj=copy.deepcopy(self.inline_object);page=self.inline_page
         try:substitutes=self.resolve_inline_fonts(lines)
         except (ValueError,RuntimeError) as error:self.draft_notice.setText(str(error));return
+        finally:ENGINE_LOCK.release()
         def done(result):
-            if self.inline_editor is not editor or editor.preview_serial!=serial:return
+            if result is None or self.inline_editor is not editor or editor.preview_serial!=serial:return
             editor.preview_image,editor.preview_bounds,editor.preview_glyphs=result;editor.preview_angle=obj.details.get('box',{}).get('angle',0)
             editor.preview_text=''.join(c for c,_ in text_patch.characters(lines));self.position_inline();editor.viewport().update()
             self.draft_notice.setText(L('新输入使用：','New input uses: ')+', '.join(sorted(substitutes)) if substitutes else L('局部 PDF 预览 · 应用后写入文档','Local PDF preview · Apply to commit'))
@@ -385,7 +453,14 @@ class TextEditingMixin:
             if self.inline_editor is editor and editor.preview_serial==serial:self.draft_notice.setText(message)
         scale=self.canvas.scale*self.canvas.devicePixelRatioF()
         source=SimpleNamespace(path=self.inline_source_path)
-        self.queue.submit(lambda j:render(source,page,obj,old,lines,scale),done,failed,priority=2)
+        def finished():
+            editor.preview_job=None
+            if self.inline_editor is editor and editor.preview_serial!=serial and not editor.isReadOnly() and not editor.property('original_preview') and not editor.preview_timer.isActive() and not getattr(editor,'commit_pending',False):
+                editor.preview_timer.start(0)
+        def work(job):
+            if job.cancelled or editor.preview_serial!=serial:return None
+            return render(source,page,obj,old,lines,scale)
+        editor.preview_job=self.queue.submit(work,done,failed,finished,priority=2)
 
     def exit_text_tools(self):
         self.cancel_inline();self.text_properties.hide();self.text_container.hide();self.set_mode('objects')
@@ -393,11 +468,16 @@ class TextEditingMixin:
     def cancel_inline(self):
         if self.inline_editor:
             editor=self.inline_editor;self.inline_editor=None;
+            pending_failure=getattr(editor,'commit_request',(None,None))[1] if getattr(editor,'commit_pending',False) else None
+            editor.commit_pending=False
+            job=getattr(editor,'preview_job',None)
+            if job is not None:job.cancelled=True
             if hasattr(editor,'handles'):editor.handles.hide();editor.handles.deleteLater()
             editor.preview_timer.stop();editor.recovery_timer.stop();editor.hide();editor.deleteLater()
             (self.document.folder/'draft.json').unlink(missing_ok=True)
             if hasattr(self,'text_format_group'):self.text_format_group.setEnabled(False);self.box_controls.hide()
             self.canvas.setFocus();self.window.update_title()
+            if pending_failure:pending_failure()
 
     def persist_recovery_draft(self):
         if not self.inline_editor:return
@@ -434,22 +514,49 @@ class TextEditingMixin:
         self.commit_inline(after,on_failure=lambda:(self.suspend_inline(),after()))
 
     def commit_inline(self,after=None,on_failure=None):
-        if not self.inline_editor or self.busy:return
+        if not self.inline_editor:return
+        editor=self.inline_editor
+        if self.busy:
+            if getattr(editor,'commit_pending',False):editor.commit_timer.start(40)
+            return
+        if hasattr(editor,'commit_timer'):editor.commit_timer.stop()
+        closing=bool(getattr(self.window,'_close_pending',False) or getattr(self.window,'_closing_all',False))
+        if getattr(editor,'commit_pending',False):
+            previous=getattr(editor,'commit_request',(None,None))
+            # Retain a requested save/navigation across repeated retries. A
+            # close request may supersede navigation, never the reverse.
+            if previous[0] is not None and (getattr(editor,'commit_closing',False) or not closing):
+                after,on_failure=previous
         if not self.inline_dirty():
+            editor.commit_pending=False
             self.cancel_inline()
             if callable(after):QTimer.singleShot(0,after)
             return
         if self.inline_source_path!=str(self.document.path):
+            editor.commit_pending=False
             self.draft_notice.setText(L('保留草稿期间 PDF 内容已更改。请复制草稿，取消后重新选择文字块再应用。','The PDF changed while this draft was retained. Copy the draft, cancel, and select the text block again.'))
             if on_failure:on_failure()
             return
         obj=self.inline_object;page=self.inline_page;lines=self.text_runs();buffers={};substitutes=set()
+        editor=self.inline_editor
+        editor.preview_timer.stop()
+        job=getattr(editor,'preview_job',None)
+        if job is not None:job.cancelled=True
+        if not ENGINE_LOCK.acquire(blocking=False):
+            editor.commit_pending=True;editor.commit_request=(after,on_failure);editor.commit_closing=closing
+            if not hasattr(editor,'commit_timer'):
+                editor.commit_timer=QTimer(editor);editor.commit_timer.setSingleShot(True)
+                editor.commit_timer.timeout.connect(lambda:self.commit_inline(*editor.commit_request) if self.inline_editor is editor else None)
+            editor.commit_timer.start(40);return
+        editor.commit_pending=False
+        if hasattr(editor,'commit_timer'):editor.commit_timer.stop()
         try:
             substitutes=self.resolve_inline_fonts(lines)
         except (ValueError,RuntimeError) as error:
             self.draft_notice.setText(str(error))
             if on_failure:on_failure()
             return
+        finally:ENGINE_LOCK.release()
         self.inline_editor.setReadOnly(True)
         if hasattr(self.inline_editor,'handles'):self.inline_editor.handles.setEnabled(False)
         self.inline_editor.preview_timer.stop()

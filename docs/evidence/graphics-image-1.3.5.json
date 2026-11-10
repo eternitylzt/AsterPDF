@@ -1,0 +1,1607 @@
+{
+  "installed": {
+    "passed": true,
+    "version": "1.3.5",
+    "file": "C:\\Users\\ztli\\Documents\\Codex\\2026-11-06\\ru-h\\outputs\\graphics-image-research\\04-installed-graphics-edited.pdf",
+    "sha256": "324960530167d83171059a69f4be40fb84970a05124b29a37122547ca0d4ec8d",
+    "installed_executable": "C:\\Users\\ztli\\Downloads\\AsterPDF\\AsterPDF.exe",
+    "executable_sha256": "dd1ef11113dc709dcbf99536159865c6a8e25b4c96bbeec0cba3cce10c77de51",
+    "gui_observations": {
+      "saved_by_installed_program": true,
+      "saved_title_has_no_unsaved_marker": true,
+      "editing_process_pid": 38048,
+      "editing_process_closed": true,
+      "reopened_process_pid": 39592,
+      "reopened_both_pages_visually_checked": true,
+      "page_1_image": {
+        "dx": 5,
+        "dy": 8,
+        "sx": 1.1,
+        "keep_aspect": true,
+        "clockwise_degrees": -90,
+        "then_replace": "original-arrow.png"
+      },
+      "page_1_vector": {
+        "dx": 10,
+        "dy": 10,
+        "sx": 0.8,
+        "keep_aspect": true,
+        "clockwise_degrees": 45
+      }
+    },
+    "acrobat_closed_reopened_readback": true,
+    "acrobat_both_pages_visually_checked": true,
+    "poppler_both_pages_visually_checked": true,
+    "poppler_notes": "Poppler reported missing display fonts for Symbol and ArialUnicode; both fixture pages rendered and were visually checked.",
+    "independent_geometry_review": {
+      "passed": true,
+      "method": "Read-only independent scalar geometry, PyMuPDF extraction/rendering and PNG alpha comparison; no AsterPDF implementation imported.",
+      "files": {
+        "03-asterpdf-graphics-edited.pdf": "73855c72e036c9ed8ecb241263eb42dd0191a75eb287b282d1b6ff6adf1e587e",
+        "04a-installed-image-transformed.pdf": "e953215551e8e16822675c061367eb752bcb343f9109fc67e0c0b806001ba03d",
+        "04-installed-graphics-edited.pdf": "324960530167d83171059a69f4be40fb84970a05124b29a37122547ca0d4ec8d"
+      },
+      "checks": {
+        "two_pages_each": true,
+        "GUI_image_move_scale_rotate_matches_independent_geometry": true,
+        "replacement_centered_fit": true,
+        "replacement_intrinsic_dimensions_match_png": true,
+        "replacement_keeps_aspect_ratio": true,
+        "replacement_alpha_pixels_match_png": true,
+        "replacement_opaque_RGB_pixels_match_png": true,
+        "image_transform_does_not_edit_native_vectors": true,
+        "GUI_native_vector_path_matches_independent_geometry": true,
+        "selected_vector_paint_properties_preserved": true,
+        "native_path_count_unchanged": true,
+        "neighbor_native_paths_unchanged": true,
+        "shared_image_other_instance_unchanged": true,
+        "page0_text_layout_and_fonts_unchanged": true,
+        "page0_neighbor_image_pixels_unchanged": true,
+        "page0_neighbor_vector_pixels_unchanged": true,
+        "page1_rotation_and_boxes_unchanged": true,
+        "page1_content_stream_bytes_unchanged": true,
+        "page1_all_rendered_pixels_unchanged": true,
+        "page1_text_and_native_paths_unchanged": true
+      },
+      "metrics": {
+        "image_transform_matrix_error_pt": 2.3651123058243684e-05,
+        "replacement_fitted_matrix_error_pt": 8.477105041038158e-06,
+        "replacement_visible_axis_lengths_pt": [
+          121.0,
+          73.94444274902344
+        ],
+        "replacement_center_error_pt": 7.62939453125e-06,
+        "vector_path_point_max_error_pt": 3.875537277053809e-05,
+        "vector_source_selection_bounds": [
+          73.5,
+          335.5,
+          273.5,
+          598.5
+        ]
+      },
+      "expected_image_transform_matrix": [
+        121.0,
+        0.0,
+        0.0,
+        121.0,
+        122.999991607666,
+        200.00005416870118
+      ],
+      "actual_image_transform_matrix": [
+        121.0,
+        0.0,
+        -0.0,
+        121.0,
+        123.00000762939453,
+        200.00003051757812
+      ],
+      "expected_replacement_matrix": [
+        121.00000000000001,
+        0.0,
+        0.0,
+        73.94444444444446,
+        123.00000762939452,
+        223.5278082953559
+      ],
+      "actual_replacement_matrix": [
+        121.0,
+        0.0,
+        -0.0,
+        73.94444274902344,
+        123.00000762939453,
+        223.52781677246094
+      ]
+    }
+  },
+  "geometry": {
+    "passed": true,
+    "checks": {
+      "acrobat_image_geometry_match": true,
+      "acrobat_vector_geometry_match": true,
+      "page_1_text_unchanged": true,
+      "page_1_neighbor_image_unchanged": true,
+      "page_1_neighbor-image_pixels_unchanged": true,
+      "page_1_neighbor-vector_pixels_unchanged": true,
+      "page_1_vector_remains_native": true,
+      "page_2_text_unchanged": true,
+      "page_2_neighbor_image_unchanged": true,
+      "page_2_neighbor-image_pixels_unchanged": true,
+      "page_2_neighbor-vector_pixels_unchanged": true,
+      "page_2_vector_remains_native": true
+    },
+    "Acrobat_max_image_matrix_delta_pt": 0.001220703125,
+    "Acrobat_max_vector_bbox_delta_pt": 0.0,
+    "operations_page_2": [
+      {
+        "kind": "image",
+        "page_rotation": 90,
+        "arguments": {
+          "dx": 11,
+          "dy": 15,
+          "sx": 0.9,
+          "sy": 0.8,
+          "rotate": 37
+        },
+        "before_bbox": [
+          500.0,
+          72.0,
+          610.0,
+          252.0
+        ],
+        "after_bbox": [
+          477.6368408203125,
+          71.70836639404297,
+          643.3630981445312,
+          246.29156494140625
+        ],
+        "undo_redo_exact": true
+      },
+      {
+        "kind": "vector",
+        "page_rotation": 90,
+        "arguments": {
+          "dx": -10,
+          "dy": 25,
+          "sx": 0.85,
+          "sy": 1.0,
+          "rotate": 90
+        },
+        "before_bbox": [
+          235.0,
+          32.0,
+          435.0,
+          295.0
+        ],
+        "after_bbox": [
+          178.5,
+          97.5,
+          441.5,
+          279.5
+        ],
+        "undo_redo_exact": true
+      }
+    ],
+    "result": {
+      "file": "03-asterpdf-graphics-edited.pdf",
+      "sha256": "73855c72e036c9ed8ecb241263eb42dd0191a75eb287b282d1b6ff6adf1e587e",
+      "pages": [
+        {
+          "rotation": 0,
+          "rect": [
+            0.0,
+            0.0,
+            612.0,
+            792.0
+          ],
+          "text": "Graphics and image roundtrip\nControlled fixture: shared image, transparency, paths and rotated page\nIMAGE A - edit this instance\nIMAGE A - unchanged copy\nMove / resize / rotate / replace\nSame source XObject\nVECTOR - edit this path\nNEIGHBOR - keep unchanged\nNEIGHBOR\nCheck object geometry, image pixels/alpha, vector painting and neighbor preservation.\nPage 2 repeats the same content with /Rotate 90 for coordinate checks.\nAsterPDF controlled research - 2026-11-09\n",
+          "images": [
+            {
+              "number": 3,
+              "bbox": [
+                118.0,
+                192.0000457763672,
+                228.0,
+                302.00006103515625
+              ],
+              "transform": [
+                0.0,
+                110.0,
+                -110.0,
+                -0.0,
+                228.0,
+                192.0000457763672
+              ],
+              "width": 240,
+              "height": 240,
+              "colorspace": 3,
+              "cs-name": "ICCBased(RGB,Artifex Software sRGB ICC Profile)",
+              "xres": 96,
+              "yres": 96,
+              "bpc": 8,
+              "size": 10125,
+              "digest": "1bb44787b36c467ad1e0ca12e2d3aaf8",
+              "has-mask": true,
+              "xref": 8,
+              "pixel_sha256": "ada100fee992c2064f1a4fbf5ad56ae307912283144e40962f2a06a2088878f1"
+            },
+            {
+              "number": 4,
+              "bbox": [
+                360.0,
+                192.0,
+                500.0,
+                277.0
+              ],
+              "transform": [
+                140.0,
+                0.0,
+                -0.0,
+                85.0,
+                360.0,
+                192.0
+              ],
+              "width": 360,
+              "height": 220,
+              "colorspace": 3,
+              "cs-name": "DeviceRGB",
+              "xres": 96,
+              "yres": 96,
+              "bpc": 8,
+              "size": 9456,
+              "digest": "51a922a33c78edaabb2fcb170e654657",
+              "has-mask": true,
+              "xref": 9,
+              "pixel_sha256": "b866b79097bb1fa06333cf641300871aa46851f3389c3d0c22d916b3b5ab6ec8"
+            }
+          ],
+          "drawings": [
+            {
+              "items": [
+                [
+                  "l",
+                  [
+                    203.5,
+                    558.5
+                  ],
+                  [
+                    203.5,
+                    450.5
+                  ]
+                ],
+                [
+                  "l",
+                  [
+                    203.5,
+                    450.5
+                  ],
+                  [
+                    233.5,
+                    450.5
+                  ]
+                ],
+                [
+                  "l",
+                  [
+                    233.5,
+                    450.5
+                  ],
+                  [
+                    173.5,
+                    375.5
+                  ]
+                ],
+                [
+                  "l",
+                  [
+                    173.5,
+                    375.5
+                  ],
+                  [
+                    113.5,
+                    450.5
+                  ]
+                ],
+                [
+                  "l",
+                  [
+                    113.5,
+                    450.5
+                  ],
+                  [
+                    143.5,
+                    450.5
+                  ]
+                ],
+                [
+                  "l",
+                  [
+                    143.5,
+                    450.5
+                  ],
+                  [
+                    143.5,
+                    558.5
+                  ]
+                ],
+                [
+                  "l",
+                  [
+                    143.5,
+                    558.5
+                  ],
+                  [
+                    203.5,
+                    558.5
+                  ]
+                ]
+              ],
+              "closePath": false,
+              "type": "fs",
+              "even_odd": true,
+              "fill_opacity": 1.0,
+              "fill": [
+                0.15000000596046448,
+                0.6499999761581421,
+                0.4000000059604645
+              ],
+              "rect": [
+                113.5,
+                375.5,
+                233.5,
+                558.5
+              ],
+              "seqno": 10,
+              "layer": "",
+              "stroke_opacity": 1.0,
+              "color": [
+                0.699999988079071,
+                0.10000000149011612,
+                0.15000000596046448
+              ],
+              "width": 4.0,
+              "lineCap": [
+                0,
+                0,
+                0
+              ],
+              "lineJoin": 0.0,
+              "dashes": "[] 0"
+            },
+            {
+              "items": [
+                [
+                  "l",
+                  [
+                    367.0,
+                    492.0
+                  ],
+                  [
+                    488.0,
+                    492.0
+                  ]
+                ],
+                [
+                  "c",
+                  [
+                    488.0,
+                    492.0
+                  ],
+                  [
+                    494.63360595703125,
+                    492.0
+                  ],
+                  [
+                    500.0,
+                    486.63360595703125
+                  ],
+                  [
+                    500.0,
+                    480.0
+                  ]
+                ],
+                [
+                  "l",
+                  [
+                    500.0,
+                    480.0
+                  ],
+                  [
+                    500.0,
+                    439.0
+                  ]
+                ],
+                [
+                  "c",
+                  [
+                    500.0,
+                    439.0
+                  ],
+                  [
+                    500.0,
+                    432.36639404296875
+                  ],
+                  [
+                    494.63360595703125,
+                    427.0
+                  ],
+                  [
+                    488.0,
+                    427.0
+                  ]
+                ],
+                [
+                  "l",
+                  [
+                    488.0,
+                    427.0
+                  ],
+                  [
+                    367.0,
+                    427.0
+                  ]
+                ],
+                [
+                  "c",
+                  [
+                    367.0,
+                    427.0
+                  ],
+                  [
+                    360.36639404296875,
+                    427.0
+                  ],
+                  [
+                    355.0,
+                    432.36639404296875
+                  ],
+                  [
+                    355.0,
+                    439.0
+                  ]
+                ],
+                [
+                  "l",
+                  [
+                    355.0,
+                    439.0
+                  ],
+                  [
+                    355.0,
+                    480.0
+                  ]
+                ],
+                [
+                  "c",
+                  [
+                    355.0,
+                    480.0
+                  ],
+                  [
+                    355.0,
+                    486.63360595703125
+                  ],
+                  [
+                    360.36639404296875,
+                    492.0
+                  ],
+                  [
+                    367.0,
+                    492.0
+                  ]
+                ]
+              ],
+              "closePath": false,
+              "type": "fs",
+              "even_odd": true,
+              "fill_opacity": 1.0,
+              "fill": [
+                0.949999988079071,
+                0.8999999761581421,
+                0.699999988079071
+              ],
+              "rect": [
+                355.0,
+                427.0,
+                500.0,
+                492.0
+              ],
+              "seqno": 12,
+              "layer": "",
+              "stroke_opacity": 1.0,
+              "color": [
+                0.15000000596046448,
+                0.25,
+                0.6000000238418579
+              ],
+              "width": 2.0,
+              "lineCap": [
+                0,
+                0,
+                0
+              ],
+              "lineJoin": 0.0,
+              "dashes": "[] 0"
+            }
+          ]
+        },
+        {
+          "rotation": 90,
+          "rect": [
+            0.0,
+            0.0,
+            792.0,
+            612.0
+          ],
+          "text": "Graphics and image roundtrip\nControlled fixture: shared image, transparency, paths and rotated page\nIMAGE A - edit this instance\nIMAGE A - unchanged copy\nMove / resize / rotate / replace\nSame source XObject\nVECTOR - edit this path\nNEIGHBOR - keep unchanged\nNEIGHBOR\nCheck object geometry, image pixels/alpha, vector painting and neighbor preservation.\nPage 2 repeats the same content with /Rotate 90 for coordinate checks.\nAsterPDF controlled research - 2026-11-09\n",
+          "images": [
+            {
+              "number": 3,
+              "bbox": [
+                89.67766571044922,
+                162.177734375,
+                228.322265625,
+                300.82232666015625
+              ],
+              "transform": [
+                79.06490325927734,
+                59.579681396484375,
+                -59.579689025878906,
+                79.06490325927734,
+                149.25735473632812,
+                162.177734375
+              ],
+              "width": 240,
+              "height": 240,
+              "colorspace": 3,
+              "cs-name": "ICCBased(RGB,Artifex Software sRGB ICC Profile)",
+              "xres": 96,
+              "yres": 96,
+              "bpc": 8,
+              "size": 10125,
+              "digest": "1bb44787b36c467ad1e0ca12e2d3aaf8",
+              "has-mask": true,
+              "xref": 11,
+              "pixel_sha256": "ada100fee992c2064f1a4fbf5ad56ae307912283144e40962f2a06a2088878f1"
+            },
+            {
+              "number": 4,
+              "bbox": [
+                360.0,
+                192.0,
+                500.0,
+                277.0
+              ],
+              "transform": [
+                140.0,
+                0.0,
+                -0.0,
+                85.0,
+                360.0,
+                192.0
+              ],
+              "width": 360,
+              "height": 220,
+              "colorspace": 3,
+              "cs-name": "DeviceRGB",
+              "xres": 96,
+              "yres": 96,
+              "bpc": 8,
+              "size": 9456,
+              "digest": "51a922a33c78edaabb2fcb170e654657",
+              "has-mask": true,
+              "xref": 9,
+              "pixel_sha256": "b866b79097bb1fa06333cf641300871aa46851f3389c3d0c22d916b3b5ab6ec8"
+            }
+          ],
+          "drawings": [
+            {
+              "items": [
+                [
+                  "l",
+                  [
+                    163.0,
+                    390.5
+                  ],
+                  [
+                    163.0,
+                    498.5
+                  ]
+                ],
+                [
+                  "l",
+                  [
+                    163.0,
+                    498.5
+                  ],
+                  [
+                    137.5,
+                    498.5
+                  ]
+                ],
+                [
+                  "l",
+                  [
+                    137.5,
+                    498.5
+                  ],
+                  [
+                    188.5,
+                    573.5
+                  ]
+                ],
+                [
+                  "l",
+                  [
+                    188.5,
+                    573.5
+                  ],
+                  [
+                    239.5,
+                    498.5
+                  ]
+                ],
+                [
+                  "l",
+                  [
+                    239.5,
+                    498.5
+                  ],
+                  [
+                    214.0,
+                    498.5
+                  ]
+                ],
+                [
+                  "l",
+                  [
+                    214.0,
+                    498.5
+                  ],
+                  [
+                    214.0,
+                    390.5
+                  ]
+                ],
+                [
+                  "l",
+                  [
+                    214.0,
+                    390.5
+                  ],
+                  [
+                    163.0,
+                    390.5
+                  ]
+                ]
+              ],
+              "closePath": false,
+              "type": "fs",
+              "even_odd": true,
+              "fill_opacity": 1.0,
+              "fill": [
+                0.15000000596046448,
+                0.6499999761581421,
+                0.4000000059604645
+              ],
+              "rect": [
+                137.5,
+                390.5,
+                239.5,
+                573.5
+              ],
+              "seqno": 10,
+              "layer": "",
+              "stroke_opacity": 1.0,
+              "color": [
+                0.699999988079071,
+                0.10000000149011612,
+                0.15000000596046448
+              ],
+              "width": 4.0,
+              "lineCap": [
+                0,
+                0,
+                0
+              ],
+              "lineJoin": 0.0,
+              "dashes": "[] 0"
+            },
+            {
+              "items": [
+                [
+                  "l",
+                  [
+                    367.0,
+                    492.0
+                  ],
+                  [
+                    488.0,
+                    492.0
+                  ]
+                ],
+                [
+                  "c",
+                  [
+                    488.0,
+                    492.0
+                  ],
+                  [
+                    494.63360595703125,
+                    492.0
+                  ],
+                  [
+                    500.0,
+                    486.63360595703125
+                  ],
+                  [
+                    500.0,
+                    480.0
+                  ]
+                ],
+                [
+                  "l",
+                  [
+                    500.0,
+                    480.0
+                  ],
+                  [
+                    500.0,
+                    439.0
+                  ]
+                ],
+                [
+                  "c",
+                  [
+                    500.0,
+                    439.0
+                  ],
+                  [
+                    500.0,
+                    432.36639404296875
+                  ],
+                  [
+                    494.63360595703125,
+                    427.0
+                  ],
+                  [
+                    488.0,
+                    427.0
+                  ]
+                ],
+                [
+                  "l",
+                  [
+                    488.0,
+                    427.0
+                  ],
+                  [
+                    367.0,
+                    427.0
+                  ]
+                ],
+                [
+                  "c",
+                  [
+                    367.0,
+                    427.0
+                  ],
+                  [
+                    360.36639404296875,
+                    427.0
+                  ],
+                  [
+                    355.0,
+                    432.36639404296875
+                  ],
+                  [
+                    355.0,
+                    439.0
+                  ]
+                ],
+                [
+                  "l",
+                  [
+                    355.0,
+                    439.0
+                  ],
+                  [
+                    355.0,
+                    480.0
+                  ]
+                ],
+                [
+                  "c",
+                  [
+                    355.0,
+                    480.0
+                  ],
+                  [
+                    355.0,
+                    486.63360595703125
+                  ],
+                  [
+                    360.36639404296875,
+                    492.0
+                  ],
+                  [
+                    367.0,
+                    492.0
+                  ]
+                ]
+              ],
+              "closePath": false,
+              "type": "fs",
+              "even_odd": true,
+              "fill_opacity": 1.0,
+              "fill": [
+                0.949999988079071,
+                0.8999999761581421,
+                0.699999988079071
+              ],
+              "rect": [
+                355.0,
+                427.0,
+                500.0,
+                492.0
+              ],
+              "seqno": 12,
+              "layer": "",
+              "stroke_opacity": 1.0,
+              "color": [
+                0.15000000596046448,
+                0.25,
+                0.6000000238418579
+              ],
+              "width": 2.0,
+              "lineCap": [
+                0,
+                0,
+                0
+              ],
+              "lineJoin": 0.0,
+              "dashes": "[] 0"
+            }
+          ]
+        }
+      ]
+    },
+    "reference": {
+      "file": "02-acrobat-graphics-edited.pdf",
+      "sha256": "7122c26007fb43a4b9a1ba53b1b41a59ab1c457e471f237516235e91a59950d8",
+      "pages": [
+        {
+          "rotation": 0,
+          "rect": [
+            0.0,
+            0.0,
+            612.0,
+            792.0
+          ],
+          "text": "Graphics and image roundtrip\nControlled fixture: shared image, transparency, paths and rotated page\nIMAGE A - edit this instance\nIMAGE A - unchanged copy\nMove / resize / rotate / replace\nSame source XObject\nVECTOR - edit this path\nNEIGHBOR - keep unchanged\nNEIGHBOR\nCheck object geometry, image pixels/alpha, vector painting and neighbor preservation.\nPage 2 repeats the same content with /Rotate 90 for coordinate checks.\nAsterPDF controlled research - 2026-11-09\n",
+          "images": [
+            {
+              "number": 3,
+              "bbox": [
+                118.0006103515625,
+                192.0006103515625,
+                227.9993896484375,
+                301.9993896484375
+              ],
+              "transform": [
+                0.0,
+                109.998779296875,
+                -109.998779296875,
+                -0.0,
+                227.9993896484375,
+                192.0006103515625
+              ],
+              "width": 240,
+              "height": 240,
+              "colorspace": 3,
+              "cs-name": "DeviceRGB",
+              "xres": 96,
+              "yres": 96,
+              "bpc": 8,
+              "size": 9643,
+              "digest": "868d34a4c0cda5bd5064c8d5ba52f9b2",
+              "has-mask": true,
+              "xref": 16,
+              "pixel_sha256": "f629fd7cce52e73ac81bab21acc2c012a4c81a8703710a0eb1d9da8a77b7589a"
+            },
+            {
+              "number": 4,
+              "bbox": [
+                360.0,
+                192.0,
+                500.0,
+                277.0
+              ],
+              "transform": [
+                140.0,
+                0.0,
+                -0.0,
+                85.0,
+                360.0,
+                192.0
+              ],
+              "width": 360,
+              "height": 220,
+              "colorspace": 3,
+              "cs-name": "DeviceRGB",
+              "xres": 96,
+              "yres": 96,
+              "bpc": 8,
+              "size": 9456,
+              "digest": "51a922a33c78edaabb2fcb170e654657",
+              "has-mask": true,
+              "xref": 8,
+              "pixel_sha256": "b866b79097bb1fa06333cf641300871aa46851f3389c3d0c22d916b3b5ab6ec8"
+            }
+          ],
+          "drawings": [
+            {
+              "items": [
+                [
+                  "l",
+                  [
+                    203.5,
+                    558.5
+                  ],
+                  [
+                    203.5,
+                    450.5
+                  ]
+                ],
+                [
+                  "l",
+                  [
+                    203.5,
+                    450.5
+                  ],
+                  [
+                    233.5,
+                    450.5
+                  ]
+                ],
+                [
+                  "l",
+                  [
+                    233.5,
+                    450.5
+                  ],
+                  [
+                    173.5,
+                    375.5
+                  ]
+                ],
+                [
+                  "l",
+                  [
+                    173.5,
+                    375.5
+                  ],
+                  [
+                    113.5,
+                    450.5
+                  ]
+                ],
+                [
+                  "l",
+                  [
+                    113.5,
+                    450.5
+                  ],
+                  [
+                    143.5,
+                    450.5
+                  ]
+                ],
+                [
+                  "l",
+                  [
+                    143.5,
+                    450.5
+                  ],
+                  [
+                    143.5,
+                    558.5
+                  ]
+                ],
+                [
+                  "l",
+                  [
+                    143.5,
+                    558.5
+                  ],
+                  [
+                    203.5,
+                    558.5
+                  ]
+                ]
+              ],
+              "closePath": false,
+              "type": "fs",
+              "even_odd": true,
+              "fill_opacity": 1.0,
+              "fill": [
+                0.15000000596046448,
+                0.6499999761581421,
+                0.4000000059604645
+              ],
+              "rect": [
+                113.5,
+                375.5,
+                233.5,
+                558.5
+              ],
+              "seqno": 4,
+              "layer": "",
+              "stroke_opacity": 1.0,
+              "color": [
+                0.699999988079071,
+                0.10000000149011612,
+                0.15000000596046448
+              ],
+              "width": 4.0,
+              "lineCap": [
+                0,
+                0,
+                0
+              ],
+              "lineJoin": 0.0,
+              "dashes": "[] 0"
+            },
+            {
+              "items": [
+                [
+                  "l",
+                  [
+                    367.0,
+                    492.0
+                  ],
+                  [
+                    488.0,
+                    492.0
+                  ]
+                ],
+                [
+                  "c",
+                  [
+                    488.0,
+                    492.0
+                  ],
+                  [
+                    494.6340026855469,
+                    492.0
+                  ],
+                  [
+                    500.0,
+                    486.6340026855469
+                  ],
+                  [
+                    500.0,
+                    480.0
+                  ]
+                ],
+                [
+                  "l",
+                  [
+                    500.0,
+                    480.0
+                  ],
+                  [
+                    500.0,
+                    439.0
+                  ]
+                ],
+                [
+                  "c",
+                  [
+                    500.0,
+                    439.0
+                  ],
+                  [
+                    500.0,
+                    432.3659973144531
+                  ],
+                  [
+                    494.6340026855469,
+                    427.0
+                  ],
+                  [
+                    488.0,
+                    427.0
+                  ]
+                ],
+                [
+                  "l",
+                  [
+                    488.0,
+                    427.0
+                  ],
+                  [
+                    367.0,
+                    427.0
+                  ]
+                ],
+                [
+                  "c",
+                  [
+                    367.0,
+                    427.0
+                  ],
+                  [
+                    360.3659973144531,
+                    427.0
+                  ],
+                  [
+                    355.0,
+                    432.3659973144531
+                  ],
+                  [
+                    355.0,
+                    439.0
+                  ]
+                ],
+                [
+                  "l",
+                  [
+                    355.0,
+                    439.0
+                  ],
+                  [
+                    355.0,
+                    480.0
+                  ]
+                ],
+                [
+                  "c",
+                  [
+                    355.0,
+                    480.0
+                  ],
+                  [
+                    355.0,
+                    486.6340026855469
+                  ],
+                  [
+                    360.3659973144531,
+                    492.0
+                  ],
+                  [
+                    367.0,
+                    492.0
+                  ]
+                ]
+              ],
+              "closePath": false,
+              "type": "fs",
+              "even_odd": true,
+              "fill_opacity": 1.0,
+              "fill": [
+                0.949999988079071,
+                0.8999999761581421,
+                0.699999988079071
+              ],
+              "rect": [
+                355.0,
+                427.0,
+                500.0,
+                492.0
+              ],
+              "seqno": 6,
+              "layer": "",
+              "stroke_opacity": 1.0,
+              "color": [
+                0.15000000596046448,
+                0.25,
+                0.6000000238418579
+              ],
+              "width": 2.0,
+              "lineCap": [
+                0,
+                0,
+                0
+              ],
+              "lineJoin": 0.0,
+              "dashes": "[] 0"
+            }
+          ]
+        },
+        {
+          "rotation": 90,
+          "rect": [
+            0.0,
+            0.0,
+            792.0,
+            612.0
+          ],
+          "text": "Graphics and image roundtrip\nControlled fixture: shared image, transparency, paths and rotated page\nIMAGE A - edit this instance\nIMAGE A - unchanged copy\nMove / resize / rotate / replace\nSame source XObject\nVECTOR - edit this path\nNEIGHBOR - keep unchanged\nNEIGHBOR\nCheck object geometry, image pixels/alpha, vector painting and neighbor preservation.\nPage 2 repeats the same content with /Rotate 90 for coordinate checks.\nAsterPDF controlled research - 2026-11-09\n",
+          "images": [
+            {
+              "number": 3,
+              "bbox": [
+                72.0,
+                182.0,
+                252.0,
+                292.0
+              ],
+              "transform": [
+                180.0,
+                0.0,
+                -0.0,
+                110.0,
+                72.0,
+                182.0
+              ],
+              "width": 360,
+              "height": 220,
+              "colorspace": 3,
+              "cs-name": "DeviceRGB",
+              "xres": 96,
+              "yres": 96,
+              "bpc": 8,
+              "size": 9456,
+              "digest": "51a922a33c78edaabb2fcb170e654657",
+              "has-mask": true,
+              "xref": 8,
+              "pixel_sha256": "b866b79097bb1fa06333cf641300871aa46851f3389c3d0c22d916b3b5ab6ec8"
+            },
+            {
+              "number": 4,
+              "bbox": [
+                360.0,
+                192.0,
+                500.0,
+                277.0
+              ],
+              "transform": [
+                140.0,
+                0.0,
+                -0.0,
+                85.0,
+                360.0,
+                192.0
+              ],
+              "width": 360,
+              "height": 220,
+              "colorspace": 3,
+              "cs-name": "DeviceRGB",
+              "xres": 96,
+              "yres": 96,
+              "bpc": 8,
+              "size": 9456,
+              "digest": "51a922a33c78edaabb2fcb170e654657",
+              "has-mask": true,
+              "xref": 8,
+              "pixel_sha256": "b866b79097bb1fa06333cf641300871aa46851f3389c3d0c22d916b3b5ab6ec8"
+            }
+          ],
+          "drawings": [
+            {
+              "items": [
+                [
+                  "l",
+                  [
+                    72.0,
+                    487.0
+                  ],
+                  [
+                    180.0,
+                    487.0
+                  ]
+                ],
+                [
+                  "l",
+                  [
+                    180.0,
+                    487.0
+                  ],
+                  [
+                    180.0,
+                    517.0
+                  ]
+                ],
+                [
+                  "l",
+                  [
+                    180.0,
+                    517.0
+                  ],
+                  [
+                    255.0,
+                    457.0
+                  ]
+                ],
+                [
+                  "l",
+                  [
+                    255.0,
+                    457.0
+                  ],
+                  [
+                    180.0,
+                    397.0
+                  ]
+                ],
+                [
+                  "l",
+                  [
+                    180.0,
+                    397.0
+                  ],
+                  [
+                    180.0,
+                    427.0
+                  ]
+                ],
+                [
+                  "l",
+                  [
+                    180.0,
+                    427.0
+                  ],
+                  [
+                    72.0,
+                    427.0
+                  ]
+                ],
+                [
+                  "l",
+                  [
+                    72.0,
+                    427.0
+                  ],
+                  [
+                    72.0,
+                    487.0
+                  ]
+                ]
+              ],
+              "closePath": false,
+              "type": "fs",
+              "even_odd": true,
+              "fill_opacity": 1.0,
+              "fill": [
+                0.15000000596046448,
+                0.6499999761581421,
+                0.4000000059604645
+              ],
+              "rect": [
+                72.0,
+                397.0,
+                255.0,
+                517.0
+              ],
+              "seqno": 10,
+              "layer": "",
+              "stroke_opacity": 1.0,
+              "color": [
+                0.699999988079071,
+                0.10000000149011612,
+                0.15000000596046448
+              ],
+              "width": 4.0,
+              "lineCap": [
+                0,
+                0,
+                0
+              ],
+              "lineJoin": 0.0,
+              "dashes": "[] 0"
+            },
+            {
+              "items": [
+                [
+                  "l",
+                  [
+                    367.0,
+                    492.0
+                  ],
+                  [
+                    488.0,
+                    492.0
+                  ]
+                ],
+                [
+                  "c",
+                  [
+                    488.0,
+                    492.0
+                  ],
+                  [
+                    494.63360595703125,
+                    492.0
+                  ],
+                  [
+                    500.0,
+                    486.63360595703125
+                  ],
+                  [
+                    500.0,
+                    480.0
+                  ]
+                ],
+                [
+                  "l",
+                  [
+                    500.0,
+                    480.0
+                  ],
+                  [
+                    500.0,
+                    439.0
+                  ]
+                ],
+                [
+                  "c",
+                  [
+                    500.0,
+                    439.0
+                  ],
+                  [
+                    500.0,
+                    432.36639404296875
+                  ],
+                  [
+                    494.63360595703125,
+                    427.0
+                  ],
+                  [
+                    488.0,
+                    427.0
+                  ]
+                ],
+                [
+                  "l",
+                  [
+                    488.0,
+                    427.0
+                  ],
+                  [
+                    367.0,
+                    427.0
+                  ]
+                ],
+                [
+                  "c",
+                  [
+                    367.0,
+                    427.0
+                  ],
+                  [
+                    360.36639404296875,
+                    427.0
+                  ],
+                  [
+                    355.0,
+                    432.36639404296875
+                  ],
+                  [
+                    355.0,
+                    439.0
+                  ]
+                ],
+                [
+                  "l",
+                  [
+                    355.0,
+                    439.0
+                  ],
+                  [
+                    355.0,
+                    480.0
+                  ]
+                ],
+                [
+                  "c",
+                  [
+                    355.0,
+                    480.0
+                  ],
+                  [
+                    355.0,
+                    486.63360595703125
+                  ],
+                  [
+                    360.36639404296875,
+                    492.0
+                  ],
+                  [
+                    367.0,
+                    492.0
+                  ]
+                ]
+              ],
+              "closePath": false,
+              "type": "fs",
+              "even_odd": true,
+              "fill_opacity": 1.0,
+              "fill": [
+                0.949999988079071,
+                0.8999999761581421,
+                0.699999988079071
+              ],
+              "rect": [
+                355.0,
+                427.0,
+                500.0,
+                492.0
+              ],
+              "seqno": 12,
+              "layer": "",
+              "stroke_opacity": 1.0,
+              "color": [
+                0.15000000596046448,
+                0.25,
+                0.6000000238418579
+              ],
+              "width": 2.0,
+              "lineCap": [
+                0,
+                0,
+                0
+              ],
+              "lineJoin": 0.0,
+              "dashes": "[] 0"
+            }
+          ]
+        }
+      ]
+    },
+    "limitation": "Acrobat UI drag resizing did not produce a confirmed change. Scaling is covered by independent AsterPDF geometry regressions; the installed GUI verification is recorded separately. This is not claimed as an observed Acrobat resize."
+  },
+  "desktop": {
+    "frozen": true,
+    "elapsed_seconds": 10.34,
+    "print": {
+      "started": true,
+      "done": true,
+      "passed": true,
+      "pages": 2
+    },
+    "passed": true,
+    "navigation": [
+      {
+        "check": "single-page Right key",
+        "passed": true
+      },
+      {
+        "check": "presentation Left key",
+        "passed": true
+      },
+      {
+        "check": "presentation Escape",
+        "passed": true
+      }
+    ],
+    "text_edit": {
+      "done": true,
+      "passed": true,
+      "system_font_edit_save_reopen": true
+    },
+    "documents": [
+      {
+        "pages": 2,
+        "rendered_pages": 6,
+        "animation_frames": 0,
+        "video_frames": 0,
+        "media_position_ms": 0
+      }
+    ],
+    "errors": []
+  },
+  "installation": {
+    "version": "1.3.5",
+    "installed": "C:\\Users\\ztli\\Downloads\\AsterPDF",
+    "backup": "C:\\Users\\ztli\\Downloads\\AsterPDF-1.3.4-backup-20261109",
+    "old_exe_sha256": "F627C27B02E987A148F123F49B61E077507A8085A7EC3889FE47F5DA6EE78099",
+    "new_exe_sha256": "DD1EF11113DC709DCBF99536159865C6A8E25B4C96BBEEC0CBA3CCE10C77DE51",
+    "build_exe_sha256": "DD1EF11113DC709DCBF99536159865C6A8E25B4C96BBEEC0CBA3CCE10C77DE51"
+  },
+  "regression": {
+    "summary": "127 passed in 67.55s (0:01:07)",
+    "exit_code": 0,
+    "com_diagnostic": "0x8001010d"
+  }
+}

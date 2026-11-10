@@ -627,14 +627,24 @@ class Canvas(QWidget):
     def select_characters(self,page,start,end):
         chars = self.words.get(page,[])
         if not chars: return []
+        lines = {}
+        for idx,c in enumerate(chars): lines.setdefault(c[2:4],[]).append((idx,c))
+        def projected(point,c):
+            x0,y0,x1,y1=c[0]
+            dx,dy=c[4] if len(c)>4 else (1,0)
+            length=math.hypot(dx,dy)
+            dx,dy=(dx/length,dy/length) if length else (1,0)
+            x,y=point.x()-(x0+x1)/2,point.y()-(y0+y1)/2
+            # Distance along the reading direction and outside the line's
+            # perpendicular extent, including vertical and reversed text.
+            across=max(abs(-dy*x+dx*y)-(abs(dy)*(x1-x0)+abs(dx)*(y1-y0))/2,0)
+            return dx*x+dy*y,across
         def caret(point):
             # Choose the nearest line, then a character boundary on that line.
-            lines = {}
-            for idx,c in enumerate(chars): lines.setdefault(c[2:4],[]).append((idx,c))
-            row = min(lines.values(),key=lambda row:min(max(c[0][1]-point.y(),0,point.y()-c[0][3]) for _,c in row))
-            nearest = min(row,key=lambda ic:abs((ic[1][0][0]+ic[1][0][2])/2-point.x()))
+            row = min(lines.values(),key=lambda row:min(projected(point,c)[1] for _,c in row))
+            nearest = min(row,key=lambda ic:abs(projected(point,ic[1])[0]))
             idx,c = nearest
-            return idx + (point.x() >= (c[0][0]+c[0][2])/2)
+            return idx + (projected(point,c)[0] >= 0)
         a,b = sorted((caret(start),caret(end)))
         chosen = chars[a:b]
         self.word_selection = (page,chosen); self.update()

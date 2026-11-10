@@ -271,9 +271,13 @@ class Document:
             p=pdf[page]; result=[]
             for bi,block in enumerate(p.get_text('rawdict',flags=fitz.TEXTFLAGS_TEXT,sort=True)['blocks']):
                 for li,line in enumerate(block.get('lines',[])):
+                    # Keep the text direction in the same display coordinates as
+                    # the boxes. A rotated page need not read left to right.
+                    dx,dy=line.get('dir',(1,0));m=p.rotation_matrix
+                    direction=(dx*m.a+dy*m.c,dx*m.b+dy*m.d)
                     for span in line['spans']:
                         for c in span['chars']:
-                            result.append((tuple(fitz.Rect(c['bbox'])*p.rotation_matrix),c['c'],bi,li))
+                            result.append((tuple(fitz.Rect(c['bbox'])*m),c['c'],bi,li,direction))
             return result
 
     def words(self, page):
@@ -579,7 +583,7 @@ class Document:
 
     def insert_text(self, page, rect, text, fontfile=None, fontsize=12, color=(0, 0, 0), fontbuffer=None):
         font = fitz.Font(fontbuffer=fontbuffer) if fontbuffer else fitz.Font(fontfile=fontfile) if fontfile else fitz.Font('helv')
-        if any(not font.has_glyph(ord(ch)) for ch in text if not ch.isspace()):
+        if any(not font.has_glyph(ord(ch)) for ch in text if ch not in '\r\n'):
             raise Unsupported(L('字体缺少字形，请选择包含所需字符的 TTF/OTF 字体。','Font lacks requested glyphs. Select a Unicode TTF/OTF font.'))
         def author(p):
             r = fitz.Rect(rect) * p.derotation_matrix

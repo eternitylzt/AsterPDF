@@ -81,7 +81,7 @@ class PropertiesMixin:
         selected=[o for o in self.selected_objects() if o.kind in ('vector','group')]
         if not selected or abs(angle)<.1:return
         page=self.canvas.object_page
-        self.run(tr('vector_edit'),lambda j:figures.rotate(self.document,page,selected,angle),editing=True,local_edit=True)
+        self.run(tr('vector_edit'),lambda j:figures.rotate(self.document,page,selected,angle,all_objects=self.canvas.objects),editing=True,fast_objects=True)
 
     def apply_shape_style(self):
         selected=self.selected_objects()

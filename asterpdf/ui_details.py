@@ -1,7 +1,22 @@
 """Small desktop interactions shared by property panels and navigation."""
 from PySide6.QtCore import Qt,QSize,QRectF
 from PySide6.QtGui import QColor,QTextDocument,QPalette
-from PySide6.QtWidgets import QSplitter,QSplitterHandle,QStyledItemDelegate,QStyle,QStyleOptionViewItem
+from PySide6.QtWidgets import QSplitter,QSplitterHandle,QStyledItemDelegate,QStyle,QStyleOptionViewItem,QToolButton,QTabWidget
+
+
+class DocumentMenuButton(QToolButton):
+    """Report the complete tab-row size to QTabWidget's corner layout.
+
+    A fixed widget size alone is not enough: QTabWidget positions its corner
+    using sizeHint(), and then QWidget enforces the fixed size at that position.
+    Keep the hint accurate and let Qt remain the sole geometry owner.
+    """
+    def sizeHint(self):
+        tabs=self.parentWidget()
+        height=tabs.tabBar().sizeHint().height() if isinstance(tabs,QTabWidget) else super().sizeHint().height()
+        return QSize(30,max(1,height))
+
+    def minimumSizeHint(self):return self.sizeHint()
 
 class NavSplitter(QSplitter):
     def createHandle(self):
@@ -54,10 +69,18 @@ class ToolbarStrip(__import__('PySide6.QtWidgets',fromlist=['QWidget']).QWidget)
         return False
     def reflow(self):
         natural=self.toolbar.sizeHint();height=natural.height()
-        self.setFixedHeight(height);overflow=natural.width()>self.width()
-        self.left.setVisible(overflow);self.right.setVisible(overflow)
-        self.toolbar.resize(max(natural.width(),self.scroller.viewport().width()),height);self.arrows();self.scroller.viewport().update();self.toolbar.update();self.update()
-        if self.parentWidget():self.parentWidget().update()
+        changed=False
+        if self.height()!=height or self.minimumHeight()!=height or self.maximumHeight()!=height:
+            self.setFixedHeight(height);changed=True
+        overflow=natural.width()>self.width()
+        for button in (self.left,self.right):
+            if button.isHidden()==overflow:button.setVisible(overflow);changed=True
+        size=QSize(max(natural.width(),self.scroller.viewport().width()),height)
+        if self.toolbar.size()!=size:self.toolbar.resize(size);changed=True
+        self.arrows()
+        if changed:
+            self.scroller.viewport().update();self.toolbar.update();self.update()
+            if self.parentWidget():self.parentWidget().update()
     def resizeEvent(self,event):
         super().resizeEvent(event)
         if hasattr(self,'timer'):self.timer.start(0)

@@ -1,19 +1,22 @@
-# AsterPDF 1.3.2
+# AsterPDF 1.3.6
 
-## 中文 · 相比已发布的 1.3.0
+相比 1.3.2 / Changes since 1.3.2
 
-- **Markdown 预览与导出**：先在软件内显示，再询问是否用默认浏览器打开本地 HTML；可记住选择，也可在首选项中修改。支持目录、公式、图片、表格和代码复制，新增另存为 HTML，无需附带浏览器内核。
-- **全屏阅读**：默认适合宽度，顶部自动隐藏控件提供整页、缩放、布局与退出，退出后恢复原缩放。
-- **首页最近文件**：优先显示五条完整记录，小窗口可滚动浏览。
-- **macOS 视频交互**：调整视频点击处理和播放状态同步，针对单击暂停需要两次点击的问题修复；实际用户 Mac 环境仍需复测。
+## 中文
 
-HTML 保存打开时的 Markdown 内容，不包含后续 PDF 编辑或批注。软件内阅读及 A4/长页 PDF 导出保留。验证范围见[验证记录](https://github.com/eternitylzt/AsterPDF/blob/v1.3.2/docs/VALIDATION.md)。
+- 优化编辑响应，减少文字预览等待与重复对象识别，修复右上角标签菜单跳动。
+- 改善文字编辑与粘贴时的字体、间距和样式保持。
+- 修复图片、图形在裁剪和旋转页面上的移动、缩放与旋转；替换图片不影响其它实例。
+- 修复旋转页面的高亮选择，并保留批注原有颜色与透明度。
 
-## English · Changes since published 1.3.0
+## English
 
-- **Markdown preview and export:** opens inside AsterPDF first, then offers a local HTML preview in the default browser. Remember Yes/No or change the choice in preferences. Outlines, formulas, images, tables and code copying are supported; Save As now offers HTML. No browser engine is bundled.
-- **Fullscreen reading:** fit width by default, with auto-hiding fit, zoom, layout and exit controls; restores the previous zoom on exit.
-- **Recent files on Home:** space for five complete entries, with scrolling in smaller windows.
-- **macOS video interaction:** revised click handling and playback-state synchronization address the double-click-to-pause report; confirmation on affected users’ Macs is still needed.
+- More responsive editing with fewer redundant previews and object scans; stable document-tab menu positioning.
+- Better preservation of fonts, spacing and styles during text editing and paste.
+- Correct image/vector transforms on cropped and rotated pages; image replacement leaves other instances intact.
+- Correct highlight selection on rotated pages while preserving annotation colors and opacity.
 
-HTML contains the opened Markdown snapshot, not subsequent PDF edits or annotations. In-app reading and A4/long-page PDF export remain available. See the [validation record](https://github.com/eternitylzt/AsterPDF/blob/v1.3.2/docs/VALIDATION.md) for tested scope.
+Windows x64 · macOS Apple Silicon · Linux x86_64 (deb / rpm / tar.gz).
+
+Windows 已完成实际编辑、保存重开与播放验证；macOS / Linux 的构建和自动检查不等同于实体设备交互验证。
+Windows editing, save/reopen and playback were checked locally. Automated macOS/Linux checks do not replace physical-device testing.

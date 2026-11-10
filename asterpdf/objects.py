@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from .i18n import L
 import re
 import json
+import math
 import pikepdf as pp
 import pymupdf as fitz
 from .core import Unsupported
@@ -127,7 +128,29 @@ def content_bytes(page):
     return b'\n'.join(x.read_bytes() for x in c) if isinstance(c, pp.Array) else c.read_bytes()
 
 
-def discover(document, page_index, progress=None, cancel=None):
+def _page_coordinates(page):
+    """Map original PDF coordinates to the visible, cropped/rotated page.
+
+    MuPDF's transformation_matrix omits the CropBox translation on rotated
+    pages. Read it with rotation temporarily zeroed in this scratch document.
+    """
+    rotation=page.rotation
+    try:
+        if rotation:page.set_rotation(0)
+        matrix=page.transformation_matrix
+    finally:
+        if rotation:page.set_rotation(rotation)
+    return matrix*page.rotation_matrix
+
+
+def _graphics_state_replay(block):
+    """Retain state set inside an edited path for subsequent unselected content."""
+    state={'g','G','rg','RG','k','K','cs','CS','sc','SC','scn','SCN',
+           'w','J','j','M','d','gs','ri','i'}
+    return b'\n'.join(c.raw for c in commands(block) if c.op in state)
+
+
+def discover(document, page_index, progress=None, cancel=None, *, only_starts=None):
     with pp.open(document.path) as pdf:
         p = pdf.pages[page_index]
         data = content_bytes(p)
@@ -175,7 +198,10 @@ def discover(document, page_index, progress=None, cancel=None):
                 if path_start is None:
                     path_start, path_matrix = c.start, tuple(ctm)
             elif c.op in PAINT and path_start is not None:
-                objects.append(PdfObject(len(objects), 'vector', path_start, c.end, path_matrix))
+                reason=''
+                if any(part.op in ('cm','q','Q') for part in commands(data[path_start:c.end])):
+                    reason=L('此路径在构建过程中切换了图形状态，暂不能安全地单独编辑。','This path changes graphics state while being constructed and cannot be edited safely as a single path.')
+                objects.append(PdfObject(len(objects), 'vector', path_start, c.end, path_matrix,reason=reason))
                 path_start = None
             elif c.op == 'n':
                 path_start = None
@@ -195,6 +221,7 @@ def discover(document, page_index, progress=None, cancel=None):
     # alter the authoritative document. Each candidate is measured by the renderer.
     with fitz.open(document.path) as scratch:
         sp = scratch[page_index]
+        page_coord=_page_coordinates(sp)
         xref = scratch.get_new_xref()
         scratch.update_object(xref, '<<>>')
         scratch.update_stream(xref, b'')
@@ -208,6 +235,7 @@ def discover(document, page_index, progress=None, cancel=None):
                 masked[c.start:c.end] = replacement.rjust(c.end-c.start, b' ')
         background = bytes(masked)
         accepted = []
+        if only_starts is not None:objects=[obj for obj in objects if obj.start in only_starts]
         for k, obj in enumerate(objects):
             if cancel and cancel():
                 break
@@ -225,8 +253,9 @@ def discover(document, page_index, progress=None, cancel=None):
                 if not rect.is_empty and not rect.is_infinite:
                     obj.bbox = tuple(rect)
                     if obj.kind == 'text':
-                        obj.text = sp.get_text().strip()
-                        lines=[line for b in sp.get_text('dict',flags=fitz.TEXTFLAGS_TEXT)['blocks'] for line in b.get('lines',[])]
+                        textpage=sp.get_textpage(flags=fitz.TEXTFLAGS_TEXT)
+                        obj.text = textpage.extractText().strip()
+                        lines=[line for b in textpage.extractDICT()['blocks'] for line in b.get('lines',[])]
                         spans=[span for line in lines for span in line['spans']]
                         if spans:
                             first=spans[0]
@@ -246,8 +275,8 @@ def discover(document, page_index, progress=None, cancel=None):
                                 obj.text=''.join(c for c,_ in metadata)
                             obj.size=first['size']
                     if obj.kind=='vector':
-                        points=[];hit_path=[];filled=False;coord=fitz.Matrix(obj.ctm)*sp.transformation_matrix*sp.rotation_matrix
-                        for index,c in enumerate(commands(data[obj.start:obj.end])):
+                        points=[];hit_path=[];filled=False;coord=fitz.Matrix(obj.ctm)*page_coord
+                        for index,c in enumerate(commands(data[obj.start:obj.end]) if not obj.reason else []):
                             if c.op in ('m','l'):
                                 args=operands(c);pt=fitz.Point(float(args[0]),float(args[1]))*coord
                                 points.append((index,pt.x,pt.y))
@@ -265,6 +294,7 @@ def discover(document, page_index, progress=None, cancel=None):
 
 
 def _transform_bytes(data, obj, matrix):
+    if obj.reason:raise Unsupported(obj.reason)
     ctm = fitz.Matrix(obj.ctm)
     if abs(ctm.a * ctm.d - ctm.b * ctm.c) < 1e-9:
         raise Unsupported('Singular object transform')
@@ -279,23 +309,40 @@ def _transform_bytes(data, obj, matrix):
         state = [c.raw for c in commands(block) if c.op in state_ops]
         if state:
             replay = b'\nBT\n' + b'\n'.join(state) + b'\nET\n'
+    elif obj.kind=='vector':
+        if any(c.op in ('cm','q','Q') for c in commands(block)):
+            raise Unsupported(L('此路径在构建过程中切换了图形状态，暂不能安全地单独编辑。','This path changes graphics state while being constructed and cannot be edited safely as a single path.'))
+        replay=b'\n'+_graphics_state_replay(block)+b'\n'
     return prefix + block + b'\nQ\n' + replay
 
 
-def transform(document, page_index, selected, dx=0, dy=0, sx=1, sy=1, delete=False, all_objects=None):
+def transform(document, page_index, selected, dx=0, dy=0, sx=1, sy=1, delete=False, all_objects=None,rotate=0):
+    """Scale about the selection's upper-left, move, then rotate its new center.
+
+    All arguments use visible page coordinates; positive rotation is clockwise.
+    """
+    if not selected:raise ValueError('Select an object')
+    if not all(math.isfinite(float(v)) for v in (dx,dy,sx,sy,rotate)):
+        raise ValueError('Object transform must be finite')
     if sx <= 0 or sy <= 0:
         raise ValueError('Scale must be positive')
+    rotate=float(rotate)%360
+    if rotate and any(o.kind not in ('image','vector','group') for o in selected):
+        raise Unsupported(L('对象旋转适用于图片、图形和组合对象。','Object rotation applies to images, paths and Form groups.'))
     for obj in selected:
         if obj.reason:
             raise Unsupported(obj.reason)
     with fitz.open(document.path) as view:
         p = view[page_index]
-        coord = p.transformation_matrix * p.rotation_matrix
+        coord = _page_coordinates(p)
         union = fitz.Rect(selected[0].bbox)
         for o in selected[1:]:
             union |= fitz.Rect(o.bbox)
         # Screen-space affine transform, conjugated into PDF coordinates.
         screen = fitz.Matrix(sx, 0, 0, sy, union.x0 * (1-sx) + dx, union.y0 * (1-sy) + dy)
+        if rotate:
+            moved=union*screen;cx,cy=(moved.x0+moved.x1)/2,(moved.y0+moved.y1)/2
+            screen=screen*fitz.Matrix(1,0,0,1,-cx,-cy)*fitz.Matrix(rotate)*fitz.Matrix(1,0,0,1,cx,cy)
         matrix = coord * screen * ~coord
     changes={}
     def mutate(pdf):
@@ -322,11 +369,16 @@ def transform(document, page_index, selected, dx=0, dy=0, sx=1, sy=1, delete=Fal
             if delete and obj.kind == 'text':
                 replacement = b'\n'.join(c.raw for c in commands(data[obj.start:obj.end])
                                            if c.op not in ('Tj', 'TJ', "'", '"'))
+            elif delete and obj.kind=='vector':
+                replacement=b'\n'+_graphics_state_replay(data[obj.start:obj.end])+b'\n'
             changes[obj.id]=(obj.start,obj.end,len(replacement),replacement)
             data = data[:obj.start] + replacement + data[obj.end:]
         page.Contents = pdf.make_stream(data)
     document.edit('objects', mutate)
     if all_objects is not None and all(o.kind!='text' for o in selected):
+        # Stroke joins and Form bounds must be measured after scaling/rotation.
+        # Only the selected objects changed; retain other measured geometry.
+        remeasure=not delete and (rotate or sx!=1 or sy!=1)
         import copy
         updated=[]
         for old in all_objects:
@@ -348,6 +400,17 @@ def transform(document, page_index, selected, dx=0, dy=0, sx=1, sy=1, delete=Fal
             resources=pdf.pages[page_index].Resources.get('/XObject',{})
             for obj in updated:
                 if obj.resource and obj.resource in resources:obj.xref=resources[obj.resource].objgen[0]
+        if remeasure:
+            # Cached IDs survive deletion; parser IDs do not. Match the new
+            # byte positions, then retain the stable IDs used by the selection.
+            starts={obj.start for obj in updated if obj.id in changes}
+            measured={obj.start:obj for obj in discover(document,page_index,only_starts=starts)}
+            refreshed=[]
+            for obj in updated:
+                if obj.id not in changes:refreshed.append(obj)
+                elif obj.start in measured:
+                    actual=measured[obj.start];actual.id=obj.id;refreshed.append(actual)
+            updated=refreshed
         return updated
 
 
@@ -401,9 +464,18 @@ def replace_text(document, page_index, obj, text, fontsize=None, color=None, fon
     document.edit('text', mutate)
 
 
-def replace_image(document, page_index, obj, filename):
+def replace_image(document, page_index, obj, filename, keep_proportion=True):
     if obj.kind != 'image':
         raise Unsupported(L('请选择图片对象。','Select an image'))
+    if obj.reason:raise Unsupported(obj.reason)
+    # The instance's axes retain its orientation/shear, unlike its bounding
+    # rectangle. Fit the replacement inside those axes and keep their center.
+    if keep_proportion:
+        with fitz.open(document.path) as original:
+            placement=fitz.Matrix(obj.ctm)*_page_coordinates(original[page_index])
+        width=math.hypot(placement.a,placement.b);height=math.hypot(placement.c,placement.d)
+        if not all(math.isfinite(v) and v>0 for v in (width,height)):
+            raise Unsupported('Invalid image placement')
     # MuPDF authors a fresh image stream; pikepdf imports just that XObject.
     with fitz.open() as temp:
         p = temp.new_page()
@@ -417,11 +489,21 @@ def replace_image(document, page_index, obj, filename):
             resources = pp.Dictionary(page.Resources)
             xobjects = pp.Dictionary(resources.get('/XObject', pp.Dictionary()))
             name = '/AsterImage' + str(image.objgen[0])
+            # Resource names are independent of object numbers. A prior save
+            # may have renumbered an existing /AsterImageN still used elsewhere.
+            while name in xobjects:name+='x'
             xobjects[name] = image
             resources.XObject = xobjects
             page.Resources = resources
             raw = content_bytes(page)
-            page.Contents = pdf.make_stream(raw[:obj.start] + f'\n{name} Do\n'.encode() + raw[obj.end:])
+            replacement=f'\n{name} Do\n'.encode()
+            if keep_proportion:
+                aspect=float(image.Width)/float(image.Height)
+                fx,fy=(height*aspect/width,1.) if width/height>aspect else (1.,width/aspect/height)
+                local=(fx,0,0,fy,(1-fx)/2,(1-fy)/2)
+                prefix=('\nq '+' '.join(f'{v:.9f}' for v in local)+' cm\n').encode()
+                replacement=prefix+replacement+b'Q\n'
+            page.Contents = pdf.make_stream(raw[:obj.start] + replacement + raw[obj.end:])
     document.edit('replace image', mutate)
 
 
@@ -438,7 +520,7 @@ def replace_text_font(document,page_index,obj,text,fontbuffer,fontsize=None,colo
     if not text:
         transform(document,page_index,[obj],delete=True);return
     font=fitz.Font(fontbuffer=fontbuffer)
-    if any(not font.has_glyph(ord(c)) for c in text if not c.isspace()):
+    if any(not font.has_glyph(ord(c)) for c in text if c not in '\r\n'):
         raise Unsupported(L('所选字体缺少字形；请选择包含输入字符的系统字体','Selected font lacks requested glyphs'))
     with fitz.open(document.path) as original, fitz.open() as temp:
         source=original[page_index]
@@ -494,7 +576,7 @@ def replace_text_runs(document,page_index,obj,lines):
                     font=fitz.Font(fontbuffer=data);name=f'AsterR{document.serial+1}_{len(fonts)}'
                     fonts[key]=[name,p.insert_font(fontname=name,fontbuffer=data),font,'']
                 name,xref,font,used=fonts[key]
-                if any(not font.has_glyph(ord(c)) for c in text if not c.isspace()):raise Unsupported('Font lacks requested glyphs')
+                if any(not font.has_glyph(ord(c)) for c in text if c not in '\r\n'):raise Unsupported('Font lacks requested glyphs')
                 p.insert_text((x,y),text,fontname=name,fontsize=run['size'],color=run['color'])
                 x+=font.text_length(text,fontsize=run['size']);fonts[key][3]+=text
             y+=max([r['size'] for r in line] or [obj.size])*1.25
@@ -518,8 +600,9 @@ def replace_text_runs(document,page_index,obj,lines):
 def move_vertex(document,page_index,obj,index,point):
     """Change one straight path endpoint in original vector coordinates."""
     if obj.kind!='vector':raise Unsupported('Select a vector path')
+    if obj.reason:raise Unsupported(obj.reason)
     with fitz.open(document.path) as view:
-        page=view[page_index];coord=fitz.Matrix(obj.ctm)*page.transformation_matrix*page.rotation_matrix
+        page=view[page_index];coord=fitz.Matrix(obj.ctm)*_page_coordinates(page)
         if abs(coord.a*coord.d-coord.b*coord.c)<1e-9:raise Unsupported('Singular transform')
         local=fitz.Point(point)*~coord
     def mutate(pdf):

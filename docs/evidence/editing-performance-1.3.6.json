@@ -1,0 +1,51 @@
+{
+  "version": "1.3.6",
+  "date": "2026-11-09",
+  "platform": "Windows",
+  "baseline": "Source archive from the installed local AsterPDF 1.3.5 bundle",
+  "release_scope": "Local only; no GitHub push or release",
+  "regression": {
+    "passed": 135,
+    "seconds": 49.01,
+    "exit_code": 0,
+    "diagnostic": "Windows COM 0x8001010d at Qt fixture startup; execution continued",
+    "whole_repository_suite": false
+  },
+  "tab_dropdown": {
+    "edit_entry_move_events_before": 10,
+    "edit_entry_move_events_after": 0,
+    "idle_move_events_before": 4,
+    "idle_move_events_after": 0,
+    "native_qt": true
+  },
+  "selected_vector_scale_rotate": {
+    "page_objects": 401,
+    "before_seconds": 0.5702,
+    "after_seconds": 0.1001,
+    "speedup": 5.7,
+    "bounds_match_fresh_full_scan": true,
+    "measurement": "Single local run; initial page discovery excluded"
+  },
+  "font_name_matching": {
+    "families": 242,
+    "lookups": 1000,
+    "before_seconds": 0.762,
+    "after_seconds": 0.074
+  },
+  "real_document_smoke": {
+    "file": "science.ads9412.pdf",
+    "passed": true,
+    "enter_edit_seconds": 0.6564,
+    "open_text_block_seconds": 0.0449,
+    "insert_test_string_seconds": 0.0089,
+    "apply_through_completion_seconds": 1.2285,
+    "save_reopen_undo_redo_cancel": true,
+    "source_sha256_unchanged": true,
+    "note": "Private working copy; timings are single-run samples"
+  },
+  "limitations": [
+    "No new macOS or Linux runtime verification",
+    "Initial discovery, complex documents and save/preview operations may still take time",
+    "Existing content editing compatibility boundaries remain unchanged"
+  ]
+}

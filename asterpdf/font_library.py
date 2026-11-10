@@ -12,6 +12,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont,QFontDatabase
 from PySide6.QtWidgets import QDialog,QVBoxLayout,QHBoxLayout,QLabel,QLineEdit,QPushButton,QListWidget,QListWidgetItem,QFileDialog
 from .i18n import L,tr
+from .fonts import font_name_key
 from .jobs import Queue
 
 RAW='https://raw.githubusercontent.com/google/fonts/main/'
@@ -42,8 +43,7 @@ def catalog(root):
         raise
 
 def normalized(name):
-    name=name.split('+')[-1]
-    return re.sub('[^a-z0-9]','',re.sub(r'(?i)(-?(bolditalic|regular|bold|italic|oblique|psmt))$','',name).lower())
+    return re.sub(r'(bolditalic|regular|bold|italic|oblique|psmt)$','',font_name_key(name))
 
 def suggestions(name,data):
     wanted=normalized(name)

@@ -2,22 +2,35 @@
 from .i18n import L
 import re
 import struct
+import unicodedata
+from functools import lru_cache
 from PySide6.QtGui import QFont, QFontDatabase, QRawFont
 from .core import Unsupported
 
 TAGS = ('head','hhea','maxp','OS/2','hmtx','cmap','loca','glyf','name','post','cvt ','fpgm','prep','gasp','kern','GPOS','GSUB','GDEF','CFF ','CFF2','VORG','vhea','vmtx','BASE','JSTF','DSIG','fvar','gvar','avar','HVAR','MVAR','STAT')
 
+def font_name_key(name):
+    """Match PDF/system names without collapsing non-Latin families to empty."""
+    name=re.sub(r'^[A-Z]{6}\+', '', name)
+    return ''.join(c for c in unicodedata.normalize('NFKC',name).casefold() if c.isalnum())
+
+@lru_cache(maxsize=4)
+def _family_catalog(families):
+    # The tuple changes when a downloaded/application font is registered.
+    # Normalize installed names once, not once per span/caret movement.
+    exact={}
+    for family in families:exact.setdefault(font_name_key(family),family)
+    return exact,[(family,font_name_key(family)) for family in sorted(families,key=len,reverse=True)],set(families)
+
+
 def matched_family(name):
-    name = name.split('+')[-1]
-    norm = lambda n: re.sub('[^a-z0-9]','',n.lower())
-    families = QFontDatabase.families()
-    wanted = norm(name)
-    for family in families:
-        if norm(family)==wanted: return family,True
+    families = tuple(QFontDatabase.families())
+    exact,prefixes,installed=_family_catalog(families)
+    wanted = font_name_key(name)
+    if wanted and wanted in exact:return exact[wanted],True
     # Style suffixes and PDF subset prefixes are not family names.
     base=re.sub(r'(regular|bolditalic|bold|italic|oblique|roman|psmt|mt)$','',wanted)
-    for family in families:
-        if norm(family)==base:return family,True
+    if base and base in exact:return exact[base],True
     aliases={'helvetica':['Arial','Liberation Sans','Noto Sans'], 'times':['Times New Roman','Liberation Serif','Noto Serif'],
              'courier':['Courier New','Liberation Mono','Noto Sans Mono'], 'cmr':['Latin Modern Roman','CMU Serif','Times New Roman','Noto Serif'],
              'cmb':['Latin Modern Roman','CMU Serif','Times New Roman','Noto Serif'], 'cmss':['Latin Modern Sans','Arial','Noto Sans'],
@@ -26,12 +39,12 @@ def matched_family(name):
     for prefix,options in aliases.items():
         if wanted.startswith(prefix):
             for family in options:
-                if family in families:return family,False
-    for family in sorted(families,key=len,reverse=True):
-        if wanted.startswith(norm(family)) and len(norm(family))>3:return family,True
+                if family in installed:return family,False
+    for family,key in prefixes:
+        if wanted.startswith(key) and len(key)>3:return family,True
     serif=any(x in wanted for x in ('serif','roman','times','cmr','cmb','song'))
     for family in (['Times New Roman','Noto Serif','Liberation Serif'] if serif else ['Arial','Noto Sans','Liberation Sans']):
-        if family in families:return family,False
+        if family in installed:return family,False
     return QFont().defaultFamily(),False
 
 
