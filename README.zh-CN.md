@@ -1,4 +1,9 @@
-<p align="center"><img src="assets/wordmark.svg" width="500" alt="AsterPDF"></p>
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/wordmark-dark.svg">
+    <img src="assets/wordmark.svg" width="420" alt="AsterPDF">
+  </picture>
+</p>
 
 # AsterPDF
 
@@ -9,9 +14,9 @@
 **中文 | [English](README.md)** · [兼容性](docs/COMPATIBILITY.md) · [构建说明](docs/BUILDING.md) · [验证记录](docs/VALIDATION.md)
 
 <table><tr>
-<td><a href="docs/evidence/overview-1.0.png"><img src="docs/evidence/overview-1.0.png" width="290" alt="搜索与速览窗"></a><br>搜索定位 · 速览窗</td>
-<td><a href="docs/evidence/extract-1.0.png"><img src="docs/evidence/extract-1.0.png" width="290" alt="提取矢量科研图片"></a><br>区域提取 · 保留矢量</td>
-<td><a href="docs/evidence/tools-1.0.png"><img src="docs/evidence/tools-1.0.png" width="290" alt="自定义工具栏"></a><br>自定义工具 · 舒适阅读</td>
+<td><a href="docs/evidence/overview-brand.png"><img src="docs/evidence/overview-brand.png" width="290" alt="搜索与速览窗"></a><br>搜索定位 · 速览窗</td>
+<td><a href="docs/evidence/extract-brand.png"><img src="docs/evidence/extract-brand.png" width="290" alt="提取矢量科研图片"></a><br>区域提取 · 保留矢量</td>
+<td><a href="docs/evidence/tools-brand.png"><img src="docs/evidence/tools-brand.png" width="290" alt="自定义工具栏"></a><br>自定义工具 · 舒适阅读</td>
 </tr></table>
 
 ## 特色

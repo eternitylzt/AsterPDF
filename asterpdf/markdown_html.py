@@ -69,7 +69,7 @@ CSS='''
 :root[data-theme=dark]{color-scheme:dark;--bg:#111923;--ink:#dce4ef;--soft:#1e2a39;--line:#41516a;--link:#80bbff}
 :root[data-theme=dark] .math-inline{filter:invert(1)}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.65 system-ui,-apple-system,'Segoe UI','Microsoft YaHei',sans-serif}
-header{position:sticky;top:0;z-index:2;background:var(--bg);border-bottom:1px solid var(--line);padding:10px 22px;display:flex;gap:12px;align-items:center}header strong{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+header{position:sticky;top:0;z-index:2;background:var(--bg);border-bottom:1px solid var(--line);padding:10px 22px;display:flex;gap:12px;align-items:center}header .brand-icon{width:24px;height:24px;flex:none}header strong{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 button{font:inherit;background:var(--soft);color:var(--ink);border:1px solid var(--line);border-radius:5px;padding:3px 10px;cursor:pointer}button:hover{border-color:var(--link)}
 .layout{display:flex;max-width:1400px;margin:auto}nav{width:240px;flex-shrink:0;position:sticky;top:64px;align-self:flex-start;max-height:calc(100vh - 80px);overflow:auto;padding:24px 18px;font-size:14px}nav a{display:block;padding:5px 0;text-decoration:none;line-height:1.4}nav .level-2{padding-left:12px}nav .level-3,nav .level-4,nav .level-5,nav .level-6{padding-left:24px}
 article{max-width:980px;min-width:0;flex:1;padding:26px 38px 80px}article>:first-child{margin-top:0}h1,h2,h3,h4,h5,h6{line-height:1.3;scroll-margin-top:85px}h1,h2{border-bottom:1px solid var(--line);padding-bottom:.3em}h1{font-size:2em}h2{font-size:1.5em;margin-top:1.5em}p{margin:1em 0}a{color:var(--link)}
@@ -88,7 +88,11 @@ document.querySelectorAll('pre').forEach(pre=>{const row=document.createElement(
     import json
     script='const COPY='+json.dumps(L('复制代码','Copy code'))+',COPIED='+json.dumps(L('已复制','Copied'))+';'+script
     title=escape(Path(filename).name)
-    return '<!doctype html><html lang="'+L('zh-CN','en')+'" data-theme="'+('dark' if dark else 'light')+'"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="Content-Security-Policy" content="'+escape(policy,quote=True)+'"><title>'+title+' · AsterPDF</title><style nonce="'+nonce+'">'+CSS+'</style></head><body><header><strong>✦ '+title+'</strong><button id="theme">'+L('浅色 / 深色','Light / Dark')+'</button></header><div class="layout"><nav aria-label="'+L('目录','Outline')+'"><strong>'+L('目录','Outline')+'</strong>'+toc+'</nav><article>'+''.join(parser.parts)+'<p class="source-note">'+L('AsterPDF · 本地 Markdown HTML 预览。此页反映打开时的 Markdown 内容，不包含另行添加的 PDF 编辑或批注。','AsterPDF · Local Markdown HTML preview. This page shows the opened Markdown source, not subsequent PDF edits or annotations.')+'</p></article></div><script nonce="'+nonce+'">'+script+'</script></body></html>'
+    badge = Path(__file__).with_name('resources').joinpath('asterpdf.svg').read_bytes()
+    icon_url = 'data:image/svg+xml;base64,' + base64.b64encode(badge).decode('ascii')
+    favicon = f'<link rel="icon" type="image/svg+xml" href="{icon_url}">'
+    brand = f'<img class="brand-icon" src="{icon_url}" alt="AsterPDF">'
+    return '<!doctype html><html lang="'+L('zh-CN','en')+'" data-theme="'+('dark' if dark else 'light')+'"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="Content-Security-Policy" content="'+escape(policy,quote=True)+'"><title>'+title+' · AsterPDF</title>'+favicon+'<style nonce="'+nonce+'">'+CSS+'</style></head><body><header>'+brand+'<strong>'+title+'</strong><button id="theme">'+L('浅色 / 深色','Light / Dark')+'</button></header><div class="layout"><nav aria-label="'+L('目录','Outline')+'"><strong>'+L('目录','Outline')+'</strong>'+toc+'</nav><article>'+''.join(parser.parts)+'<p class="source-note">'+L('AsterPDF · 本地 Markdown HTML 预览。此页反映打开时的 Markdown 内容，不包含另行添加的 PDF 编辑或批注。','AsterPDF · Local Markdown HTML preview. This page shows the opened Markdown source, not subsequent PDF edits or annotations.')+'</p></article></div><script nonce="'+nonce+'">'+script+'</script></body></html>'
 
 
 def write_preview(filename,prepared,folder,dark=False):

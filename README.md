@@ -1,4 +1,9 @@
-<p align="center"><img src="assets/wordmark.svg" width="500" alt="AsterPDF"></p>
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/wordmark-dark.svg">
+    <img src="assets/wordmark.svg" width="420" alt="AsterPDF">
+  </picture>
+</p>
 
 # AsterPDF
 
@@ -9,9 +14,9 @@ An offline desktop PDF workspace for research and technical documents.
 **[中文](README.zh-CN.md) | English** · [Compatibility](docs/COMPATIBILITY.md) · [Build](docs/BUILDING.md) · [Verification](docs/VALIDATION.md)
 
 <table><tr>
-<td><a href="docs/evidence/overview-1.0.png"><img src="docs/evidence/overview-1.0.png" width="290" alt="Search and Quick overview"></a><br>Search & Quick overview</td>
-<td><a href="docs/evidence/extract-1.0.png"><img src="docs/evidence/extract-1.0.png" width="290" alt="Extract vector figures"></a><br>Vector figure extraction</td>
-<td><a href="docs/evidence/tools-1.0.png"><img src="docs/evidence/tools-1.0.png" width="290" alt="Customizable tools"></a><br>Your tools, your layout</td>
+<td><a href="docs/evidence/overview-brand.png"><img src="docs/evidence/overview-brand.png" width="290" alt="Search and Quick overview"></a><br>Search & Quick overview</td>
+<td><a href="docs/evidence/extract-brand.png"><img src="docs/evidence/extract-brand.png" width="290" alt="Extract vector figures"></a><br>Vector figure extraction</td>
+<td><a href="docs/evidence/tools-brand.png"><img src="docs/evidence/tools-brand.png" width="290" alt="Customizable tools"></a><br>Your tools, your layout</td>
 </tr></table>
 
 ## What makes it useful

@@ -9,6 +9,7 @@ import sys
 import urllib.request
 from PySide6.QtCore import Qt, QSettings, QStandardPaths, QTimer, QUrl, QEvent, QTranslator, QLibraryInfo
 from PySide6.QtGui import QAction, QIcon, QKeySequence, QDesktopServices, QFont, QCursor, QPalette, QColor
+from PySide6.QtSvgWidgets import QSvgWidget
 from PySide6.QtWidgets import (QApplication, QMainWindow, QTabWidget, QWidget, QVBoxLayout,
     QLabel, QPushButton, QFileDialog, QMessageBox, QInputDialog, QDialog, QHBoxLayout, QLineEdit, QTextEdit, QPlainTextEdit, QAbstractSpinBox, QComboBox, QTabBar, QToolButton, QMenu, QStyle, QListWidget, QListWidgetItem, QTreeWidget, QTreeWidgetItem, QHeaderView, QCheckBox)
 from . import __version__, i18n
@@ -52,7 +53,6 @@ QScrollBar::handle {background:#8295ae;border-radius:4px;min-height:28px;min-wid
 QScrollBar::handle:hover,QScrollBar::handle:pressed {background:#486c9c;}
 QScrollBar::add-line,QScrollBar::sub-line {width:0;height:0;}
 QScrollBar::add-page,QScrollBar::sub-page {background:transparent;}
-QLabel#hero {color:#243c67;font-size:44px;font-weight:600;}
 QLabel#subtitle {color:#698098;font-size:16px;}
 '''
 DARK = '''
@@ -83,7 +83,6 @@ QScrollBar::handle {background:#6b829f;border-radius:4px;min-height:28px;min-wid
 QScrollBar::handle:hover,QScrollBar::handle:pressed {background:#9bb6dc;}
 QScrollBar::add-line,QScrollBar::sub-line {width:0;height:0;}
 QScrollBar::add-page,QScrollBar::sub-page {background:transparent;}
-QLabel#hero {color:#e0e8fc;font-size:44px;font-weight:600;}
 QLabel#subtitle {color:#8da1bc;font-size:16px;}
 '''
 
@@ -104,12 +103,14 @@ class Window(QMainWindow):
         self.recovery_root=Path(self.settings.value('recovery/folder',str(self.data_dir/'recovery')));self.recovery_root.mkdir(parents=True,exist_ok=True)
         i18n.LANGUAGE=self.settings.value('language','zh')
         self.dark=self.settings.value('dark',True,type=bool)
-        self.icon=QIcon(str(resource('asterpdf.png')));self.setWindowIcon(self.icon)
+        self.icon=QIcon(str(resource('asterpdf.svg')))
+        if self.icon.isNull():self.icon=QIcon(str(resource('asterpdf.png')))
+        QApplication.instance().setWindowIcon(self.icon);self.setWindowIcon(self.icon)
         self.queue=Queue(self)
         self.corner_timer=QTimer(self);self.corner_timer.setSingleShot(True);self.corner_timer.timeout.connect(self.sync_tab_corner)
         self.opening=set();self.presentation=False;self.document_fullscreen=False;self._previous_tab=None
         self.setAcceptDrops(True);self.resize(1380,920)
-        self.build();QApplication.instance().installEventFilter(self);self.apply_theme();self.setWindowTitle('✦ AsterPDF')
+        self.build();QApplication.instance().installEventFilter(self);self.apply_theme();self.setWindowTitle('AsterPDF')
         self.position_timer=QTimer(self);self.position_timer.timeout.connect(self.persist_positions);self.position_timer.start(15000)
         QTimer.singleShot(500,self.offer_recovery)
         self.chrome_timer=QTimer(self);self.chrome_timer.timeout.connect(self.tick_chrome);self.chrome_timer.start(500)
@@ -155,7 +156,10 @@ class Window(QMainWindow):
         self.tabs.setDocumentMode(True);self.tabs.tabBar().setUsesScrollButtons(True);self.tabs.tabBar().setElideMode(Qt.ElideRight);self.tabs.tabBar().setExpanding(False)
         self.setCentralWidget(self.tabs)
         self.welcome=QWidget();layout=QVBoxLayout(self.welcome);layout.addStretch()
-        logo=QLabel('✦  AsterPDF');logo.setObjectName('hero');logo.setAlignment(Qt.AlignCenter);layout.addWidget(logo)
+        self.home_logo=QSvgWidget()
+        self.home_logo.setFixedSize(310,84)
+        self.home_logo.setAccessibleName('AsterPDF')
+        layout.addWidget(self.home_logo,0,Qt.AlignHCenter)
         subtitle=QLabel(L('阅读 · 编辑 · 动画 · 批注 · 提取','Read · Edit · Animate · Annotate · Extract'));subtitle.setObjectName('subtitle');subtitle.setAlignment(Qt.AlignCenter);layout.addWidget(subtitle)
         layout.addSpacing(34)
         message=QLabel(tr('empty'));message.setAlignment(Qt.AlignCenter);layout.addWidget(message)
@@ -597,6 +601,9 @@ class Window(QMainWindow):
         for tab in self.document_tabs():tab.canvas.update()
 
     def apply_theme(self):
+        if getattr(self,'_logo_dark',None)!=self.dark:
+            self.home_logo.load(str(resource('wordmark-dark.svg' if self.dark else 'wordmark.svg')))
+            self._logo_dark=self.dark
         palette=QApplication.style().standardPalette()
         if self.dark:
             for role,color in [(QPalette.Window,'#17202d'),(QPalette.WindowText,'#d9e2ee'),(QPalette.Base,'#1b2737'),(QPalette.Text,'#d9e2ee'),(QPalette.Button,'#26364b'),(QPalette.ButtonText,'#d9e2ee'),(QPalette.Highlight,'#536daa'),(QPalette.HighlightedText,'#ffffff')]:palette.setColor(role,QColor(color))
@@ -829,7 +836,7 @@ class Window(QMainWindow):
         self.queue.submit(work,done,lambda e:QMessageBox.warning(self,'AsterPDF',e))
 
     def about(self):
-        QMessageBox.about(self,'AsterPDF',f'<h2>✦ AsterPDF {__version__}</h2><p>'+L('阅读 · 编辑 · 动画 · 批注 · 提取','Read · Edit · Animate · Annotate · Extract')+'</p><p>'+L('面向科研文档的本地 PDF 工具','A local PDF workspace for research')+'</p><p>'+L('作者：','Author: ')+'Zhentong Li<br>eternitylzt@gmail.com<br><a href="https://github.com/eternitylzt">github.com/eternitylzt</a></p><p>AGPL-3.0-only · Qt / PySide6 · MuPDF · pikepdf / qpdf</p>')
+        QMessageBox.about(self,'AsterPDF',f'<h2>AsterPDF {__version__}</h2><p>'+L('阅读 · 编辑 · 动画 · 批注 · 提取','Read · Edit · Animate · Annotate · Extract')+'</p><p>'+L('面向科研文档的本地 PDF 工具','A local PDF workspace for research')+'</p><p>'+L('作者：','Author: ')+'Zhentong Li<br>eternitylzt@gmail.com<br><a href="https://github.com/eternitylzt">github.com/eternitylzt</a></p><p>AGPL-3.0-only · Qt / PySide6 · MuPDF · pikepdf / qpdf</p>')
 
     def compatibility(self):
         path=resource('HELP.zh-CN.md' if i18n.LANGUAGE=='zh' else 'HELP.en.md')
