@@ -1,20 +1,21 @@
-# AsterPDF 1.3.7
+# AsterPDF 1.3.8
 
-相比 1.3.6 / Changes since 1.3.6
+相比 1.3.7 / Changes since 1.3.7
 
 ## 中文
 
-- 支持以鼠标指针为中心的触控板双指缩放。
-- 新增刷新按钮及 Ctrl+R（macOS 为 Command+R），外部更新 PDF 后保留阅读位置；未保存编辑会先提示确认。
-- 支持 `asterpdf a.pdf` 命令。Linux deb/rpm 安装后自动可用；其它包可通过 Settings → 安装 asterpdf 命令或随包脚本注册，重新打开终端后使用。
+- 修复终端被占用与重复开窗：命令立即返回，文件在已有窗口中新建标签页，原有未保存修改保持不变。
+- 界面改用系统字体，消除 macOS 查找缺失 Windows 字体的提示及额外等待。
+- 改善命令安装说明与旧脚本升级；当前用户安装无需 sudo。
+
+macOS 更新：先退出旧版，将新版 AsterPDF.app 放入 Applications，启动后在 Settings → 安装 asterpdf 命令中注册。重新打开终端即可使用 `asterpdf a.pdf`，无需 sudo 或手动添加 `&`。若系统禁止 Terminal 访问 Downloads/Desktop，请改用软件内安装入口，或授予对应文件夹访问权限。
 
 ## English
 
-- Pointer-centered trackpad pinch zoom.
-- Refresh externally updated PDFs with the toolbar or Ctrl+R (Command+R on macOS), retaining your reading position and prompting before discarding unsaved edits.
-- Open documents with `asterpdf a.pdf`. Linux deb/rpm installs the command automatically; other packages offer registration through Settings or the included installer. Reopen your terminal after registration.
+- Terminal commands return immediately and forward files to tabs in the existing window, preserving unsaved work.
+- Use the native interface font, avoiding missing Windows-font lookup on macOS.
+- Clearer per-user command installation and automatic same-path launcher migration. No sudo required.
+
+After updating macOS, quit the older version, place the new app in Applications, then use Settings → Install asterpdf command. Reopen the terminal and run `asterpdf a.pdf`; no sudo or trailing `&` is needed. If macOS denies Terminal access to Downloads/Desktop, use the in-app installer or grant access to the relevant folder.
 
 Windows x64 · macOS Apple Silicon · Linux x86_64 (deb / rpm / tar.gz).
-
-各平台实体触控板尚未逐一实测；自动化手势验证与跨平台构建不能代替实体设备测试。
-Physical trackpads have not been tested across all platforms; automated gesture checks and platform builds do not replace device testing.

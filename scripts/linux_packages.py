@@ -20,7 +20,7 @@ subprocess.run(['python3.11','scripts/package.py'],check=True)
 shutil.copyfile(dist/f'AsterPDF-{version}-source.zip',dist/f'AsterPDF-{version}-linux-source.zip')
 stage=dist/'linux-stage';app=stage/'opt/asterpdf';app.parent.mkdir(parents=True,exist_ok=True)
 shutil.copytree(bundle,app,symlinks=True)
-paths={'usr/bin/asterpdf':'#!/bin/sh\nexec /opt/asterpdf/AsterPDF "$@"\n'}
+paths={'usr/bin/asterpdf':'#!/bin/sh\nexec /opt/asterpdf/AsterPDF --background "$@"\n'}
 for name,content in paths.items():
     p=stage/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_text(content);p.chmod(0o755)
 for source,target in [('packaging/linux/asterpdf.desktop','usr/share/applications/asterpdf.desktop'),('assets/asterpdf.png','usr/share/icons/hicolor/256x256/apps/asterpdf.png'),('assets/asterpdf.svg','usr/share/icons/hicolor/scalable/apps/asterpdf.svg')]:

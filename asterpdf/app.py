@@ -1,5 +1,4 @@
 from __future__ import annotations
-import argparse
 import json
 import logging
 import os
@@ -26,7 +25,7 @@ def resource(name):
 
 
 LIGHT = '''
-QMainWindow,QDialog,QWidget {font-family:"Microsoft YaHei UI","Segoe UI","Noto Sans","Arial";font-size:13px;color:#243249;}
+QMainWindow,QDialog,QWidget {font-size:13px;color:#243249;}
 QMainWindow,QDialog {background:#f7f9fc;}
 QToolBar {background:#fff;border:0;border-bottom:1px solid #e3e8ef;spacing:3px;padding:3px;}
 QToolButton,QPushButton {border:1px solid transparent;border-radius:5px;padding:3px 5px;background:transparent;}
@@ -56,7 +55,7 @@ QScrollBar::add-page,QScrollBar::sub-page {background:transparent;}
 QLabel#subtitle {color:#698098;font-size:16px;}
 '''
 DARK = '''
-QMainWindow,QDialog,QWidget {font-family:"Microsoft YaHei UI","Segoe UI","Noto Sans","Arial";font-size:13px;color:#d6dfec;}
+QMainWindow,QDialog,QWidget {font-size:13px;color:#d6dfec;}
 QMainWindow,QDialog {background:#141d2a;}
 QToolBar {background:#1a2636;border:0;border-bottom:1px solid #2c3b51;spacing:3px;padding:3px;}
 QToolButton,QPushButton {border:1px solid transparent;border-radius:5px;padding:3px 5px;background:transparent;}
@@ -896,37 +895,38 @@ class Window(QMainWindow):
         self.queue.submit(fetch,done,lambda e:QMessageBox.warning(self,tr('update'),str(e)),self.statusBar().clearMessage)
 
 
-def main():
-    parser=argparse.ArgumentParser(description='AsterPDF desktop')
-    parser.add_argument('--verify-update',action='store_true',help=argparse.SUPPRESS)
-    parser.add_argument('files',nargs='*');parser.add_argument('--data-dir');parser.add_argument('--smoke-test',action='store_true')
-    parser.add_argument('--verify-desktop',metavar='OUTPUT_DIRECTORY',help=argparse.SUPPRESS)
-    parser.add_argument('--install-cli',action='store_true',help='Install the asterpdf command for the current user and exit')
-    args=parser.parse_args()
-    if args.install_cli:
-        from .cli import install_command
-        try:destination=install_command()
-        except (OSError,ValueError) as error:
-            if sys.stderr:print(str(error),file=sys.stderr)
-            return 1
-        if sys.stdout:print(f'Installed: {destination}\nOpen a new terminal and run: asterpdf "file.pdf"')
-        return 0
-    if args.verify_update:
-        from .network import fetch_latest_release
-        from .release import REPOSITORY
-        print(json.dumps(fetch_latest_release(REPOSITORY,__version__)))
-        return 0
+def run_desktop(args):
     from .file_open import DesktopApplication
+    from .single_instance import DesktopInstance
+    from .launch import profile_path
     app=DesktopApplication(sys.argv[:1]);app.setApplicationName('AsterPDF');app.setApplicationVersion(__version__)
     app.setOrganizationName('AsterPDF');app.setStyle('Fusion')
-    window=Window(args.data_dir)
-    for filename in args.files:window.open_file(filename)
-    app.bind(window);window.show()
-    if args.verify_desktop:
-        from .diagnostics import start
-        start(window,args.verify_desktop,len(args.files))
-    if args.smoke_test:QTimer.singleShot(4000,app.quit)
-    return app.exec()
+    instance=None
+    if not (args.smoke_test or args.verify_desktop):
+        try:
+            instance=DesktopInstance(profile_path(args.data_dir),app)
+            if not instance.acquire(args.files):return 0
+        except (OSError,ValueError) as error:
+            if instance:instance.close()
+            QMessageBox.warning(None,'AsterPDF',str(error));return 1
+    try:
+        window=Window(args.data_dir)
+        for filename in args.files:window.open_file(filename)
+        app.bind(window)
+        if instance:instance.bind(app.open_documents)
+        window.show()
+        if args.verify_desktop:
+            from .diagnostics import start
+            start(window,args.verify_desktop,len(args.files))
+        if args.smoke_test:QTimer.singleShot(4000,app.quit)
+        return app.exec()
+    finally:
+        if instance:instance.close()
+
+
+def main():
+    from .launch import main as launch
+    return launch()
 
 
 if __name__=='__main__':

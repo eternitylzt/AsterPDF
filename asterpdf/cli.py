@@ -12,27 +12,68 @@ PATH_START = '# >>> AsterPDF command >>>'
 PATH_END = '# <<< AsterPDF command <<<'
 
 
+def posix_installer(macos=False):
+    guard = '''#!/bin/sh
+set -eu
+if [ -n "${SUDO_USER:-}" ] || [ "$(id -u)" = 0 ]; then
+  printf '%s\n' 'Do not use sudo. Open AsterPDF → Settings → Install asterpdf command.' '请勿使用 sudo；请在 AsterPDF 的 Settings 中安装命令。' >&2
+  exit 1
+fi
+folder=$(CDPATH= cd -P "$(dirname "$0")" && pwd) || {
+  printf '%s\n' 'This terminal cannot access the folder. Install the command from AsterPDF Settings instead.' >&2
+  exit 1
+}
+'''
+    if macos:
+        return guard + '''app="$folder/AsterPDF.app"
+if [ ! -d "$app" ]; then app=/Applications/AsterPDF.app; fi
+if [ ! -d "$app" ]; then app="$HOME/Applications/AsterPDF.app"; fi
+"$app/Contents/MacOS/AsterPDF" --install-cli
+'''
+    return guard + 'exec "$folder/AsterPDF" --install-cli\n'
+
+
 def application_command():
     if getattr(sys, 'frozen', False):
         return [str(Path(sys.executable).resolve())]
     return [str(Path(sys.executable).resolve()), str(Path(__file__).resolve().parents[1] / 'run.py')]
 
 
-def launcher_text(command, windows=False):
+def launcher_text(command, windows=False, background=True):
     if any('\n' in arg or '\r' in arg or '"' in arg for arg in command):
         raise ValueError('The application path cannot contain quotes or line breaks.')
     if windows:
         quoted = ' '.join('"' + arg.replace('%', '%%') + '"' for arg in command)
+        mode = ' --background' if background else ''
         return (
             f'@echo off\nrem {MARKER}\nsetlocal DisableDelayedExpansion\n'
             'for /f "tokens=2 delims=:" %%C in (\'chcp\') do set "asterpdf_codepage=%%C"\n'
             'chcp 65001 >nul\n'
-            f'{quoted} %*\n'
+            f'{quoted}{mode} %*\n'
             'set "asterpdf_status=%errorlevel%"\n'
             'chcp %asterpdf_codepage% >nul\n'
             'exit /b %asterpdf_status%\n'
         ).replace('\n', '\r\n')  # cmd requires CRLF when changing UTF-8 code pages.
-    return f'#!/bin/sh\n# {MARKER}\nexec {shlex.join(command)} "$@"\n'
+    mode = ' --background' if background else ''
+    return f'#!/bin/sh\n# {MARKER}\nexec {shlex.join(command)}{mode} "$@"\n'
+
+
+def command_path():
+    home = Path.home()
+    directory = (Path(os.environ.get('LOCALAPPDATA', home / 'AppData' / 'Local')) / 'AsterPDF' / 'bin'
+                 if sys.platform == 'win32' else home / '.local' / 'bin')
+    return directory / ('asterpdf.cmd' if sys.platform == 'win32' else 'asterpdf')
+
+
+def refresh_registered_command():
+    """Upgrade only our exact 1.3.7 launcher for this same application path."""
+    target = command_path()
+    if not target.is_file() or target.is_symlink():
+        return
+    command = application_command()
+    legacy = launcher_text(command, sys.platform == 'win32', background=False)
+    if target.read_bytes().decode('utf-8') == legacy:
+        write_atomic(target, launcher_text(command, sys.platform == 'win32'), executable=True)
 
 
 def write_atomic(path, text, executable=False):
@@ -109,17 +150,16 @@ def install_command():
     can immediately invoke the returned absolute path. No administrator access
     is needed. Linux distribution packages already install /usr/bin/asterpdf.
     """
+    if os.environ.get('SUDO_USER') or (os.name != 'nt' and os.geteuid() == 0):
+        raise PermissionError('Install for your own account without sudo. Open AsterPDF → Settings → Install asterpdf command. / 请勿使用 sudo，请在软件 Settings 中安装命令。')
     command = application_command()
     executable = Path(command[0])
     if not executable.is_file():
         raise FileNotFoundError(executable)
     home = Path.home()
     windows = sys.platform == 'win32'
-    directory = (
-        Path(os.environ.get('LOCALAPPDATA', home / 'AppData' / 'Local')) / 'AsterPDF' / 'bin'
-        if windows else home / '.local' / 'bin'
-    )
-    target = directory / ('asterpdf.cmd' if windows else 'asterpdf')
+    target = command_path()
+    directory = target.parent
     if target.is_symlink():
         raise FileExistsError(f'The command location is a symbolic link: {target}')
     if target.exists() and MARKER not in target.read_text(encoding='utf-8'):
@@ -131,7 +171,7 @@ def install_command():
         if existing_path.resolve() == executable and getattr(sys, 'frozen', False):
             return existing_path
         if existing_path == Path('/usr/bin/asterpdf') and executable == Path('/opt/asterpdf/AsterPDF'):
-            if 'exec /opt/asterpdf/AsterPDF "$@"' in existing_path.read_text(encoding='utf-8'):
+            if 'exec /opt/asterpdf/AsterPDF --background "$@"' in existing_path.read_text(encoding='utf-8'):
                 return existing_path
         raise FileExistsError(f'Another asterpdf command is already on PATH: {existing}')
 

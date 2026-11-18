@@ -1,4 +1,4 @@
-# AsterPDF 1.3.7 compatibility / 兼容性
+# AsterPDF 1.3.8 compatibility / 兼容性
 
 ## Trackpad, reload and command line / 触控板、刷新与命令行
 
@@ -7,6 +7,11 @@ Native Qt magnification events (macOS/Wayland), Qt touch pinch events and Window
 File → Reload file (Ctrl+R, Command+R on macOS) reads an externally changed PDF into a new local snapshot, then replaces the same tab while retaining the page, zoom and scroll position. Unsaved PDF edits, text drafts and form changes require explicit discard confirmation. If loading fails, the existing snapshot remains open. Reload currently applies to PDF source files; converted Markdown/PostScript documents must be reopened.
 
 Linux deb/rpm installs `/usr/bin/asterpdf`. Portable packages provide **Settings → Install asterpdf command** and a registration script, also callable with `--install-cli`. Registration uses the current user's command directory and PATH, requires no administrator access, and preserves quoted/relative filenames and the terminal's working directory. Open a new terminal afterward. Move the application to its permanent folder before registering; register again if it is moved. Existing unrelated commands are not overwritten. POSIX registration covers sh/bash/zsh profiles; other shells may need `~/.local/bin` added to PATH manually.
+
+
+Commands now detach from the terminal and forward absolute filenames to the same user's running AsterPDF window. Repeated files activate their existing tabs; concurrent starts elect one window. IPC is local only, scoped to the settings profile, protected by an owner lock and user-access controls (including a private parent directory on macOS). Diagnostic launches remain isolated. Standard launchers for the same app path are migrated on startup; custom scripts are left untouched. Old versions must be closed once when upgrading, since they lack the forwarding endpoint.
+
+The GUI inherits the system font. macOS registration does not require sudo; sudo/root registration is refused before configuration is written. A system denial before the `.command` file executes cannot be fixed inside that script. Prefer Applications → AsterPDF → Settings → Install command; Terminal folder access is controlled by [macOS Files and Folders permissions](https://support.apple.com/en-mide/guide/security-pdf/secddd1d86a6/1/web/1). No broad disk-access grant is required by AsterPDF. Background startup diagnostics go to `startup.log` in the application's data folder, rather than occupying the invoking terminal.
 
 
 ## 1.3.5 graphics and images / 图形与图片

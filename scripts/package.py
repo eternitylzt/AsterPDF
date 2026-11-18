@@ -21,15 +21,23 @@ bundle=dist/('AsterPDF.app' if sys.platform=='darwin' else 'AsterPDF')
 if not bundle.exists():raise SystemExit('Build AsterPDF.spec first')
 if sys.platform == 'darwin':
     installer = dist / 'Install asterpdf command.command'
-    installer.write_text('''#!/bin/sh
-set -eu
-folder=$(CDPATH= cd -P "$(dirname "$0")" && pwd)
-app="$folder/AsterPDF.app"
-if [ ! -d "$app" ]; then app=/Applications/AsterPDF.app; fi
-if [ ! -d "$app" ]; then app="$HOME/Applications/AsterPDF.app"; fi
-"$app/Contents/MacOS/AsterPDF" --install-cli
-''', encoding='utf-8', newline='\n')
+    installer.write_text(runpy.run_path(str(root/'asterpdf/cli.py'))['posix_installer'](macos=True), encoding='utf-8', newline='\n')
     installer.chmod(0o755)
+    command_guide = dist / 'Command installation.txt'
+    command_guide.write_text('''AsterPDF terminal command / 终端命令
+
+1. Quit older AsterPDF versions and move AsterPDF.app to Applications.
+2. Open AsterPDF, then Settings → Install asterpdf command.
+3. Open a new terminal: asterpdf "file.pdf"
+
+Do not use sudo. The command opens a tab in the existing window and leaves the terminal available.
+If Terminal cannot access Downloads/Desktop, use the in-app installer. macOS controls folder access in Privacy & Security → Files and Folders.
+The included .command script is an alternative per-user installer; it also requires no sudo.
+
+请先退出旧版，把 AsterPDF.app 放入 Applications，启动软件后在 Settings 中安装 asterpdf 命令。
+重新打开终端后运行 asterpdf "文件.pdf" 即可，不要使用 sudo，也不需要手动添加 &。
+如 Terminal 提示目录无权访问，请改用软件内安装入口，或在系统“隐私与安全性 → 文件与文件夹”中允许对应目录。
+''', encoding='utf-8')
 elif sys.platform == 'win32':
     (bundle / 'Install asterpdf command.cmd').write_text(
         '@echo off\r\n"%~dp0AsterPDF.exe" --install-cli\r\n'
@@ -41,11 +49,7 @@ elif sys.platform == 'win32':
     )
 else:
     installer = bundle / 'install-command.sh'
-    installer.write_text('''#!/bin/sh
-set -eu
-folder=$(CDPATH= cd -P "$(dirname "$0")" && pwd)
-exec "$folder/AsterPDF" --install-cli
-''', encoding='utf-8', newline='\n')
+    installer.write_text(runpy.run_path(str(root/'asterpdf/cli.py'))['posix_installer'](), encoding='utf-8', newline='\n')
     installer.chmod(0o755)
 if sys.platform!='darwin':
     shutil.copyfile(source,bundle/source.name)
@@ -62,6 +66,7 @@ elif sys.platform == 'darwin':
     with tarfile.open(archive, 'w:gz') as output:
         output.add(bundle, arcname=bundle.name)
         output.add(installer, arcname=installer.name)
+        output.add(command_guide, arcname=command_guide.name)
 else:
     archive=shutil.make_archive(str(archive_base),'gztar',root_dir=dist,base_dir=bundle.name)
 import hashlib

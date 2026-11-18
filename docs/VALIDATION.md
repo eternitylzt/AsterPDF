@@ -1,12 +1,15 @@
-# AsterPDF 1.3.7 verification / 验证
+# AsterPDF 1.3.8 verification / 验证
 
-2026-11-18. Focused Windows run: **24 passed, 1 skipped in 50.05 seconds**. The skipped test requires a POSIX shell and is included in macOS/Linux CI.
+Focused Windows regression: **27 passed, 2 skipped in 53.70 seconds**. The skipped checks execute POSIX shell scripts and are included in macOS/Linux CI.
 
-- Qt native pinch and high-resolution wheel events preserve the document point under the gesture; zero-delta start/end events do not change zoom; ordinary pixel-based scrolling stays scrolling.
-- Real externally rewritten PDFs refresh in the same tab, preserving position and zoom. Tests cover unsaved-edit cancellation/discard, shortened documents, invalid-source preservation and exiting fullscreen/presentation after reload.
-- Command registration preserves relative paths, spaces, Chinese application/file names and the caller's working directory. Tests cover idempotence, conflicting commands and rollback on a failed profile write.
-- Existing toolbar stability, fullscreen and Markdown reading/export workflows are included in the focused run.
+- Real subprocess tests launch the desktop through a registered-style command. The caller exits while the GUI remains open; relative paths, Chinese names and spaces are preserved.
+- A second command adds a tab in the same process, restores a minimized window and preserves the first tab's unsaved annotation. Reopening the same file does not duplicate its tab.
+- Simultaneous cold starts produce one window with both files. Per-profile test sessions remain isolated from a user's running application.
+- Installer checks cover sudo refusal before configuration writes, same-path legacy launcher migration, custom-command preservation and existing idempotence/conflict/rollback behavior.
+- Previous PDF refresh, fullscreen/presentation, toolbar stability and Markdown reading/export checks remain passing. The theme no longer specifies missing Windows font families.
 
-The release workflow runs the broader existing PDF editing/preservation, forms and reading suites on Windows/macOS and the Linux glibc 2.28 build before publishing. Workflow logs are the record of those platform results. Physical trackpad feel and physical macOS/Linux desktop interaction are **not** claimed as tested. No browser engine or additional runtime dependency was added.
+The release CI repeats these workflows on macOS and Linux alongside the existing PDF editing/preservation suite. Local IPC and shell behavior are tested on those OS runners; macOS privacy dialogs, real Terminal permissions and physical desktop activation still need end-user verification. macOS can reject a script before it executes; the application cannot override that system permission. The in-app installer avoids depending on Terminal access to the downloaded installer folder.
 
-The frozen Windows 1.3.7 executable passed its desktop diagnostic in 16.33 seconds: page navigation, presentation exit, 36 animation frames, PDF printing and local text edit/save/reopen. The captured native window was inspected, including the new Reload button. This fixture contains no video, so this run makes no new video-playback claim. [Packaged report](evidence/desktop-1.3.7.json).
+No new runtime dependency or browser engine was added.
+
+The frozen Windows bundle also passed the real command workflow: command invocations returned in 0.610 / 0.297 / 0.328 seconds while one GUI process retained two tabs. Duplicate-file reuse and a clean normal window close were checked. [Packaged report](evidence/cli-1.3.8.json). Release CI runs an additional frozen-bundle command check on all three platforms before packaging.

@@ -10,6 +10,14 @@ import pytest
 from asterpdf import cli
 
 
+@pytest.fixture(autouse=True)
+def ordinary_user(monkeypatch):
+    # Linux packages are built as root inside Docker; registration targets an
+    # ordinary desktop user's account, and the refusal is checked separately.
+    monkeypatch.delenv('SUDO_USER', raising=False)
+    if os.name != 'nt':monkeypatch.setattr(os, 'geteuid', lambda: 1000)
+
+
 @pytest.mark.parametrize('platform', ['linux', 'darwin'])
 def test_install_is_idempotent_and_preserves_shell_settings(tmp_path, monkeypatch, platform):
     executable = tmp_path / 'App folder' / 'AsterPDF'
@@ -102,7 +110,7 @@ def test_launcher_preserves_relative_filenames_spaces_and_cwd(tmp_path):
         subprocess.run([str(launcher), *arguments], cwd=tmp_path, check=True, timeout=15)
     directory, received = json.loads((tmp_path / 'received.json').read_text(encoding='utf-8'))
     assert Path(directory) == tmp_path
-    assert received == arguments
+    assert received == ['--background', *arguments]
 
 
 @pytest.mark.skipif(os.name == 'nt', reason='POSIX shell PATH test')
@@ -113,3 +121,34 @@ def test_shell_path_block_handles_spaces_and_repeated_sourcing(tmp_path):
     script = '. "$1"; . "$1"; printf "%s" "$PATH"'
     result = subprocess.check_output(['sh', '-c', script, 'sh', str(profile)], text=True)
     assert result.split(':').count(str(directory)) == 1
+
+
+def test_sudo_is_rejected_before_touching_user_files(tmp_path, monkeypatch):
+    monkeypatch.setenv('SUDO_USER', 'desktop-user')
+    monkeypatch.setattr(Path, 'home', lambda: tmp_path)
+    with pytest.raises(PermissionError, match='without sudo'):
+        cli.install_command()
+    assert not list(tmp_path.iterdir())
+
+
+def test_same_path_legacy_command_upgrades_but_custom_commands_are_preserved(tmp_path, monkeypatch):
+    target = tmp_path / 'asterpdf'
+    command = [str(tmp_path / 'AsterPDF')]
+    monkeypatch.setattr(cli, 'command_path', lambda: target)
+    monkeypatch.setattr(cli, 'application_command', lambda: command)
+    legacy = cli.launcher_text(command, sys.platform == 'win32', background=False)
+    target.write_bytes(legacy.encode())
+    cli.refresh_registered_command()
+    assert target.read_bytes().decode() == cli.launcher_text(command, sys.platform == 'win32')
+    target.write_text('custom launcher', encoding='utf-8')
+    cli.refresh_registered_command()
+    assert target.read_text() == 'custom launcher'
+
+
+@pytest.mark.skipif(os.name == 'nt', reason='POSIX installer script')
+def test_installer_explains_sudo_before_resolving_its_directory(tmp_path):
+    script = tmp_path / 'Install command.command'
+    script.write_text(cli.posix_installer(macos=True), encoding='utf-8')
+    result = subprocess.run(['sh', str(script)], env={**os.environ, 'SUDO_USER': 'tester'},
+        capture_output=True, text=True, timeout=10)
+    assert result.returncode == 1 and 'Do not use sudo' in result.stderr

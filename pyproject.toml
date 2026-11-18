@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "asterpdf"
-version = "1.3.7"
+version = "1.3.8"
 description = "Read · Edit · Animate · Annotate · Extract — a local scientific PDF workspace"
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
@@ -15,7 +15,7 @@ dependencies = ["certifi>=2026.2.25", "PySide6==6.10.2; sys_platform != 'linux'"
 dev = ["pytest>=8,<10", "pyinstaller>=6.16,<7", "reportlab>=4,<6"]
 
 [project.gui-scripts]
-asterpdf = "asterpdf.app:main"
+asterpdf = "asterpdf.launch:command_main"
 
 [tool.setuptools.packages.find]
 include = ["asterpdf*"]
