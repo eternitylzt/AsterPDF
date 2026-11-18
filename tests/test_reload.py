@@ -89,4 +89,6 @@ def test_reload_document_view_can_still_exit(ui, mode):
     window.escape()
     pump()
     assert not window.presentation and not window.document_fullscreen
-    assert window.menuBar().isVisible()
+    # macOS keeps the native menu outside the window; the document tab strip
+    # is the cross-platform indication that ordinary window chrome returned.
+    assert window.tabs.tabBar().isVisible()
