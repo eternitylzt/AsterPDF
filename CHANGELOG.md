@@ -1,10 +1,9 @@
 # Changelog
 
-## 1.3.6 — 2026-11-10
+## 1.3.7 — 2026-11-18
 
-Changes since the previous published release, 1.3.2.
+Changes since the previous published release, 1.3.6.
 
-- More responsive editing with fewer redundant previews and object scans; stable document-tab menu positioning.
-- Better preservation of fonts, spacing and styles during text editing and paste.
-- Correct image/vector transforms on cropped and rotated pages; image replacement leaves other instances intact.
-- Correct highlight selection on rotated pages while preserving annotation colors and opacity.
+- Pointer-centered trackpad pinch zoom.
+- Refresh PDFs in place while retaining the reading position and prompting before discarding unsaved edits; toolbar control and Ctrl+R / Command+R.
+- Register the `asterpdf` terminal command from Settings or the included installer. Linux deb/rpm provides it automatically.

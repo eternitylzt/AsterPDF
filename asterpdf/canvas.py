@@ -1,14 +1,65 @@
 from __future__ import annotations
 from collections import OrderedDict
 import math
+import sys
 from PySide6.QtCore import Qt, QRectF, QPointF, Signal, QSize, QTimer, QEvent
 from PySide6.QtGui import QColor, QPainter, QPen, QPixmap, QFont, QPolygonF, QPainterPath, QPainterPathStroker, QCursor
-from PySide6.QtWidgets import QWidget, QScrollArea, QToolTip
+from PySide6.QtWidgets import QWidget, QScrollArea, QToolTip, QPinchGesture
 from .i18n import tr, L
 
 
 def qrect(rect):
     return QRectF(rect[0], rect[1], rect[2]-rect[0], rect[3]-rect[1])
+
+
+def _pointer_zoom(tab, factor, position):
+    if (math.isfinite(factor) and factor > 0 and factor != 1
+            and hasattr(tab, 'canvas') and tab.canvas.rects and not tab.closed):
+        tab.zoom_by(factor, position)
+
+
+def _zoom_gesture(tab, event):
+    if event.type() == QEvent.NativeGesture:
+        kind = event.gestureType()
+        if kind == Qt.ZoomNativeGesture:
+            # Qt's macOS / Wayland magnification is incremental, not cumulative.
+            _pointer_zoom(tab, 1 + event.value(), event.globalPosition())
+        elif kind not in (Qt.BeginNativeGesture, Qt.EndNativeGesture):
+            return False
+        event.accept()
+        return True
+    if event.type() == QEvent.Gesture:
+        pinch = event.gesture(Qt.PinchGesture)
+        if pinch is None:
+            return False
+        # TouchEnd retains the previous change flags and scale: do not apply it twice.
+        if (pinch.state() not in (Qt.GestureFinished, Qt.GestureCanceled)
+                and pinch.changeFlags() & QPinchGesture.ScaleFactorChanged):
+            # Qt's recognizer supplies this midpoint in global screen coordinates.
+            _pointer_zoom(tab, pinch.scaleFactor(), pinch.centerPoint())
+        event.accept(pinch)
+        return True
+    return False
+
+
+def _zoom_wheel(tab, event):
+    if not event.modifiers() & Qt.ControlModifier:
+        return False
+    # Precision touchpads may send fractional wheel steps, or only pixel deltas.
+    # ScrollBegin / ScrollEnd can carry zero delta and must not change the zoom.
+    delta = event.angleDelta().y() or event.pixelDelta().y()
+    if delta:
+        factor = math.exp(max(-8, min(8, delta * math.log(1.12) / 120)))
+        _pointer_zoom(tab, factor, event.globalPosition())
+    event.accept()
+    return True
+
+
+def _enable_pinch(widget):
+    # macOS translates the same native stream into QPinchGesture if registered;
+    # use the native stream there so one pinch cannot be applied twice.
+    if sys.platform != 'darwin':
+        widget.grabGesture(Qt.PinchGesture)
 
 
 class Canvas(QWidget):
@@ -53,6 +104,7 @@ class Canvas(QWidget):
         self.setContextMenuPolicy(Qt.PreventContextMenu)
         self.setMouseTracking(True)
         self.setFocusPolicy(Qt.StrongFocus)
+        _enable_pinch(self)
 
     def invalidate(self, full=True):
         self.generation += 1
@@ -148,6 +200,7 @@ class Canvas(QWidget):
         self.render_jobs.clear();self.cache.clear();self.cache_bytes=0;self.pending.clear();self.fallback.clear();self.frame_pixmaps.clear()
 
     def event(self,event):
+        if event.type() in (QEvent.NativeGesture,QEvent.Gesture) and _zoom_gesture(self.tab,event):return True
         if event.type()==QEvent.DevicePixelRatioChange and hasattr(self,'cache'):
             self.last_dpr=self.devicePixelRatioF();self.invalidate(False)
             for player in self.tab.players.values():player.resolution_changed()
@@ -774,15 +827,14 @@ class Canvas(QWidget):
         if not self.tab.handle_key(event): super().keyPressEvent(event)
 
     def wheelEvent(self,event):
-        if event.modifiers() & Qt.ControlModifier:
-            self.tab.zoom_by(1.12 if event.angleDelta().y()>0 else 1/1.12,event.globalPosition());event.accept()
-        else: event.ignore()
+        if not _zoom_wheel(self.tab,event):event.ignore()
 
 
 class ReaderScroll(QScrollArea):
     def __init__(self,tab):
         super().__init__(); self.tab=tab
         self.setWidgetResizable(False); self.setFrameShape(QScrollArea.NoFrame)
+        _enable_pinch(self.viewport())
         self.verticalScrollBar().valueChanged.connect(self.sync_document_bar)
         self.verticalScrollBar().rangeChanged.connect(self.sync_document_bar)
 
@@ -797,11 +849,19 @@ class ReaderScroll(QScrollArea):
     def keyPressEvent(self,event):
         if not self.tab.handle_key(event): super().keyPressEvent(event)
 
+    def viewportEvent(self,event):
+        if event.type() in (QEvent.NativeGesture,QEvent.Gesture) and _zoom_gesture(self.tab,event):return True
+        return super().viewportEvent(event)
+
     def wheelEvent(self,event):
-        if event.modifiers() & Qt.ControlModifier:
-            self.tab.zoom_by(1.12 if event.angleDelta().y()>0 else 1/1.12,event.globalPosition());event.accept();return
+        if _zoom_wheel(self.tab,event):return
         delta=event.angleDelta().y() or event.pixelDelta().y()
         bar=self.verticalScrollBar()
         if not self.tab.canvas.continuous and delta and ((delta<0 and bar.value()>=bar.maximum()) or (delta>0 and bar.value()<=bar.minimum())):
             self.tab.turn_page(1 if delta<0 else -1,from_bottom=delta>0);event.accept();return
+        pixels=event.pixelDelta()
+        if not pixels.isNull():
+            # QScrollBar ignores pixel-only wheel events on some platforms.
+            self.horizontalScrollBar().setValue(self.horizontalScrollBar().value()-pixels.x())
+            bar.setValue(bar.value()-pixels.y());event.accept();return
         super().wheelEvent(event)

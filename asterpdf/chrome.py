@@ -9,6 +9,7 @@ from .dialogs import FormDialog
 from .ui_icons import icon
 
 SHORT={
+ 'reload':('刷新','Reload'),
  'reset_document':('还原','Revert'),'flip_h':('水平','Flip H'),'flip_v':('垂直','Flip V'),
  'annotate':('批注','Notes'),'objects':('编辑','Edit'),'pages':('页面','Pages'),'extract':('提取','Export'),
  'text_ops':('文字','Text'),'vector_edit':('图形','Shape'),'colors':('换色','Color'),
@@ -123,7 +124,7 @@ def translate_tree(root):
 
 def customize_window_toolbar(window,parent=None):
     from .ui_icons import icon
-    defaults=['annotate','objects','pages','extract','undo','redo','save','width_fit','page_fit','bookmark','continuous','minimap']
+    defaults=['annotate','objects','pages','extract','undo','redo','save','reload','width_fit','page_fit','bookmark','continuous','minimap']
     keys=defaults+['region','copy_region','images','play','replay','presentation','print','file_info','search']
     current=window.current()
     if current:return ChromeMixin.customize_toolbar(current,parent)
@@ -141,7 +142,7 @@ def customize_window_toolbar(window,parent=None):
 
 class ChromeMixin:
     def configure_chrome(self):
-        defaults=['annotate','objects','pages','extract','undo','redo','save','width_fit','page_fit','bookmark','continuous','minimap']
+        defaults=['annotate','objects','pages','extract','undo','redo','save','reload','width_fit','page_fit','bookmark','continuous','minimap']
         visible=self.window.settings.value('toolbar/tools',defaults,type=list)
         for key,action in self.quick_actions.items():
             if key not in ('select','hand'):action.setVisible(key in visible)

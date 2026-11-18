@@ -1,5 +1,13 @@
 [
   {
+    "name": "certifi",
+    "version": "2026.7.22",
+    "license": "MPL-2.0",
+    "files": [
+      "licenses\\certifi\\licenses\\LICENSE"
+    ]
+  },
+  {
     "name": "PySide6",
     "version": "6.10.2",
     "license": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",

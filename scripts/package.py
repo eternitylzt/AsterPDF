@@ -5,6 +5,7 @@ import shutil
 import sys
 import zipfile
 import runpy
+import tarfile
 
 root=Path(__file__).resolve().parents[1];dist=root/'dist';dist.mkdir(exist_ok=True)
 version=runpy.run_path(str(root/'asterpdf/__init__.py'))['__version__']
@@ -18,6 +19,34 @@ with zipfile.ZipFile(source,'w',zipfile.ZIP_DEFLATED,compresslevel=6) as z:
             z.write(p,'AsterPDF/'+str(p.relative_to(root)))
 bundle=dist/('AsterPDF.app' if sys.platform=='darwin' else 'AsterPDF')
 if not bundle.exists():raise SystemExit('Build AsterPDF.spec first')
+if sys.platform == 'darwin':
+    installer = dist / 'Install asterpdf command.command'
+    installer.write_text('''#!/bin/sh
+set -eu
+folder=$(CDPATH= cd -P "$(dirname "$0")" && pwd)
+app="$folder/AsterPDF.app"
+if [ ! -d "$app" ]; then app=/Applications/AsterPDF.app; fi
+if [ ! -d "$app" ]; then app="$HOME/Applications/AsterPDF.app"; fi
+"$app/Contents/MacOS/AsterPDF" --install-cli
+''', encoding='utf-8', newline='\n')
+    installer.chmod(0o755)
+elif sys.platform == 'win32':
+    (bundle / 'Install asterpdf command.cmd').write_text(
+        '@echo off\r\n"%~dp0AsterPDF.exe" --install-cli\r\n'
+        'if errorlevel 1 (\r\n'
+        '  echo Could not register the command. Open AsterPDF and use Settings - Install asterpdf command for details.\r\n'
+        ') else (\r\n'
+        '  echo The asterpdf command is ready. Reopen your terminal before using it.\r\n'
+        ')\r\npause\r\n', encoding='utf-8', newline=''
+    )
+else:
+    installer = bundle / 'install-command.sh'
+    installer.write_text('''#!/bin/sh
+set -eu
+folder=$(CDPATH= cd -P "$(dirname "$0")" && pwd)
+exec "$folder/AsterPDF" --install-cli
+''', encoding='utf-8', newline='\n')
+    installer.chmod(0o755)
 if sys.platform!='darwin':
     shutil.copyfile(source,bundle/source.name)
     for file in ('README.md','README.zh-CN.md','LICENSE','THIRD_PARTY_NOTICES.md'):
@@ -28,6 +57,11 @@ if sys.platform!='darwin':
 archive_base=dist/f'AsterPDF-{version}-{osname}-{arch}'
 if sys.platform=='win32':
     archive=shutil.make_archive(str(archive_base),'zip',root_dir=dist,base_dir=bundle.name)
+elif sys.platform == 'darwin':
+    archive = str(archive_base) + '.tar.gz'
+    with tarfile.open(archive, 'w:gz') as output:
+        output.add(bundle, arcname=bundle.name)
+        output.add(installer, arcname=installer.name)
 else:
     archive=shutil.make_archive(str(archive_base),'gztar',root_dir=dist,base_dir=bundle.name)
 import hashlib

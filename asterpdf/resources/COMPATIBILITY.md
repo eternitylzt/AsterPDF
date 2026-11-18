@@ -1,4 +1,13 @@
-# AsterPDF 1.3.6 compatibility / 兼容性
+# AsterPDF 1.3.7 compatibility / 兼容性
+
+## Trackpad, reload and command line / 触控板、刷新与命令行
+
+Native Qt magnification events (macOS/Wayland), Qt touch pinch events and Windows precision Ctrl-wheel input zoom around the pointer/gesture center. Ordinary two-finger scrolling remains scrolling. Touchpad support depends on the OS and driver delivering one of these events; physical devices have not yet been verified across all platforms. Ctrl+wheel remains available.
+
+File → Reload file (Ctrl+R, Command+R on macOS) reads an externally changed PDF into a new local snapshot, then replaces the same tab while retaining the page, zoom and scroll position. Unsaved PDF edits, text drafts and form changes require explicit discard confirmation. If loading fails, the existing snapshot remains open. Reload currently applies to PDF source files; converted Markdown/PostScript documents must be reopened.
+
+Linux deb/rpm installs `/usr/bin/asterpdf`. Portable packages provide **Settings → Install asterpdf command** and a registration script, also callable with `--install-cli`. Registration uses the current user's command directory and PATH, requires no administrator access, and preserves quoted/relative filenames and the terminal's working directory. Open a new terminal afterward. Move the application to its permanent folder before registering; register again if it is moved. Existing unrelated commands are not overwritten. POSIX registration covers sh/bash/zsh profiles; other shells may need `~/.local/bin` added to PATH manually.
+
 
 ## 1.3.5 graphics and images / 图形与图片
 

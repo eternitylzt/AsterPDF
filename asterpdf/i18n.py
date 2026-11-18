@@ -2,6 +2,7 @@
 LANGUAGE = 'zh'
 
 STRINGS = {
+    'reload':('刷新文件','Reload file'),
     'playback_controls':('多媒体控件','Playback controls'),
     'replace_text':('替换文字批注','Replace text'), 'squiggly':('波浪下划线','Squiggly underline'), 'caret':('插入文字','Insert text'), 'add_video':('插入视频','Insert video'),
     'minimap':('速览窗','Quick overview'),

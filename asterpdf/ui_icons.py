@@ -4,6 +4,7 @@ from PySide6.QtGui import QIcon,QPixmap,QPainter
 from PySide6.QtSvg import QSvgRenderer
 
 PATHS={
+ 'reload':'<path d="M24 11a10 10 0 0 0-17-5L3 10m0-7v7h7M4 17a10 10 0 0 0 17 5l4-4m0 7v-7h-7"/>',
  'media_play':'<path d="m7 3 17 11-17 11Z"/>',
  'media_pause':'<path d="M7 4h4v20H7ZM17 4h4v20h-4Z"/>',
  'replay':'<path d="M5 10a10 10 0 1 1-1 9M5 3v8h8"/>',

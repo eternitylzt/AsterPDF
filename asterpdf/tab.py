@@ -180,7 +180,7 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
         zoom_layout.addWidget(self.zoom);self.zoom_plus=QToolButton();self.zoom_plus.setIcon(icon('plus',self.dark));self.zoom_plus.setFixedWidth(25);self.zoom_plus.clicked.connect(lambda:self.zoom_by(1.2));zoom_layout.addWidget(self.zoom_plus);nav.addWidget(zoom_group)
         nav.addSeparator()
         for key,callback in [('undo',lambda:self.window.history(False)),('redo',lambda:self.window.history(True)),('page_fit',lambda:self.fit(False)),('width_fit',lambda:self.fit(True)),('bookmark',self.toggle_bookmark),
-            ('save',lambda:self.window.save_tab()),('region',lambda:self.set_mode('select' if self.canvas.mode=='region' else 'region')),('copy_region',self.copy_region),('images',self.extract_embedded),('play',self.play_selected),('replay',self.replay),('presentation',self.window.toggle_presentation),
+            ('save',lambda:self.window.save_tab()),('reload',self.window.reload_file),('region',lambda:self.set_mode('select' if self.canvas.mode=='region' else 'region')),('copy_region',self.copy_region),('images',self.extract_embedded),('play',self.play_selected),('replay',self.replay),('presentation',self.window.toggle_presentation),
             ('print',lambda:self.window.print_current()),('file_info',lambda:self.window.file_information()),('minimap',lambda:self.minimap.toggle())]:
             self.quick_actions[key]=decorate(nav.addAction(tr(key),callback),key,self.dark)
         for key in ('select','hand','region','page_fit','width_fit','minimap'):self.quick_actions[key].setCheckable(True)

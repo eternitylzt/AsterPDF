@@ -37,20 +37,21 @@ No account. No cloud dependency. PDF processing stays on your computer.
 - **Markdown:** opens inside AsterPDF first, then asks whether to open a local HTML preview in the default browser. Remember Yes or No with “Do not ask again”; Preferences → Markdown offers Ask each time / Always open / Stay in AsterPDF. Save As offers HTML or PDF (A4 by default, or one long page). HTML embeds loaded images and formulas for sharing and reflects the opened Markdown snapshot; save subsequent PDF edits/annotations as PDF. In-app reading defaults to a long page with heading outlines, and edited PDFs retain their current layout.
 - **Page gaps:** double-click between pages to remove the spacing, and double-click the faint divider to restore it. Hover cursors indicate collapse/expand. Also available in View → Hide / show page gaps. This changes display spacing only, not the page's own white margins or PDF content.
 
-## 1.3.6 · Latest improvements
+## 1.3.7 · Latest improvements
 
-- More responsive editing with fewer redundant previews and object scans; stable document-tab menu positioning.
-- Better preservation of fonts, spacing and styles during text editing and paste.
-- Correct image/vector transforms on cropped and rotated pages; image replacement leaves other instances intact.
-- Correct highlight selection on rotated pages while preserving annotation colors and opacity.
+- Zoom around the pointer with trackpad pinch gestures.
+- Refresh an externally updated PDF without closing its tab; retain your reading position and confirm before discarding unsaved edits. Use **Refresh**, `Ctrl+R` (`Command+R` on macOS).
+- Open files from a terminal with `asterpdf a.pdf`.
 
 ## Run
 
 [Linux installation: deb / rpm / portable](docs/LINUX.md)
 
-**Windows x64:** extract the complete `AsterPDF-1.3.6-windows-amd64.zip`, then run `AsterPDF/AsterPDF.exe`. Keep the accompanying `_internal` folder. No Python installation is required; the executable is unsigned.
+**Windows x64:** extract the complete `AsterPDF-1.3.7-windows-amd64.zip`, then run `AsterPDF/AsterPDF.exe`. Keep the accompanying `_internal` folder. No Python installation is required; the executable is unsigned.
 
 **macOS / Linux:** download the native archive from the GitHub Release. The automated build verifies packaging on each target; see the validation and compatibility documents for the features tested on real desktops.
+
+**Terminal command:** Linux deb/rpm installs `asterpdf` automatically. For macOS and portable packages, first place the application in its permanent location, then choose **Settings → Install asterpdf command…**, or run the included command installer. Reopen your terminal and use `asterpdf "path/to/a.pdf"`. Registration is per-user and does not require administrator access; repeat it after moving the application.
 
 From source (Python 3.12 recommended):
 

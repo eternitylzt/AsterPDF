@@ -91,6 +91,12 @@ class Window(QMainWindow):
     def __init__(self, data_dir=None):
         super().__init__()
         self.settings=QSettings(str(Path(data_dir)/'settings.ini'),QSettings.IniFormat) if data_dir else QSettings('AsterPDF','AsterPDF')
+        if not self.settings.value('toolbar/reload_added',False,type=bool):
+            if self.settings.contains('toolbar/tools'):
+                visible=self.settings.value('toolbar/tools',[],type=list)
+                if 'reload' not in visible:visible.append('reload')
+                self.settings.setValue('toolbar/tools',visible)
+            self.settings.setValue('toolbar/reload_added',True)
         if not self.settings.contains('markdown/browser_mode'):
             self.settings.setValue('markdown/browser_mode','ask' if self.settings.value('markdown/preview_browser',True,type=bool) else 'never')
         if not self.settings.value('color/palette32',False,type=bool):
@@ -192,6 +198,7 @@ class Window(QMainWindow):
         file=self.menuBar().addMenu(tr('file'));self.action(file,'open',self.open_dialog,'Ctrl+O')
         self.recent=file.addMenu(tr('recent'));self.refresh_recent()
         file.addSeparator();self.action(file,'save',lambda:self.save_tab(False),'Ctrl+S')
+        self.reload_action=self.action(file,'reload',self.reload_file,'Ctrl+R')
         self.action(file,'save_as',lambda:self.save_tab(True),'Ctrl+Shift+S');self.action(file,'close',lambda:self.close_tab(self.tabs.currentIndex()),'Ctrl+W')
         self.action(file,'file_info',self.file_information);self.action(file,'print',self.print_current,'Ctrl+P')
         edit=self.menuBar().addMenu(tr('edit'));self.action(edit,'undo',lambda:self.history(False),'Ctrl+Z')
@@ -242,6 +249,7 @@ class Window(QMainWindow):
         settingsmenu=self.menuBar().addMenu('Settings');self.settings_menu=settingsmenu;preferences=settingsmenu.addAction(L('首选项…','Preferences…'));preferences.setShortcut('Ctrl+,');preferences.triggered.connect(self.preferences)
         settingsmenu.addMenu(language)
         settingsmenu.addAction(L('自定义工具栏…','Customize toolbar…'),self.customize_toolbar)
+        settingsmenu.addAction(L('安装 asterpdf 命令…','Install asterpdf command…'),self.install_cli)
         settingsmenu.addAction(L('恢复未保存的文档…','Recover unsaved documents…'),self.offer_recovery)
         helpmenu=self.menuBar().addMenu(tr('help'));self.action(helpmenu,'details',self.compatibility)
         self.action(helpmenu,'update',self.check_updates);self.action(helpmenu,'about',self.about)
@@ -385,6 +393,19 @@ class Window(QMainWindow):
             self.queue.submit(lambda job:prepare(filename),ready,lambda message:(failed(message),cleanup()),priority=3)
         else:submit()
 
+    def reload_file(self):
+        from .reloading import reload_file
+        reload_file(self)
+
+    def install_cli(self):
+        from .cli import install_command
+        try:destination=install_command()
+        except (OSError,ValueError) as error:
+            QMessageBox.warning(self,'AsterPDF',str(error));return
+        QMessageBox.information(self,'AsterPDF',L(
+            '命令已安装。重新打开终端后可运行：\nasterpdf "文件.pdf"\n\n安装位置：',
+            'Command installed. Open a new terminal and run:\nasterpdf "file.pdf"\n\nInstalled at: ')+str(destination))
+
     def offer_markdown_preview(self,tab):
         if tab.closed or self.tabs.indexOf(tab)<0:return
         mode=self.settings.value('markdown/browser_mode','ask')
@@ -452,6 +473,9 @@ class Window(QMainWindow):
 
 
     def update_title(self):
+        current=self.current()
+        reloadable=bool(current and not current.busy and Path(current.document.original).suffix.lower()=='.pdf')
+        if hasattr(self,'reload_action'):self.reload_action.setEnabled(reloadable)
         if hasattr(self,'markdown_preview_action'):self.markdown_preview_action.setEnabled(bool(self.current() and hasattr(self.current(),'markdown_prepared')))
         for i in range(self.tabs.count()):
             tab=self.tabs.widget(i)
@@ -461,6 +485,7 @@ class Window(QMainWindow):
             self.dark_action.blockSignals(True);self.dark_action.setChecked(self.dark);self.dark_action.blockSignals(False)
             self.night_action.blockSignals(True);self.night_action.setChecked(bool(tab and tab.night));self.night_action.blockSignals(False)
         if tab:
+            tab.quick_actions['reload'].setEnabled(reloadable)
             tab.quick_actions['undo'].setEnabled(tab.inline_editor.document().isUndoAvailable() if tab.inline_editor else tab.document.index>0)
             tab.quick_actions['redo'].setEnabled(tab.inline_editor.document().isRedoAvailable() if tab.inline_editor else tab.document.index+1<len(tab.document.history))
         self.setWindowTitle((Path(tab.document.original).name+(' *' if tab.document.dirty or tab.inline_dirty() or tab.suspended_inline or tab.form_dirty() else '')+' — ' if tab else '')+'AsterPDF')
@@ -702,7 +727,7 @@ class Window(QMainWindow):
         from .printing import print_document
         print_document(tab)
 
-    def fullscreen(self):
+    def fullscreen(self,*,auto_fit=True):
         if self.document_fullscreen:
             tab,widgets,view,mode,editing,maximized,sizes=self._fullscreen_state
             self.document_fullscreen=False
@@ -735,13 +760,13 @@ class Window(QMainWindow):
         if not hasattr(self,'fullscreen_controls'):self.fullscreen_controls=FullscreenControls(self)
         def fit_fullscreen():
             if not self.document_fullscreen or tab.closed:return
-            fit=self.settings.value('reader/fullscreen_fit','width')
+            fit=self.settings.value('reader/fullscreen_fit','width') if auto_fit else 'keep'
             if fit in ('width','page'):tab.fit(fit=='width')
-            else:tab.fit_mode=None;tab.sync_tool_states()
+            elif auto_fit:tab.fit_mode=None;tab.sync_tool_states()
             self.fullscreen_controls.present()
         QTimer.singleShot(150,fit_fullscreen)
 
-    def toggle_presentation(self):
+    def toggle_presentation(self,*,auto_fit=True):
         if self.document_fullscreen:self.fullscreen()
         tab=self.current()
         if not tab:return
@@ -756,7 +781,8 @@ class Window(QMainWindow):
             if hasattr(tab,'playback_panel'):tab.playback_panel.dismiss()
             for widget,_ in self._presentation_widgets:widget.hide()
             tab.document_views.setCurrentWidget(tab.scroll);tab.set_mode('select');tab.set_view(1,False)
-            self.showFullScreen();tab.canvas.setFocus();QTimer.singleShot(100,lambda:tab.fit(False) if self.presentation and not tab.closed else None)
+            self.showFullScreen();tab.canvas.setFocus()
+            if auto_fit:QTimer.singleShot(100,lambda:tab.fit(False) if self.presentation and not tab.closed else None)
         else:
             self.presentation=False
             for widget,visible in self._presentation_widgets:widget.setVisible(visible)
@@ -875,7 +901,16 @@ def main():
     parser.add_argument('--verify-update',action='store_true',help=argparse.SUPPRESS)
     parser.add_argument('files',nargs='*');parser.add_argument('--data-dir');parser.add_argument('--smoke-test',action='store_true')
     parser.add_argument('--verify-desktop',metavar='OUTPUT_DIRECTORY',help=argparse.SUPPRESS)
+    parser.add_argument('--install-cli',action='store_true',help='Install the asterpdf command for the current user and exit')
     args=parser.parse_args()
+    if args.install_cli:
+        from .cli import install_command
+        try:destination=install_command()
+        except (OSError,ValueError) as error:
+            if sys.stderr:print(str(error),file=sys.stderr)
+            return 1
+        if sys.stdout:print(f'Installed: {destination}\nOpen a new terminal and run: asterpdf "file.pdf"')
+        return 0
     if args.verify_update:
         from .network import fetch_latest_release
         from .release import REPOSITORY

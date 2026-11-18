@@ -1,22 +1,20 @@
-# AsterPDF 1.3.6
+# AsterPDF 1.3.7
 
-相比 1.3.2 / Changes since 1.3.2
+相比 1.3.6 / Changes since 1.3.6
 
 ## 中文
 
-- 优化编辑响应，减少文字预览等待与重复对象识别，修复右上角标签菜单跳动。
-- 改善文字编辑与粘贴时的字体、间距和样式保持。
-- 修复图片、图形在裁剪和旋转页面上的移动、缩放与旋转；替换图片不影响其它实例。
-- 修复旋转页面的高亮选择，并保留批注原有颜色与透明度。
+- 支持以鼠标指针为中心的触控板双指缩放。
+- 新增刷新按钮及 Ctrl+R（macOS 为 Command+R），外部更新 PDF 后保留阅读位置；未保存编辑会先提示确认。
+- 支持 `asterpdf a.pdf` 命令。Linux deb/rpm 安装后自动可用；其它包可通过 Settings → 安装 asterpdf 命令或随包脚本注册，重新打开终端后使用。
 
 ## English
 
-- More responsive editing with fewer redundant previews and object scans; stable document-tab menu positioning.
-- Better preservation of fonts, spacing and styles during text editing and paste.
-- Correct image/vector transforms on cropped and rotated pages; image replacement leaves other instances intact.
-- Correct highlight selection on rotated pages while preserving annotation colors and opacity.
+- Pointer-centered trackpad pinch zoom.
+- Refresh externally updated PDFs with the toolbar or Ctrl+R (Command+R on macOS), retaining your reading position and prompting before discarding unsaved edits.
+- Open documents with `asterpdf a.pdf`. Linux deb/rpm installs the command automatically; other packages offer registration through Settings or the included installer. Reopen your terminal after registration.
 
 Windows x64 · macOS Apple Silicon · Linux x86_64 (deb / rpm / tar.gz).
 
-Windows 已完成实际编辑、保存重开与播放验证；macOS / Linux 的构建和自动检查不等同于实体设备交互验证。
-Windows editing, save/reopen and playback were checked locally. Automated macOS/Linux checks do not replace physical-device testing.
+各平台实体触控板尚未逐一实测；自动化手势验证与跨平台构建不能代替实体设备测试。
+Physical trackpads have not been tested across all platforms; automated gesture checks and platform builds do not replace device testing.
