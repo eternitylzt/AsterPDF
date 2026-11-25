@@ -37,17 +37,17 @@ No account. No cloud dependency. PDF processing stays on your computer.
 - **Markdown:** opens inside AsterPDF first, then asks whether to open a local HTML preview in the default browser. Remember Yes or No with “Do not ask again”; Preferences → Markdown offers Ask each time / Always open / Stay in AsterPDF. Save As offers HTML or PDF (A4 by default, or one long page). HTML embeds loaded images and formulas for sharing and reflects the opened Markdown snapshot; save subsequent PDF edits/annotations as PDF. In-app reading defaults to a long page with heading outlines, and edited PDFs retain their current layout.
 - **Page gaps:** double-click between pages to remove the spacing, and double-click the faint divider to restore it. Hover cursors indicate collapse/expand. Also available in View → Hide / show page gaps. This changes display spacing only, not the page's own white margins or PDF content.
 
-## 1.3.9 · Latest improvements
+## 1.3.10 · Latest improvements
 
-- Long documents paint the reading page first and look up visible pages as you scroll.
-- Common text deletions retain the original glyph codes. Moving, resizing and deleting objects can update a single page stream.
-- Repeated edits reuse measured objects and text preview resources, with undo, recovery and save support.
+- Grab the document scrollbar directly at the top, even with translucent toolbars.
+- Drag the overview title to move the window. Drag the blue frame inside it to navigate.
+- In Edit, drag left to right to enclose objects or right to left to select objects the box touches. Ctrl-click toggles individual objects and Ctrl-drag extends the selection. Move or copy text, images and vector graphics together on the same page.
 
 ## Run
 
 [Linux installation: deb / rpm / portable](docs/LINUX.md)
 
-**Windows x64:** extract the complete `AsterPDF-1.3.9-windows-amd64.zip`, then run `AsterPDF/AsterPDF.exe`. Keep the accompanying `_internal` folder. No Python installation is required; the executable is unsigned.
+**Windows x64:** extract the complete `AsterPDF-1.3.10-windows-amd64.zip`, then run `AsterPDF/AsterPDF.exe`. Keep the accompanying `_internal` folder. No Python installation is required; the executable is unsigned.
 
 **macOS / Linux:** download the native archive from the GitHub Release. The automated build verifies packaging on each target; see the validation and compatibility documents for the features tested on real desktops.
 

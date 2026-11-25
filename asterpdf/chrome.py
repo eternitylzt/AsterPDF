@@ -104,6 +104,9 @@ def decorate(action,key,dark=False):
     action.setProperty('aster_key',key)
     action.setText('' if key=='bookmark' else L(*SHORT[key]) if key in SHORT else tr(key))
     action.setToolTip(L('还原文档','Revert document') if key=='reset_document' else L('水平翻转','Flip horizontally') if key=='flip_h' else L('垂直翻转','Flip vertically') if key=='flip_v' else tr(key));action.setIcon(icon(ALIASES.get(key,key),dark))
+    if key=='objects':
+        action.setToolTip(L('编辑对象：拖动框选，Ctrl 点选可增减对象，Ctrl 拖动可追加框选。',
+                            'Edit objects: drag to select, Ctrl-click to toggle objects, or Ctrl-drag to extend the selection.'))
     return action
 
 
@@ -187,9 +190,15 @@ class ChromeMixin:
     def position_chrome(self):
         y=0
         if getattr(self,'chrome_overlay',False):
+            # Leave the native scrollbar's entire hit area exposed, including
+            # the top of the thumb. Reserve its lane even while Qt relayouts.
+            view=self.document_views.currentWidget()
+            gutter=view.verticalScrollBar().sizeHint().width()+view.frameWidth()
+            width=max(0,self.width()-gutter)
             for widget in (self.navbar_host,self.tool_panels):
                 if not widget.isHidden():
-                    height=widget.sizeHint().height();widget.setGeometry(0,y,self.width(),height);y+=height;widget.raise_()
+                    height=widget.sizeHint().height();widget.setGeometry(0,y,width,height);y+=height;widget.raise_()
+            if hasattr(self,'minimap') and self.minimap.isVisible():self.minimap.raise_()
         if hasattr(self,'playback_panel'):self.playback_panel.reposition()
         for name in ('sidebar_container','text_container','property_container'):
             panel=getattr(self,name,None)

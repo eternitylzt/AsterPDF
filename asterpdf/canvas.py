@@ -5,7 +5,7 @@ import math
 import sys
 from PySide6.QtCore import Qt, QRectF, QPointF, Signal, QSize, QTimer, QEvent
 from PySide6.QtGui import QColor, QPainter, QPen, QPixmap, QFont, QPolygonF, QPainterPath, QPainterPathStroker, QCursor
-from PySide6.QtWidgets import QWidget, QScrollArea, QToolTip, QPinchGesture
+from PySide6.QtWidgets import QApplication, QWidget, QScrollArea, QToolTip, QPinchGesture
 from .i18n import tr, L
 
 
@@ -96,6 +96,8 @@ class Canvas(QWidget):
         self.drag_page = -1
         self.points = []
         self.drag_objects = False
+        self.marquee_base = []
+        self.pending_pick = None
         self.region = None
         self.word_selection = []
         self.words = {}
@@ -354,22 +356,25 @@ class Canvas(QWidget):
                     for a,b in zip(points,points[1:]):painter.drawLine(self.rects[i].topLeft()+QPointF(*a)*self.scale,self.rects[i].topLeft()+QPointF(*b)*self.scale)
                 painter.restore()
             if self.object_page == i and self.mode in ('objects', 'images', 'select'):
+                selected_ids=set(self.selected)
+                union=self.selection_box() if self.resizing and self.drag_objects else None
+                free=bool(getattr(self,'drag_modifiers',Qt.NoModifier)&Qt.ShiftModifier)
+                keep_ratio=bool(union and any(o.id in selected_ids and o.kind=='image' for o in self.objects)
+                                and self.tab.keep_image_ratio.isChecked()!=free)
                 for obj in self.objects:
                     if self.mode == 'images' and obj.kind != 'image': continue
                     if self.mode == 'select' and obj.id not in self.selected:continue
                     if self.mode=='objects' and self.tab.edit_tool=='shape' and obj.kind not in ('vector','group'):continue
-                    selected = obj.id in self.selected
+                    selected = obj.id in selected_ids
                     color = '#9866e8' if selected else '#3f98a5'
                     painter.setPen(QPen(QColor(color), 2 if selected else 0.7, Qt.SolidLine if selected else Qt.DotLine))
                     painter.setBrush(QColor(152, 102, 232, 25) if selected else Qt.NoBrush)
                     box = self.page_rect(i, obj.bbox)
                     if selected and self.drag_objects and len(self.points) > 1 and not getattr(self,'vertex_drag',None):
                         delta=(self.points[-1]-self.points[0])*self.scale
-                        if self.resizing:
-                            union=self.selection_box();factor=max(.05,(union.width()+delta.x())/max(1,union.width()))
-                            free=bool(getattr(self,'drag_modifiers',Qt.NoModifier)&Qt.ShiftModifier)
-                            keep=any(o.kind=='image' for o in self.tab.selected_objects()) and self.tab.keep_image_ratio.isChecked()!=free
-                            fy=factor if keep else max(.05,(union.height()+delta.y())/max(1,union.height()))
+                        if self.resizing and union:
+                            factor=max(.05,(union.width()+delta.x())/max(1,union.width()))
+                            fy=factor if keep_ratio else max(.05,(union.height()+delta.y())/max(1,union.height()))
                             box=QRectF(union.left()+(box.left()-union.left())*factor,union.top()+(box.top()-union.top())*fy,box.width()*factor,box.height()*fy)
                         else:box.translate(delta)
                     if selected and self.drag_objects and len(self.points)>1 and obj.kind=='vector' and obj.details.get('hit_path'):
@@ -398,7 +403,11 @@ class Canvas(QWidget):
             origin = self.rects[self.drag_page].topLeft()
             painter.setPen(QPen(self.tab.annot_color, self.tab.annot_width if self.mode == 'ink' else 1.5))
             painter.setBrush(Qt.NoBrush)
-            if self.mode=='draw_shape':
+            if self.mode=='objects':
+                box=QRectF(origin+self.points[0]*self.scale,origin+self.points[-1]*self.scale).normalized()
+                painter.setPen(QPen(QColor('#508ff0'),1.5,Qt.DashLine))
+                painter.setBrush(QColor(65,137,245,42));painter.drawRect(box)
+            elif self.mode=='draw_shape':
                 import math
                 kind,stroke,fill,width=self.tab.shape_values();painter.setPen(QPen(QColor.fromRgbF(*stroke),width*self.scale));painter.setBrush(QColor.fromRgbF(*fill) if fill else Qt.NoBrush)
                 box=QRectF(origin+self.points[0]*self.scale,origin+self.points[-1]*self.scale).normalized();x,y,x1,y1=box.left(),box.top(),box.right(),box.bottom();cx,cy=box.center().x(),box.center().y();w,h=box.width(),box.height()
@@ -459,14 +468,16 @@ class Canvas(QWidget):
                 break
 
     def selection_box(self):
-        boxes = [self.page_rect(self.object_page,o.bbox) for o in self.objects if o.id in self.selected]
+        ids=set(self.selected)
+        if not ids:return None
+        boxes = [self.page_rect(self.object_page,o.bbox) for o in self.objects if o.id in ids]
         if not boxes: return None
         box = boxes[0]
         for b in boxes[1:]: box = box.united(b)
         return box
 
     def vertex_handles(self):
-        if not getattr(self,'vector_edit',False) or self.mode!='objects':return []
+        if not getattr(self,'vector_edit',False) or self.mode!='objects' or len(self.selected)!=1:return []
         out=[]
         for obj in self.objects:
             if obj.id in self.selected and obj.kind=='vector':
@@ -489,14 +500,55 @@ class Canvas(QWidget):
         return path
 
     def shape_hit(self,obj,point):
-        if self.tab.edit_tool!='shape' or obj.kind!='vector' or not obj.details.get('hit_path'):return True
+        if obj.kind!='vector' or not obj.details.get('hit_path'):return True
         path=self.vector_path(obj)
         stroker=QPainterPathStroker();stroker.setWidth(8/self.scale)
         return bool(obj.details.get('filled') and path.contains(point) or stroker.createStroke(path).contains(point))
 
+    def selectable_objects(self):
+        return (obj for obj in self.objects if self.tab.edit_tool!='shape' or obj.kind in ('vector','group'))
+
+    def object_at(self,point):
+        pool=self.selectable_objects() if self.mode=='objects' else (o for o in self.objects if o.kind=='image')
+        hits=(o for o in pool if qrect(o.bbox).adjusted(-2,-2,2,2).contains(point) and self.shape_hit(o,point))
+        return min(hits,key=lambda o:qrect(o.bbox).width()*qrect(o.bbox).height(),default=None)
+
+    def finish_object_pick(self):
+        if self.pending_pick is None:return
+        revision,page,start,end,base,drag=self.pending_pick
+        if self.mode!='objects' or page!=self.page or revision!=self.tab.document.revision:
+            self.pending_pick=None;return
+        if page!=self.object_page or (revision,page) not in self.tab.object_cache:return
+        self.pending_pick=None
+        if drag:
+            self.selected=list(dict.fromkeys([*base,*self.marquee_objects(start,end)]))
+        else:
+            self.selected=base.copy()
+            hit=self.object_at(start)
+            if hit:
+                if hit.id in self.selected:self.selected.remove(hit.id)
+                else:self.selected.append(hit.id)
+        self.objectSelected.emit(self.selected);self.update()
+
+    def marquee_objects(self,start,end):
+        box=QRectF(start,end).normalized()
+        crossing=end.x()<start.x()
+        for obj in self.selectable_objects():
+            bounds=qrect(obj.bbox)
+            if box.contains(bounds):
+                yield obj.id
+            elif crossing and box.intersects(bounds):
+                if obj.kind=='vector' and obj.details.get('hit_path'):
+                    path=self.vector_path(obj)
+                    stroke=QPainterPathStroker();stroke.setWidth(max(1/self.scale,obj.details.get('width',1)))
+                    if not (obj.details.get('filled') and path.intersects(box) or stroke.createStroke(path).intersects(box)):
+                        continue
+                yield obj.id
+
     def shape_rotation_handle(self):
-        selected=[o for o in self.objects if o.id in self.selected]
-        if self.mode!='objects' or self.tab.edit_tool!='shape' or not selected or any(o.kind not in ('vector','group') for o in selected):return QRectF()
+        if self.mode!='objects' or self.tab.edit_tool!='shape' or not self.selected:return QRectF()
+        ids=set(self.selected)
+        if any(o.id in ids and o.kind not in ('vector','group') for o in self.objects):return QRectF()
         box=self.selection_box()
         return QRectF(box.center().x()-6,box.top()-30,12,12) if box else QRectF()
 
@@ -512,7 +564,8 @@ class Canvas(QWidget):
             page,point=self.locate(event.position());field=self.tab.forms.hit(page,point)
             if field:self.tab.forms.activate(field);event.accept();return
             if self.tab.forms.editor:self.tab.forms.flush(self.tab.forms.dismiss);event.accept();return
-        if self.tab.busy:return
+        if self.tab.busy and not (self.mode=='objects' and self.tab.job_label==tr('scan_objects')):return
+        self.pending_pick=None
         if self.tab.inline_editor:
             self.tab.leave_inline(lambda:None);return
         self.setFocus()
@@ -526,8 +579,9 @@ class Canvas(QWidget):
                         return tuple(v/255 for v in pix.pixel(0,0))
                 self.tab.queue.submit(sample,lambda rgb:self.tab.set_color_source(rgb),self.tab.error)
             return
+        additive=bool(event.modifiers() & (Qt.ShiftModifier|Qt.ControlModifier))
         handle=self.shape_rotation_handle()
-        if not handle.isEmpty() and handle.contains(event.position()):
+        if not additive and not handle.isEmpty() and handle.contains(event.position()):
             box=self.selection_box();center=box.center();delta=event.position()-center
             self.shape_rotation=(center,math.atan2(delta.y(),delta.x()),0.,box,self.grab(box.toAlignedRect()));self.drag_page=-1;return
         ann=self.active_text_annotation()
@@ -548,6 +602,8 @@ class Canvas(QWidget):
         if self.region and self.mode!='region':
             self.region=None;self.update()
         i, point = self.locate(event.position())
+        if i<0 and self.mode=='objects' and self.object_page==self.page and self.rects:
+            i=self.page;point=(event.position()-self.rects[i].topLeft())/self.scale
         if i < 0: return
         if self.mode=='objects' and self.tab.edit_tool=='video':
             asset=next((a for a in reversed(self.tab.assets) if a.page==i and qrect(a.rect).contains(point)),None)
@@ -585,27 +641,29 @@ class Canvas(QWidget):
             self.tab.show_annotation_properties('select_annot')
         self.drag_page, self.points, self.drag_objects = i, [point], False
         self.vertex_drag=None
+        self.marquee_base=list(self.selected) if additive and i==self.object_page else []
+        if self.mode=='objects' and (i!=self.object_page or additive or self.tab.busy):
+            self.resizing=False;self.update();return
         for obj,index,handle in self.vertex_handles():
-            if handle.contains(event.position()):
+            if not additive and handle.contains(event.position()):
                 self.vertex_drag=(obj,index);self.drag_objects=True;return
-        self.resizing = self.mode == 'objects' and self.resize_handle().contains(event.position())
+        self.resizing = not additive and self.mode == 'objects' and self.resize_handle().contains(event.position())
         if self.resizing:
             self.drag_objects = True;self.drag_preview=None;return
         if self.mode in ('objects','images') and i == self.object_page:
-            candidates = [o for o in self.objects if (self.mode != 'images' or o.kind == 'image') and (self.tab.edit_tool!='shape' or o.kind in ('vector','group')) and qrect(o.bbox).adjusted(-2,-2,2,2).contains(point) and self.shape_hit(o,point)]
-            if candidates:
-                obj = min(candidates,key=lambda o:qrect(o.bbox).width()*qrect(o.bbox).height())
-                if event.modifiers() & (Qt.ShiftModifier|Qt.ControlModifier):
+            obj=self.object_at(point)
+            if obj:
+                if additive:
                     if obj.id in self.selected: self.selected.remove(obj.id)
                     else: self.selected.append(obj.id)
                 elif obj.id not in self.selected: self.selected = [obj.id]
                 self.drag_objects = obj.id in self.selected
-                self.drag_preview=self.grab(self.page_rect(i,obj.bbox).toAlignedRect()) if obj.kind=='image' else None
+                self.drag_preview=self.grab(self.page_rect(i,obj.bbox).toAlignedRect()) if obj.kind=='image' and len(self.selected)==1 else None
                 self.objectSelected.emit(self.selected)
                 if self.mode == 'images':
                     self.drag_page = -1
                     self.update(); return
-            elif not event.modifiers() & Qt.ShiftModifier:
+            elif not additive:
                 self.selected = []; self.objectSelected.emit([])
         self.update()
 
@@ -756,9 +814,9 @@ class Canvas(QWidget):
                 elif self.resizing: self.tab.resize_objects(delta.x(),delta.y(),bool(event.modifiers() & Qt.ShiftModifier))
                 else: self.objectMoved.emit(delta.x(),delta.y())
         elif self.mode == 'objects':
-            box = QRectF(points[0],points[-1]).normalized()
-            self.selected = [o.id for o in self.objects if (self.tab.edit_tool!='shape' or o.kind in ('vector','group')) and box.contains(qrect(o.bbox))]
-            self.objectSelected.emit(self.selected)
+            self.pending_pick=(self.tab.document.revision,i,points[0],end,self.marquee_base,
+                               distance*self.scale>=QApplication.startDragDistance())
+            self.finish_object_pick()
         elif distance > 2 or self.mode in ('select','note','select_annot','add_image','add_text'):
             self.selection.emit(i,[(p.x(),p.y()) for p in points],self.mode)
         self.points = []; self.drag_objects = False; self.resizing = False; self.vertex_drag=None;self.drag_preview=None; self.update()
@@ -838,6 +896,7 @@ class Canvas(QWidget):
                 menu.addAction(tr('extract_image'),lambda:self.tab.save_image_xref(self.object_page,selected[0].xref))
             if self.mode=='objects':
                 if selected:
+                    menu.addAction(L('复制所选对象','Copy selected objects'),self.tab.copy_objects)
                     menu.addAction(L('置于顶层','Bring to front'),lambda:self.tab.stack_images(True))
                     menu.addAction(L('置于底层','Send to back'),lambda:self.tab.stack_images(False))
                 menu.addAction(tr('modify'),self.tab.modify_object);menu.addAction(tr('delete_object'),self.tab.delete_objects)

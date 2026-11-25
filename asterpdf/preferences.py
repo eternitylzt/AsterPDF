@@ -134,7 +134,10 @@ def apply_preferences(window,changed=None):
         tab.rebuild_media_controls()
         if tab.night!=s.value('reader/night',False,type=bool):tab.night=s.value('reader/night',False,type=bool);tab.canvas.invalidate(False)
         m=tab.minimap;m.enabled=s.value('minimap/enabled',True,type=bool);m.auto_scale=s.value('minimap/auto_scale',True,type=bool);m.auto_size=s.value('minimap/auto_size',True,type=bool)
-        m.percent=(5. if len(tab.canvas.sizes)>20 else 10.) if m.auto_scale else s.value('minimap/scale',10.,type=float);m.corner=s.value('minimap/corner','top-right');m.opacity=s.value('minimap/opacity',80,type=int);m.graphicsEffect().setOpacity(m.opacity/100)
+        corner=s.value('minimap/corner','top-right')
+        if m.corner!=corner:m.free_position=None
+        m.corner=corner
+        m.percent=(5. if len(tab.canvas.sizes)>20 else 10.) if m.auto_scale else s.value('minimap/scale',10.,type=float);m.opacity=s.value('minimap/opacity',80,type=int);m.graphicsEffect().setOpacity(m.opacity/100)
         if not m.auto_size:m.resize(s.value('minimap/width',148,type=int),s.value('minimap/height',370,type=int))
         m.sync();tab.keep_image_ratio.setChecked(s.value('image/ratio',True,type=bool))
         if not tab.inline_editor:

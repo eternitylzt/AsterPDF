@@ -7,8 +7,12 @@ from .objects import content_bytes,commands,PAINT
 def copy_pdf(document,page,selected):
     with pp.open(document.path, access_mode=pp.AccessMode.mmap) as source,pp.Pdf.new() as result:
         result.pages.append(source.pages[page]);p=result.pages[0];data=content_bytes(p);parts=[]
+        spans=iter(sorted((obj.start,obj.end) for obj in selected))
+        span=next(spans,None)
         for c in commands(data):
-            inside=any(o.start<=c.start and c.end<=o.end for o in selected)
+            while span is not None and span[1]<=c.start:
+                span=next(spans,None)
+            inside=span is not None and span[0]<=c.start and c.end<=span[1]
             if not inside and c.op in PAINT:parts.append(b'n')
             elif not inside and c.op in ('Do','sh','Tj','TJ',"'",'"'):parts.append(b' ')
             else:parts.append(c.raw)

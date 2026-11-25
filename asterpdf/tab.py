@@ -313,6 +313,7 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
         self.cancel=QPushButton(tr('cancel'),self.scroll.viewport());self.cancel.setFixedSize(50,22);self.cancel.hide();self.cancel.clicked.connect(self.cancel_job)
         from .minimap import DocumentMap
         self.minimap=DocumentMap(self)
+        self.document_views.currentChanged.connect(lambda _:self.minimap.sync())
         for i,(symbol,key) in enumerate([('▦','thumbnails'),('☰','outline'),('☆','bookmarks'),('⌕','search'),('☷','annotate')]):
             self.sidebar.setTabText(i,L('页面','Pages') if i==0 else L('批注','Notes') if i==4 else tr(key));self.sidebar.setTabToolTip(i,tr(key))
         self.sidebar.tabBar().setExpanding(False)
@@ -386,6 +387,7 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
         if self.inline_editor and mode != "objects":
             self.leave_inline(lambda:self.set_mode(mode));return
         self.canvas.mode=mode
+        self.canvas.pending_pick=None
         from .annotation_tools import KINDS
         if mode in KINDS and hasattr(self,'splitter') and self.active_panel=='annotate':self.show_annotation_properties(mode)
         self.sync_tool_states()
@@ -408,7 +410,7 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
             self.annot_width_widget.setValue(self.annot_text_border if mode=='freetext' else max(.2,self.annot_width));self._sync_annotation=False
         cursor=Qt.OpenHandCursor if mode=='hand' else Qt.IBeamCursor if mode in ('highlight','underline','strikeout','replace_text','squiggly','freetext','add_text') else Qt.ArrowCursor if mode in ('select','objects','select_annot') else Qt.CrossCursor
         self.canvas.setCursor(cursor)
-        self.status.setText(tr(mode)+' · '+(L('Shift 多选 · 拖动移动 · 右下角缩放 · 双击编辑 · Delete 删除','Shift: select several · Drag: move · Corner: resize · Double-click: edit · Delete: remove') if mode=='objects' else L('拖动选择','Drag to select')))
+        self.status.setText(tr(mode)+' · '+(L('拖动框选 · Ctrl 点选或追加框选 · 拖动所选对象移动 · 双击编辑','Drag to select · Ctrl-click to toggle or Ctrl-drag to extend · Drag selection to move · Double-click to edit') if mode=='objects' else L('拖动选择','Drag to select')))
         if mode=='select_annot':self.load_annotations()
         self.canvas.update()
 
@@ -1325,11 +1327,13 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
         def done(result):
             if self.canvas.page!=page:return
             self.object_cache[key]=result;self.canvas.objects=result;self.canvas.object_page=page
-            self.canvas.selected=[i for i in selected if any(o.id==i for o in result)]
+            ids={o.id for o in result}
+            self.canvas.selected=[i for i in selected if i in ids]
             if getattr(self,'pending_shape_selection',False):
                 self.pending_shape_selection=False
                 vectors=[o for o in result if o.kind=='vector']
                 self.canvas.selected=[max(vectors,key=lambda o:o.start).id] if vectors else []
+            self.canvas.finish_object_pick()
             self.canvas.update()
         if key in self.object_cache:done(self.object_cache[key]);return
         self.run(tr('scan_objects'),lambda j:objects.discover(self.document,page,j.signals.progress.emit,lambda:j.cancelled),done,cancellable=True)
@@ -1465,7 +1469,8 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
         self.object_list.blockSignals(False)
 
     def selected_objects(self):
-        return [o for o in self.canvas.objects if o.id in self.canvas.selected]
+        ids=set(self.canvas.selected)
+        return [o for o in self.canvas.objects if o.id in ids]
 
     def move_objects(self,dx,dy):
         selected=self.selected_objects();page=self.canvas.object_page

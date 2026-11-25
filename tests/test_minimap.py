@@ -18,7 +18,7 @@ def test_map_jump_drag_pan_resize_and_hide(ui):
     before=t.scroll.verticalScrollBar().value();offset=m.offset
     QTest.mousePress(m,Qt.RightButton,Qt.NoModifier,QPoint(30,85));QTest.mouseMove(m,QPoint(30,125),20);QTest.mouseRelease(m,Qt.RightButton,Qt.NoModifier,QPoint(30,125))
     assert m.offset<offset and t.scroll.verticalScrollBar().value()==before
-    m.set_corner('top-left');m.sync();assert m.x()==8 and m.y()>=getattr(t,'reading_inset',0)
+    m.set_corner('top-left');m.sync();assert m.pos()==t.scroll.viewport().mapTo(t,QPoint(8,getattr(t,'reading_inset',0)+8))
     old=m.size();pos=QPoint(m.width()-2,m.height()-2)
     QTest.mousePress(m,Qt.LeftButton,Qt.NoModifier,pos);QTest.mouseMove(m,pos+QPoint(24,30),20);QTest.mouseRelease(m,Qt.LeftButton,Qt.NoModifier,pos+QPoint(24,30))
     assert m.width()>old.width() and m.height()>old.height()

@@ -1,7 +1,7 @@
 """Floating, virtualized document overview. Coordinates are independent of reader zoom."""
 from collections import OrderedDict
 from bisect import bisect_right
-from PySide6.QtCore import Qt, QRectF, QPointF, QTimer
+from PySide6.QtCore import Qt, QRectF, QPoint, QPointF, QTimer
 from PySide6.QtGui import QColor, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import QWidget, QMenu, QInputDialog, QGraphicsOpacityEffect, QScrollBar
 from .i18n import L
@@ -12,7 +12,7 @@ class DocumentMap(QWidget):
     FOOTER = 22
 
     def __init__(self, tab):
-        super().__init__(tab.scroll.viewport())
+        super().__init__(tab)
         self.tab = tab
         settings = tab.window.settings
         self.enabled = settings.value('minimap/enabled', True, type=bool)
@@ -20,6 +20,7 @@ class DocumentMap(QWidget):
         self.page_count=tab.info['count']
         self.percent=(5. if self.page_count>20 else 10.) if self.auto_scale else max(.5,min(20.,settings.value('minimap/scale',10.,type=float)))
         self.corner = settings.value('minimap/corner', 'top-right')
+        self.free_position = None
         self.resize(settings.value('minimap/width', 148, type=int), settings.value('minimap/height', 370, type=int))
         self.auto_size=True  # Each newly opened document starts with its own fitted size.
         self.opacity=settings.value('minimap/opacity',80,type=int)
@@ -33,8 +34,8 @@ class DocumentMap(QWidget):
         self.generation = 0; self.drag = None; self.markers = []
         self.setMouseTracking(True)
         self.timer = QTimer(self); self.timer.setInterval(120); self.timer.timeout.connect(self.sync); self.timer.start()
-        self.setToolTip(L('点击跳转；拖动蓝框浏览；滚轮或按住右键拖动预览；边缘缩放；右键设置。',
-                          'Click to jump; drag the blue viewport; wheel or right-drag to pan; resize at edges; right-click for settings.'))
+        self.setToolTip(L('拖动标题移动速览窗，拖动边缘调整大小。点击缩略图跳转，拖动蓝框浏览，右键设置。',
+                          'Drag the title to move the overview or an edge to resize. Click a page to jump, drag the blue frame to navigate, or right-click for settings.'))
 
     def scroll_preview(self,value):
         self.offset=float(value);self.update();self.request_visible()
@@ -61,7 +62,7 @@ class DocumentMap(QWidget):
         if not visible:
             if self.cache or self.pending:self.release()
             return
-        parent = self.parentWidget(); inset = getattr(t, 'reading_inset', 0)
+        parent = t.scroll.viewport(); inset = getattr(t, 'reading_inset', 0)
         if self.page_count!=len(t.canvas.sizes):
             self.page_count=len(t.canvas.sizes)
             if self.auto_scale:self.percent=5. if self.page_count>20 else 10.
@@ -78,10 +79,6 @@ class DocumentMap(QWidget):
         width = min(max(100, self.width()), max(100, parent.width()-20))
         height = min(max(100, self.height()), max(100, parent.height()-inset-20))
         if (width,height) != (self.width(),self.height()):self.resize(width,height)
-        x = 8 if self.corner.endswith('left') else max(0,parent.width()-self.width()-8)
-        y = inset+8 if self.corner.startswith('top') else max(inset+8,parent.height()-self.height()-8)
-        if not self.drag or self.drag[0] != 'resize':self.move(x,y)
-        self.raise_()
         signature = (layout_key,t.document.revision,self.width(),round(self.devicePixelRatioF(),3),t.night)
         if signature != self.signature:
             if getattr(self,'preserve_next',False):self.preserve_next=False
@@ -103,6 +100,15 @@ class DocumentMap(QWidget):
         if self.auto_size:
             desired=round(max(80,min(self.total+self.HEADER+self.FOOTER,(parent.height()-inset)*.8,parent.height()-inset-20)))
             if self.height()!=desired:self.resize(self.width(),desired)
+        if not self.drag or self.drag[0] not in ('move','resize'):
+            if self.free_position is None:
+                x = 8 if self.corner.endswith('left') else parent.width()-self.width()-8
+                y = inset+8 if self.corner.startswith('top') else parent.height()-self.height()-8
+                self.move(parent.mapTo(t,QPoint(max(0,x),max(inset+8,y))))
+            else:
+                dx,dy=self.move_limits()
+                self.move(round(dx*self.free_position.x()),round(dy*self.free_position.y()))
+        self.raise_()
         canvas=t.canvas; vb=t.scroll.verticalScrollBar(); hb=t.scroll.horizontalScrollBar()
         current=(canvas.page,canvas.scale,canvas.columns,canvas.continuous,vb.value(),hb.value(),t.scroll.viewport().size(),getattr(t,'reading_inset',0))
         self.compute_markers()
@@ -233,6 +239,17 @@ class DocumentMap(QWidget):
     def edges(self,pos):
         return (pos.x()<6,pos.x()>self.width()-6,pos.y()<5,pos.y()>self.height()-5)
 
+    def move_limits(self):
+        viewport=self.tab.scroll.viewport()
+        right=viewport.mapTo(self.tab,QPoint(viewport.width(),0)).x()
+        return max(0,right-self.width()),max(0,self.tab.height()-self.height())
+
+    def move_freely(self,pos):
+        dx,dy=self.move_limits()
+        x=max(0,min(dx,pos.x()));y=max(0,min(dy,pos.y()))
+        self.free_position=QPointF(x/max(1,dx),y/max(1,dy))
+        self.move(x,y)
+
     def mousePressEvent(self,event):
         pos=event.position()
         if event.button()==Qt.RightButton:
@@ -241,7 +258,8 @@ class DocumentMap(QWidget):
         if pos.y()<self.HEADER and pos.x()>self.width()-29:self.enabled=True;self.toggle();return
         edges=self.edges(pos)
         if any(edges):self.auto_size=False;self.drag=('resize',event.globalPosition(),self.geometry(),edges);return
-        if pos.y()<self.HEADER:return
+        if pos.y()<self.HEADER:
+            self.drag=('move',pos.toPoint());self.setCursor(Qt.ClosedHandCursor);event.accept();return
         point=self.document_point(pos)
         marker=next((r for r in self.markers if r.adjusted(-3,-3,3,3).contains(point)),None)
         if marker:self.drag=('viewport',point-marker.topLeft())
@@ -252,7 +270,9 @@ class DocumentMap(QWidget):
         pos=event.position()
         if self.drag:
             kind=self.drag[0]
-            if kind=='pan':
+            if kind=='move':
+                self.move_freely(self.tab.mapFromGlobal(event.globalPosition().toPoint())-self.drag[1])
+            elif kind=='pan':
                 _,start,offset,moved=self.drag;delta=pos-start
                 self.drag=('pan',start,offset,moved or delta.manhattanLength()>4)
                 self.offset=offset-delta.y();self.clamp_offset();self.update();self.request_visible();self.setCursor(Qt.ClosedHandCursor)
@@ -269,7 +289,7 @@ class DocumentMap(QWidget):
                 if top:self.move(self.x(),rect.bottom()-height+1)
             return
         left,right,top,bottom=self.edges(pos)
-        cursor=Qt.SizeFDiagCursor if (left and top) or (right and bottom) else Qt.SizeBDiagCursor if (left and bottom) or (right and top) else Qt.SizeHorCursor if left or right else Qt.SizeVerCursor if top or bottom else Qt.OpenHandCursor if any(r.contains(self.document_point(pos)) for r in self.markers) else Qt.PointingHandCursor
+        cursor=Qt.SizeFDiagCursor if (left and top) or (right and bottom) else Qt.SizeBDiagCursor if (left and bottom) or (right and top) else Qt.SizeHorCursor if left or right else Qt.SizeVerCursor if top or bottom else Qt.OpenHandCursor if (pos.y()<self.HEADER and pos.x()<self.width()-29) or any(r.contains(self.document_point(pos)) for r in self.markers) else Qt.PointingHandCursor
         self.setCursor(cursor)
 
     def mouseReleaseEvent(self,event):
@@ -277,6 +297,7 @@ class DocumentMap(QWidget):
         if drag and drag[0]=='pan' and not drag[3]:self.menu(event.globalPosition().toPoint())
         if drag and drag[0]=='resize':
             self.auto_size=False  # Manual resize belongs only to this open document.
+            if self.free_position is not None:self.move_freely(self.pos())
         self.view_signature=None if drag and drag[0]=='viewport' else self.view_signature
         self.sync()
 
@@ -290,7 +311,7 @@ class DocumentMap(QWidget):
     def menu(self,global_pos):
         menu=QMenu(self)
         for key,label in [('top-right',L('右上角','Top right')),('bottom-right',L('右下角','Bottom right')),('top-left',L('左上角','Top left')),('bottom-left',L('左下角','Bottom left'))]:
-            action=menu.addAction(label);action.setCheckable(True);action.setChecked(self.corner==key);action.triggered.connect(lambda checked=False,k=key:self.set_corner(k))
+            action=menu.addAction(label);action.setCheckable(True);action.setChecked(self.free_position is None and self.corner==key);action.triggered.connect(lambda checked=False,k=key:self.set_corner(k))
         menu.addSeparator();menu.addAction(L('缩略比例…','Preview scale…'),self.scale_dialog)
         auto=menu.addAction(L('按页数自动缩放（20 页以上 5%）','Automatic scale (5% above 20 pages)'));auto.setCheckable(True);auto.setChecked(self.auto_scale);auto.toggled.connect(self.set_auto_scale)
         menu.addAction(L('透明度…','Opacity…'),self.opacity_dialog)
@@ -299,7 +320,7 @@ class DocumentMap(QWidget):
         menu.addAction(L('关闭速览窗','Close overview'),self.toggle);menu.exec(global_pos)
 
     def set_corner(self,corner):
-        self.corner=corner;self.tab.window.settings.setValue('minimap/corner',corner);self.sync()
+        self.free_position=None;self.corner=corner;self.tab.window.settings.setValue('minimap/corner',corner);self.sync()
 
     def set_auto_scale(self,enabled):
         self.auto_scale=enabled;self.tab.window.settings.setValue('minimap/auto_scale',enabled)
