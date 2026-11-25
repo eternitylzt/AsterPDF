@@ -6,7 +6,7 @@ MuPDF scratch page measures each isolated object, so selection bounds are not
 guessed from text extraction order. No redaction, white rectangles or rasterizing.
 """
 from __future__ import annotations
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from .i18n import L
 import re
 import json
@@ -97,6 +97,12 @@ def operands(command):
     numeric = re.sub(rb'%[^\r\n]*', b'', command.raw).split()[:-1]
     if command.op in {'cm','Tm','Td','TD','Tc','Tw','Tz','TL','Tr','Ts','g','G','rg','RG','k','K','w','J','j','M','m','l','c','v','y','re'} and all(NUMBER.fullmatch(token) for token in numeric):
         return [float(token) for token in numeric]
+    if (command.op in ('Tf', 'Do') and numeric
+            and re.fullmatch(rb'/[A-Za-z0-9_.+-]+', numeric[0])):
+        if command.op == 'Tf' and len(numeric) == 2 and NUMBER.fullmatch(numeric[1]):
+            return [pp.Name(numeric[0].decode('ascii')), float(numeric[1])]
+        if command.op == 'Do' and len(numeric) == 1:
+            return [pp.Name(numeric[0].decode('ascii'))]
     probe = pp.Pdf.new()
     try:
         return list(pp.parse_content_stream(probe.make_stream(command.raw))[0].operands)
@@ -150,8 +156,82 @@ def _graphics_state_replay(block):
     return b'\n'.join(c.raw for c in commands(block) if c.op in state)
 
 
-def discover(document, page_index, progress=None, cancel=None, *, only_starts=None):
-    with pp.open(document.path) as pdf:
+def _independent_scopes(cmds):
+    """Recognize pages drawn as independent q...Q islands (common in generated PDFs).
+
+    A current path can survive Q. Only discard siblings if paths are consumed
+    and text/marked content is balanced at every outer boundary.
+    """
+    scopes = []
+    depth = marked = 0
+    text = path = False
+    for cmd in cmds:
+        op = cmd.op
+        if depth == 0:
+            if op != 'q':
+                return []
+            start = cmd.start
+        if op == 'q':
+            depth += 1
+        elif op == 'Q':
+            depth -= 1
+            if depth == 0:
+                if text or marked or path:
+                    return []
+                scopes.append((start, cmd.end))
+        elif op in PATH:
+            path = True
+        elif op == 'n' or op in PAINT:
+            path = False
+        elif op == 'BT':
+            if text:
+                return []
+            text = True
+        elif op == 'ET':
+            if not text:
+                return []
+            text = False
+        elif op in ('BDC', 'BMC'):
+            marked += 1
+        elif op == 'EMC':
+            marked -= 1
+            if marked < 0:
+                return []
+        elif op in ('BX', 'EX'):
+            return []
+    return scopes if not depth else []
+
+
+def _measurement_background(cmds):
+    """Keep state and clips, with a map from source boundaries to scratch offsets."""
+    unused_paths = set()
+    path = []
+    simple = True
+    for cmd in cmds:
+        if cmd.op in PATH:
+            path.append(cmd.start)
+        elif cmd.op in PAINT or cmd.op == 'n':
+            if simple:
+                unused_paths.update(path)
+            path.clear()
+            simple = True
+        elif path or cmd.op in ('W','W*'):
+            simple = False
+
+    offsets = {0: 0}
+    background = bytearray()
+    for cmd in cmds:
+        if cmd.op in PAINT:
+            background.extend(b'\nn\n')
+        elif cmd.start not in unused_paths and cmd.op not in ('Do','sh','Tj','TJ',"'",'"'):
+            background.extend(cmd.raw)
+            background.append(10)
+        offsets[cmd.end] = len(background)
+    return bytes(background), offsets
+
+
+def discover(document, page_index, progress=None, cancel=None, *, only_starts=None, reuse_ends=None):
+    with pp.open(document.path, access_mode=pp.AccessMode.mmap) as pdf:
         p = pdf.pages[page_index]
         data = content_bytes(p)
         cmds = commands(data)
@@ -227,19 +307,28 @@ def discover(document, page_index, progress=None, cancel=None, *, only_starts=No
         scratch.update_stream(xref, b'')
         sp.set_contents(xref)
         scratch.xref_set_key(sp.xref, 'Annots', '[]')
-        # Build the inert background once. Preserve byte offsets and graphics state.
-        masked = bytearray(data)
-        for c in cmds:
-            if c.op in PAINT or c.op in ('Do', 'sh', 'Tj', 'TJ', "'", '"'):
-                replacement = b'n' if c.op in PAINT else b''
-                masked[c.start:c.end] = replacement.rjust(c.end-c.start, b' ')
-        background = bytes(masked)
+        # Unrelated glyph strings and ordinary unpainted paths have no effect
+        # on the measured mark. Keep compound paths involved in clipping intact.
+        background, offsets = _measurement_background(cmds)
+        scopes = _independent_scopes(cmds)
+        scope_index = 0
         accepted = []
         if only_starts is not None:objects=[obj for obj in objects if obj.start in only_starts]
         for k, obj in enumerate(objects):
             if cancel and cancel():
                 break
-            isolated = background[:obj.start] + data[obj.start:obj.end] + background[obj.end:]
+            cached = reuse_ends.get(obj.end) if reuse_ends is not None else None
+            if cached is not None and (cached.kind, cached.ctm, cached.resource, cached.reason) == (obj.kind, obj.ctm, obj.resource, obj.reason):
+                accepted.append(replace(cached, id=obj.id, start=obj.start, end=obj.end, xref=obj.xref))
+                continue
+            left, right = 0, len(background)
+            if scopes:
+                while scope_index < len(scopes)-1 and scopes[scope_index][1] <= obj.start:
+                    scope_index += 1
+                scope_start, scope_end = scopes[scope_index]
+                if scope_start <= obj.start and obj.end <= scope_end:
+                    left, right = offsets[scope_start], offsets[scope_end]
+            isolated = background[left:offsets[obj.start]] + b'\n' + data[obj.start:obj.end] + b'\n' + background[offsets[obj.end]:right]
             # Scratch streams are never saved: compressing each one wastes most
             # of the discovery time on dense scientific plots.
             scratch.update_stream(xref, isolated, compress=False)
@@ -288,9 +377,39 @@ def discover(document, page_index, progress=None, cancel=None, *, only_starts=No
                             elif c.op in PAINT:filled=c.op in ('f','F','f*','B','B*','b','b*')
                         obj.details['vertices']=points;obj.details['hit_path']=hit_path;obj.details['filled']=filled
                     accepted.append(obj)
-            if progress:
+            if progress and (k % 16 == 0 or k+1 == len(objects)):
                 progress(k+1, len(objects))
         return accepted
+
+
+def refresh_text_edit(document, page, original, splice, models):
+    if splice is None or models is None:
+        return None
+    length, suffix_unchanged = splice
+    delta = length - (original.end - original.start)
+    reusable = {o.end: o for o in models if o.end <= original.start}
+    if suffix_unchanged:
+        reusable.update((o.end + delta, o) for o in models if o.start >= original.end)
+    result = discover(document, page, reuse_ends=reusable)
+    ids = {o.end if o.end <= original.start else o.end + delta: o.id
+           for o in models if o.end <= original.start or o.start >= original.end}
+    new_id = original.id if original.id >= 0 else max((o.id for o in models),default=-1)+1
+    for obj in result:
+        obj.id = ids.get(obj.end, new_id)
+    return result
+
+
+def refresh_appended(document, page, models):
+    previous = {obj.end: obj for obj in models}
+    result = discover(document,page,reuse_ends=previous)
+    next_id = max((o.id for o in models),default=-1)+1
+    for obj in result:
+        if obj.end in previous:
+            obj.id = previous[obj.end].id
+        else:
+            obj.id = next_id
+            next_id += 1
+    return result
 
 
 def _transform_bytes(data, obj, matrix):
@@ -345,9 +464,9 @@ def transform(document, page_index, selected, dx=0, dy=0, sx=1, sy=1, delete=Fal
             screen=screen*fitz.Matrix(1,0,0,1,-cx,-cy)*fitz.Matrix(rotate)*fitz.Matrix(1,0,0,1,cx,cy)
         matrix = coord * screen * ~coord
     changes={}
-    def mutate(pdf):
-        page = pdf.pages[page_index]
-        data = content_bytes(page)
+    independent_deletions=True
+    def rewrite(data):
+        nonlocal independent_deletions
         for obj in sorted(selected, key=lambda o: o.start, reverse=True):
             replacement = b'\n' if delete else _transform_bytes(data, obj, matrix)
             if not delete and obj.details.get('box'):
@@ -367,15 +486,25 @@ def transform(document, page_index, selected, dx=0, dy=0, sx=1, sy=1, delete=Fal
             # Text state can persist across BT blocks. Deletion removes show operators
             # only; preserving font and spacing state protects subsequent content.
             if delete and obj.kind == 'text':
-                replacement = b'\n'.join(c.raw for c in commands(data[obj.start:obj.end])
-                                           if c.op not in ('Tj', 'TJ', "'", '"'))
+                block_commands = commands(data[obj.start:obj.end])
+                if any(c.op == '"' or (c.op == 'Tr' and int(operands(c)[0]) >= 4) for c in block_commands):
+                    independent_deletions=False
+                retained=[]
+                for cmd in block_commands:
+                    if cmd.op == '"':
+                        word,char=operands(cmd)[:2]
+                        retained.append(f'{word} Tw {char} Tc T*'.encode('ascii'))
+                    elif cmd.op == "'":retained.append(b'T*')
+                    elif cmd.op not in ('Tj','TJ'):retained.append(cmd.raw)
+                replacement=b'\n'.join(retained)
             elif delete and obj.kind=='vector':
                 replacement=b'\n'+_graphics_state_replay(data[obj.start:obj.end])+b'\n'
             changes[obj.id]=(obj.start,obj.end,len(replacement),replacement)
             data = data[:obj.start] + replacement + data[obj.end:]
-        page.Contents = pdf.make_stream(data)
-    document.edit('objects', mutate)
-    if all_objects is not None and all(o.kind!='text' for o in selected):
+        return data
+    document.edit_stream(page_index, 'objects', rewrite)
+    if all_objects is not None and (all(o.kind!='text' for o in selected) or
+            (delete and independent_deletions)):
         # Stroke joins and Form bounds must be measured after scaling/rotation.
         # Only the selected objects changed; retain other measured geometry.
         remeasure=not delete and (rotate or sx!=1 or sy!=1)
@@ -394,12 +523,13 @@ def transform(document, page_index, selected, dx=0, dy=0, sx=1, sy=1, delete=Fal
                 if 'vertices' in obj.details:
                     obj.details['vertices']=[(index,*(fitz.Point(x,y)*screen)) for index,x,y in obj.details['vertices']]
             else:
-                obj=copy.deepcopy(old);obj.start+=shift;obj.end+=shift
+                obj=replace(old,start=old.start+shift,end=old.end+shift)
             updated.append(obj)
-        with pp.open(document.path) as pdf:
-            resources=pdf.pages[page_index].Resources.get('/XObject',{})
-            for obj in updated:
-                if obj.resource and obj.resource in resources:obj.xref=resources[obj.resource].objgen[0]
+        if document.path not in document.incremental_snapshots and any(obj.resource for obj in updated):
+            with pp.open(document.path, access_mode=pp.AccessMode.mmap) as pdf:
+                resources=pdf.pages[page_index].Resources.get('/XObject',{})
+                for obj in updated:
+                    if obj.resource and obj.resource in resources:obj.xref=resources[obj.resource].objgen[0]
         if remeasure:
             # Cached IDs survive deletion; parser IDs do not. Match the new
             # byte positions, then retain the stable IDs used by the selection.
@@ -605,8 +735,8 @@ def move_vertex(document,page_index,obj,index,point):
         page=view[page_index];coord=fitz.Matrix(obj.ctm)*_page_coordinates(page)
         if abs(coord.a*coord.d-coord.b*coord.c)<1e-9:raise Unsupported('Singular transform')
         local=fitz.Point(point)*~coord
-    def mutate(pdf):
-        page=pdf.pages[page_index];data=content_bytes(page);block=data[obj.start:obj.end];cmd=commands(block)[index]
+    def rewrite(data):
+        block=data[obj.start:obj.end];cmd=commands(block)[index]
         if cmd.op not in ('m','l'):raise Unsupported('Only straight path endpoints can be changed')
         old=list(map(float,operands(cmd)))
         for part in reversed(commands(block)):
@@ -615,16 +745,16 @@ def move_vertex(document,page_index,obj,index,point):
             if max(abs(a-b) for a,b in zip(xy,old))<.0001:
                 replacement=f' {local.x:.8f} {local.y:.8f} {part.op} '.encode()
                 block=block[:part.start]+replacement+block[part.end:]
-        page.Contents=pdf.make_stream(data[:obj.start]+block+data[obj.end:])
-    document.edit('vector endpoint',mutate)
+        return data[:obj.start]+block+data[obj.end:]
+    document.edit_stream(page_index,'vector endpoint',rewrite)
 
 
 def set_stacking(document,page_index,selected,front=True):
     """Arrange chosen text/path/image/Form occurrences, retaining state and clips."""
     if not selected or any(o.kind not in ('image','group','text','vector') or o.end<=o.start or o.reason for o in selected):
         raise Unsupported(L('请选择可编辑的文字、图形或图片。','Select editable text, shapes or images.'))
-    def mutate(pdf):
-        page=pdf.pages[page_index];data=content_bytes(page);base=[];isolated=[]
+    def rewrite(data):
+        base=[];isolated=[]
         for c in commands(data):
             chosen=any(o.start<=c.start and c.end<=o.end for o in selected)
             if chosen and c.op in PAINT:base.append(b'n')
@@ -635,5 +765,5 @@ def set_stacking(document,page_index,selected,front=True):
             else:isolated.append(c.raw)
         original=b'\n'.join(base);layer=b'\n'.join(isolated)
         first,last=(original,layer) if front else (layer,original)
-        page.Contents=pdf.make_stream(b'q\n'+first+b'\nQ\nq\n'+last+b'\nQ\n')
-    document.edit('bring to front' if front else 'send to back',mutate)
+        return b'q\n'+first+b'\nQ\nq\n'+last+b'\nQ\n'
+    document.edit_stream(page_index,'bring to front' if front else 'send to back',rewrite)

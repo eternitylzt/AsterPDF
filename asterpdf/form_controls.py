@@ -27,6 +27,8 @@ class FormControls(QObject):
     def reload(self):
         t=self.tab
         if self.loading or self.writing or t.closed or t.busy:return
+        if self.revision == t.document.revision-1 and t.document.stable_references_revision == t.document.revision:
+            self.revision=t.document.revision;return
         if not t.info.get('has_forms'):self.revision=t.document.revision;self.fields=[];return
         self.loading=True;revision=t.document.revision
         def done(data):

@@ -75,7 +75,8 @@ class PropertiesMixin:
         kind,stroke,fill,width=self.shape_values()
         def done(_):
             self.canvas.selected=[];self.pending_shape_selection=True;self.set_mode('objects')
-        self.run(tr('vector_edit'),lambda j:figures.draw_shape(self.document,page,rect,kind,stroke,fill,width,self.shape_properties.inputs['dash'].currentData()),done,editing=True,local_edit=True)
+        dash=self.shape_properties.inputs['dash'].currentData()
+        self.run(tr('vector_edit'),lambda j:figures.draw_shape(self.document,page,rect,kind,stroke,fill,width,dash),done,editing=True,appending=page==self.canvas.page,local_edit=True)
 
     def rotate_shapes(self,angle):
         selected=[o for o in self.selected_objects() if o.kind in ('vector','group')]

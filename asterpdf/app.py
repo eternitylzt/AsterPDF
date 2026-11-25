@@ -9,6 +9,7 @@ import urllib.request
 from PySide6.QtCore import Qt, QSettings, QStandardPaths, QTimer, QUrl, QEvent, QTranslator, QLibraryInfo
 from PySide6.QtGui import QAction, QIcon, QKeySequence, QDesktopServices, QFont, QCursor, QPalette, QColor
 from PySide6.QtSvgWidgets import QSvgWidget
+from shiboken6 import isValid
 from PySide6.QtWidgets import (QApplication, QMainWindow, QTabWidget, QWidget, QVBoxLayout,
     QLabel, QPushButton, QFileDialog, QMessageBox, QInputDialog, QDialog, QHBoxLayout, QLineEdit, QTextEdit, QPlainTextEdit, QAbstractSpinBox, QComboBox, QTabBar, QToolButton, QMenu, QStyle, QListWidget, QListWidgetItem, QTreeWidget, QTreeWidgetItem, QHeaderView, QCheckBox)
 from . import __version__, i18n
@@ -295,10 +296,12 @@ class Window(QMainWindow):
         self.queue.submit(lambda j:merge_files(files,target),lambda _:self.open_file(target),lambda e:QMessageBox.warning(self,'AsterPDF',str(e)),self.statusBar().clearMessage,priority=2)
 
     def eventFilter(self,obj,event):
-        from shiboken6 import isValid
+        kind=event.type()
+        if kind not in (QEvent.Resize,QEvent.LayoutRequest,QEvent.KeyPress):return False
         if hasattr(self,'tabs') and not isValid(self.tabs):return False
-        if event.type() in (QEvent.Resize,QEvent.LayoutRequest) and hasattr(self,'tabs') and obj in (self.tabs,self.tabs.tabBar()):self.corner_timer.start(0)
-        if event.type()!=QEvent.KeyPress:return False
+        if kind!=QEvent.KeyPress:
+            if hasattr(self,'tabs') and obj in (self.tabs,self.tabs.tabBar()):self.corner_timer.start(0)
+            return False
         tab=self.current()
         if not tab or not isinstance(obj,QWidget) or QWidget.window(obj)!=self:return super().eventFilter(obj,event)
         if hasattr(tab,'forms') and obj is tab.canvas and tab.forms.enabled() and event.key() in (Qt.Key_Tab,Qt.Key_Backtab):
@@ -843,7 +846,9 @@ class Window(QMainWindow):
 
     def open_recovery(self,data,manifest):
         def work(job):
-            doc=Document(data['revision'],self.recovery_root);doc.original=data['original'];doc.saved_revision='';doc._metadata();return doc,doc.info()
+            doc=Document(data['revision'],self.recovery_root);doc.original=data['original'];doc.saved_revision=''
+            if data.get('compact_on_save'):doc.incremental_snapshots.add(doc.path)
+            doc._metadata();return doc,doc.info()
         def done(result):
             doc,info=result;tab=DocumentTab(self,doc,info);index=self.tabs.addTab(tab,Path(doc.original).name+' *');self.tabs.setCurrentIndex(index)
             if data.get('form_draft'):

@@ -1,5 +1,6 @@
 from __future__ import annotations
 from collections import OrderedDict
+from bisect import bisect_left, bisect_right
 import math
 import sys
 from PySide6.QtCore import Qt, QRectF, QPointF, Signal, QSize, QTimer, QEvent
@@ -85,6 +86,8 @@ class Canvas(QWidget):
         self.page = 0
         self.sizes = []
         self.rects = []
+        self.row_tops, self.row_bottoms, self.layout_rows = [], [], []
+        self._seams = None
         self.cache = OrderedDict()
         self.pending = set()
         self.failed = {}
@@ -167,14 +170,19 @@ class Canvas(QWidget):
         if not self.continuous and rows:
             height=max(self.sizes[i][1]*self.scale for i in rows[0])
             y=inset+max(16,(viewport_height-inset-height)/2)
+        self.row_tops, self.row_bottoms, self.layout_rows = [], [], rows
+        self._seams = None
         for row in rows:
+            self.row_tops.append(y)
             rowwidth = sum(self.sizes[i][0]*self.scale for i in row)+gap_x*(len(row)-1)
             x = (width-rowwidth)/2
             for i in row:
                 w,h = self.sizes[i]
                 self.rects[i] = QRectF(x,y,w*self.scale,h*self.scale)
                 x += w*self.scale+gap_x
-            y += max(self.sizes[i][1]*self.scale for i in row)+gap_y
+            y += max(self.sizes[i][1]*self.scale for i in row)
+            self.row_bottoms.append(y)
+            y += gap_y
         self.resize(width, max(int(y if self.continuous else max((r.bottom()+16 for r in self.rects),default=0)), viewport_height))
         self.laying_out = False
         self.tab.position_video()
@@ -182,9 +190,16 @@ class Canvas(QWidget):
         self.tab.scroll.sync_document_bar()
         self.update()
 
+    def pages_between(self, top, bottom):
+        first = bisect_left(self.row_bottoms, top)
+        end = bisect_right(self.row_tops, bottom)
+        for row in self.layout_rows[first:end]:
+            yield from row
+
     def locate(self, point):
         point=QPointF(point)
-        for i, rect in enumerate(self.rects):
+        for i in self.pages_between(point.y(), point.y()):
+            rect = self.rects[i]
             if rect.contains(point):
                 return i, (point-rect.topLeft()) / self.scale
         return -1, QPointF()
@@ -264,8 +279,10 @@ class Canvas(QWidget):
         painter.setRenderHint(QPainter.Antialiasing)
         painter.setRenderHint(QPainter.SmoothPixmapTransform)
         visible = []
-        for i, rect in enumerate(self.rects):
-            if rect.isEmpty() or not rect.intersects(QRectF(event.rect())):
+        exposed = QRectF(event.rect())
+        for i in self.pages_between(exposed.top(), exposed.bottom()):
+            rect = self.rects[i]
+            if not rect.intersects(exposed):
                 continue
             visible.append(i)
             if not self.compact_pages:painter.fillRect(rect.translated(0, 3), QColor(0, 0, 0, 22))
@@ -433,7 +450,9 @@ class Canvas(QWidget):
         if self.laying_out or not self.continuous: return
         top = self.tab.scroll.verticalScrollBar().value()
         mid = top + min(200, self.tab.scroll.viewport().height()/3)
-        for i, rect in enumerate(self.rects):
+        row = bisect_left(self.row_bottoms, mid)
+        for i in self.layout_rows[row] if row < len(self.layout_rows) else ():
+            rect = self.rects[i]
             if not rect.isEmpty() and rect.bottom() >= mid:
                 if i != self.page:
                     self.page = i; self.pageChanged.emit(i)
@@ -755,6 +774,8 @@ class Canvas(QWidget):
         elif self.rects:bar.setValue(round(self.rects[self.page].top()+offset))
 
     def page_seams(self):
+        if self._seams is not None:
+            return self._seams
         seams=[];rows=[]
         for i in range(0,len(self.rects),self.columns):
             row=[r for r in self.rects[i:i+self.columns] if not r.isEmpty()]
@@ -768,6 +789,7 @@ class Canvas(QWidget):
                 bottom=max(r.bottom() for r in row);top=min(r.top() for r in following)
                 left=max(min(r.left() for r in row),min(r.left() for r in following));right=min(max(r.right() for r in row),max(r.right() for r in following));y=(bottom+top)/2
                 seams.append((QRectF(left,bottom-5,right-left,top-bottom+10),QPointF(left,y),QPointF(right,y),'y'))
+        self._seams = seams
         return seams
 
     def seam_at(self,point):return next((i for i,(hit,*_) in enumerate(self.page_seams()) if hit.contains(point)),None)

@@ -248,7 +248,8 @@ class TextEditingMixin:
 
     def start_inline(self,obj):
         import copy
-        obj=copy.deepcopy(obj)
+        obj=copy.copy(obj);obj.details=dict(obj.details)
+        if 'box' in obj.details:obj.details['box']=copy.deepcopy(obj.details['box'])
         if self.suspended_inline:
             self.restore_inline()
             if self.inline_object.id==obj.id and self.inline_page==self.canvas.object_page:return
@@ -265,10 +266,12 @@ class TextEditingMixin:
         editor.ensurePolished()
         spans=obj.details.get('spans',[]);cursor=editor.textCursor()
         if obj.details.get('edit_styles'):
-            for ch,style in obj.details['edit_styles']:
+            from itertools import groupby
+            for style, group in groupby(obj.details['edit_styles'], key=lambda entry:entry[1]):
+                text=''.join(ch for ch,_ in group)
                 if style:
-                    family,size,bold,italic,color=style;cursor.insertText(ch,self.format_for(family,size,color,bold,italic))
-                else:cursor.insertText(ch)
+                    family,size,bold,italic,color=style;cursor.insertText(text,self.format_for(family,size,color,bold,italic))
+                else:cursor.insertText(text)
         elif spans:
             last_line=spans[0]['line']
             for span in spans:
@@ -298,8 +301,14 @@ class TextEditingMixin:
         box=self.canvas.page_rect(self.inline_page,self.inline_object.bbox).adjusted(-4,-4,18,4)
         glyphs=getattr(self.inline_editor,'preview_glyphs',self.inline_object.details.get('glyphs',[]))
         if glyphs:
-            bounds=QRectF()
-            for g in glyphs:bounds=bounds.united(self.canvas.page_rect(self.inline_page,g[3]))
+            editor=self.inline_editor
+            if getattr(editor,'bound_glyphs',None) is not glyphs:
+                import pymupdf as fitz
+                bounds=fitz.Rect(glyphs[0][3])
+                for glyph in glyphs[1:]:bounds |= fitz.Rect(glyph[3])
+                rotation=fitz.Matrix(self.inline_object.details.get('page_rotation_matrix',(1,0,0,1,0,0)))
+                editor.bound_glyphs=glyphs;editor.glyph_bounds=tuple(bounds*rotation)
+            bounds=self.canvas.page_rect(self.inline_page,editor.glyph_bounds)
             box=box.united(bounds.adjusted(-4,-4,18,4))
         if hasattr(self.inline_editor,'preview_bounds'):
             x,y,w,h=self.inline_editor.preview_bounds;box=box.united(self.canvas.page_rect(self.inline_page,(x,y,x+w,y+h)).adjusted(-2,-2,2,2))
@@ -327,7 +336,12 @@ class TextEditingMixin:
         return lines
 
     def text_signature(self):
-        return tuple(text_patch.characters(self.text_runs()))
+        editor=self.inline_editor
+        revision=editor.document().revision()
+        if getattr(editor,'signature_revision',None)!=revision:
+            editor.signature=tuple(text_patch.characters(self.text_runs()))
+            editor.signature_revision=revision
+        return editor.signature
 
     def inline_dirty(self):return self.inline_editor is not None and (self.text_signature()!=self.inline_initial or getattr(self.inline_editor,'box_changed',False))
 
@@ -369,11 +383,14 @@ class TextEditingMixin:
             for name in ('preview_glyphs','preview_text'):
                 if hasattr(self.inline_editor,name):delattr(self.inline_editor,name)
             self.inline_editor.preview_timer.stop()
-        else:self.inline_editor.preview_timer.start(120)
+        else:self.inline_editor.preview_timer.start(24)
         self.inline_editor.recovery_timer.start(350)
 
     def resolve_inline_fonts(self,lines):
         buffers={};substitutes=set();split_fonts={}
+        runs=list(run for line in lines for run in line if run['text']) if self.inline_object.details.get('box') else list(text_patch.changed_runs(self.inline_original_runs,lines))
+        if not runs:
+            return substitutes
         editor=getattr(self,'inline_editor',None)
         installed=tuple(QFontDatabase.families())
         token=(str(self.document.path),installed)
@@ -395,7 +412,6 @@ class TextEditingMixin:
             data,actual=buffers[key]
             if actual!=key[0]:substitutes.add(actual)
             return data
-        runs=list(run for line in lines for run in line if run['text']) if self.inline_object.details.get('box') else list(text_patch.changed_runs(self.inline_original_runs,lines))
         for run in runs:
             if self.inline_object.details.get('box'):run['delta_text']=run['text']
             key=(run['family'],run['bold'],run['italic'],run['delta_text'])
@@ -440,7 +456,8 @@ class TextEditingMixin:
         if not ENGINE_LOCK.acquire(blocking=False):
             editor.preview_timer.start(40);return
         import copy
-        serial=editor.preview_serial;lines=self.text_runs();old=self.inline_original_runs;obj=copy.deepcopy(self.inline_object);page=self.inline_page
+        serial=editor.preview_serial;lines=self.text_runs();old=self.inline_original_runs;obj=copy.copy(self.inline_object);obj.details=dict(obj.details);page=self.inline_page
+        if 'box' in obj.details:obj.details['box']=dict(obj.details['box'])
         try:substitutes=self.resolve_inline_fonts(lines)
         except (ValueError,RuntimeError) as error:self.draft_notice.setText(str(error));return
         finally:ENGINE_LOCK.release()
@@ -452,7 +469,9 @@ class TextEditingMixin:
         def failed(message):
             if self.inline_editor is editor and editor.preview_serial==serial:self.draft_notice.setText(message)
         scale=self.canvas.scale*self.canvas.devicePixelRatioF()
-        source=SimpleNamespace(path=self.inline_source_path)
+        if not hasattr(editor, 'preview_source'):
+            editor.preview_source = SimpleNamespace(path=self.inline_source_path, cache_preview=True)
+        source = editor.preview_source
         def finished():
             editor.preview_job=None
             if self.inline_editor is editor and editor.preview_serial!=serial and not editor.isReadOnly() and not editor.property('original_preview') and not editor.preview_timer.isActive() and not getattr(editor,'commit_pending',False):
@@ -481,11 +500,11 @@ class TextEditingMixin:
 
     def persist_recovery_draft(self):
         if not self.inline_editor:return
-        from dataclasses import asdict
         from .core import atomic_json
         path=self.document.folder/'draft.json'
         if not self.inline_dirty():path.unlink(missing_ok=True);return
-        atomic_json(path,{'page':self.inline_page,'object':asdict(self.inline_object),'runs':self.text_runs(),'original':self.inline_original_runs,'source':self.inline_source_path})
+        atomic_json(path,{'page':self.inline_page,'object':vars(self.inline_object),'runs':self.text_runs(),
+                          'original':self.inline_original_runs,'source':self.inline_source_path}, compact=True)
 
     def restore_recovery_draft(self,data):
         self.goto(data['page']);self.active_panel='objects';self.editing_objects=True;self.canvas.mode='objects';self.canvas.object_page=data['page']
@@ -570,4 +589,8 @@ class TextEditingMixin:
             self.draft_notice.setText(message)
             if on_failure:on_failure()
         original=self.inline_original_runs
-        self.run(tr('modify'),lambda j:text_patch.apply(self.document,page,obj,original,lines),done,editing=True,failure=failed,local_edit=True)
+        models = self.object_cache.get((self.document.revision, page))
+        def apply_edit(job):
+            splice = text_patch.apply(self.document,page,obj,original,lines)
+            return objects.refresh_text_edit(self.document,page,obj,splice,models)
+        self.run(tr('modify'),apply_edit,done,editing=True,failure=failed,fast_objects=True)

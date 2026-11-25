@@ -5,7 +5,7 @@ import pymupdf as fitz
 from .objects import content_bytes,commands,PAINT
 
 def copy_pdf(document,page,selected):
-    with pp.open(document.path) as source,pp.Pdf.new() as result:
+    with pp.open(document.path, access_mode=pp.AccessMode.mmap) as source,pp.Pdf.new() as result:
         result.pages.append(source.pages[page]);p=result.pages[0];data=content_bytes(p);parts=[]
         for c in commands(data):
             inside=any(o.start<=c.start and c.end<=o.end for o in selected)

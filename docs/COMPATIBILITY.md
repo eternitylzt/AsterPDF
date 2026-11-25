@@ -1,4 +1,4 @@
-# AsterPDF 1.3.8 compatibility / 兼容性
+# AsterPDF 1.3.9 compatibility / 兼容性
 
 ## Trackpad, reload and command line / 触控板、刷新与命令行
 

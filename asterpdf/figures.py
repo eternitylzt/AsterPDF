@@ -66,12 +66,12 @@ def draw_shape(document,page,rect,kind,color,fill,width,dash='solid'):
             shape.draw_polyline(points+[points[0]])
         shape.finish(color=color,fill=fill if kind!='line' else None,width=width,dashes=DASHES.get(dash,'[] 0'),closePath=kind!='line');shape.commit()
         data=p.read_contents()
-    def mutate(pdf):
+    def rewrite(original):
         from .text_boxes import final_ctm
-        target=pdf.pages[page];original=content_bytes(target);inverse=~fitz.Matrix(final_ctm(original))
+        inverse=~fitz.Matrix(final_ctm(original))
         prefix=('\nq '+' '.join(f'{v:.9f}' for v in inverse)+' cm\n').encode()
-        target.Contents=pdf.make_stream(original+prefix+data+b'\nQ\n')
-    document.edit('draw vector shape',mutate)
+        return original+prefix+data+b'\nQ\n'
+    document.edit_stream(page,'draw vector shape',rewrite)
 
 def style_vectors(document,page,selected,color,fill,width,dash='solid'):
     from .objects import _graphics_state_replay
@@ -79,8 +79,7 @@ def style_vectors(document,page,selected,color,fill,width,dash='solid'):
     for obj in selected:
         if obj.reason:raise Unsupported(obj.reason)
     stroke=(' '.join(map(str,color))+' RG '+str(width)+' w '+DASHES.get(dash,'[] 0')+' d\n').encode();paint=(' '.join(map(str,fill))+' rg\n').encode() if fill is not None else b''
-    def mutate(pdf):
-        p=pdf.pages[page];data=content_bytes(p)
+    def rewrite(data):
         for o in sorted(selected,key=lambda o:o.start,reverse=True):
             block=data[o.start:o.end];parsed=commands(block);parts=[]
             if any(c.op in ('cm','q','Q') for c in parsed):
@@ -93,8 +92,8 @@ def style_vectors(document,page,selected,color,fill,width,dash='solid'):
                     parts.append(paint_op.encode())
                 else:parts.append(c.raw)
             data=data[:o.start]+b' q '+stroke+paint+b'\n'.join(parts)+b' Q '+_graphics_state_replay(block)+data[o.end:]
-        p.Contents=pdf.make_stream(data)
-    document.edit('style vectors',mutate)
+        return data
+    document.edit_stream(page,'style vectors',rewrite)
 
 
 def rotate(document,page,selected,angle,all_objects=None):

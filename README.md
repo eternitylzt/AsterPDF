@@ -37,17 +37,17 @@ No account. No cloud dependency. PDF processing stays on your computer.
 - **Markdown:** opens inside AsterPDF first, then asks whether to open a local HTML preview in the default browser. Remember Yes or No with “Do not ask again”; Preferences → Markdown offers Ask each time / Always open / Stay in AsterPDF. Save As offers HTML or PDF (A4 by default, or one long page). HTML embeds loaded images and formulas for sharing and reflects the opened Markdown snapshot; save subsequent PDF edits/annotations as PDF. In-app reading defaults to a long page with heading outlines, and edited PDFs retain their current layout.
 - **Page gaps:** double-click between pages to remove the spacing, and double-click the faint divider to restore it. Hover cursors indicate collapse/expand. Also available in View → Hide / show page gaps. This changes display spacing only, not the page's own white margins or PDF content.
 
-## 1.3.8 · Latest improvements
+## 1.3.9 · Latest improvements
 
-- Terminal commands return immediately and open files as tabs in the existing window, keeping unsaved edits intact.
-- Use the system interface font on macOS instead of looking up a missing Windows font.
-- Clearer per-user command installation with no `sudo`; existing same-path launchers are upgraded automatically.
+- Long documents paint the reading page first and look up visible pages as you scroll.
+- Common text deletions retain the original glyph codes. Moving, resizing and deleting objects can update a single page stream.
+- Repeated edits reuse measured objects and text preview resources, with undo, recovery and save support.
 
 ## Run
 
 [Linux installation: deb / rpm / portable](docs/LINUX.md)
 
-**Windows x64:** extract the complete `AsterPDF-1.3.8-windows-amd64.zip`, then run `AsterPDF/AsterPDF.exe`. Keep the accompanying `_internal` folder. No Python installation is required; the executable is unsigned.
+**Windows x64:** extract the complete `AsterPDF-1.3.9-windows-amd64.zip`, then run `AsterPDF/AsterPDF.exe`. Keep the accompanying `_internal` folder. No Python installation is required; the executable is unsigned.
 
 **macOS / Linux:** download the native archive from the GitHub Release. The automated build verifies packaging on each target; see the validation and compatibility documents for the features tested on real desktops.
 

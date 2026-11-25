@@ -69,12 +69,11 @@ def _glyph_metrics(document,page_index,obj,trace):
     scaling. That scalar alone cannot describe a compressed/stretched font.
     """
     from .objects import commands,operands,content_bytes
-    with pp.open(document.path) as pdf:
+    with pp.open(document.path, access_mode=pp.AccessMode.mmap) as pdf:
         page=pdf.pages[page_index];data=content_bytes(page);fonts=page.Resources.get('/Font',{})
         ctm=fitz.Matrix(1,0,0,1,0,0);axes=fitz.Matrix(ctm);stack=[]
         font=None;size=12.;tc=tw=0.;horizontal=100.;graphics=b'';out=[];marked=[];word_override=None
-        for cmd in commands(data):
-            if cmd.start>=obj.end:break
+        for cmd in commands(data[:obj.end]):
             args=operands(cmd) if cmd.op in ('Tf','Tc','Tw','Tz','Tm','cm','"') else None
             if cmd.op in ('BMC','BDC'):
                 marked.append(word_override);args=operands(cmd)
@@ -134,6 +133,85 @@ def _spacing_marker(tw):
     return f'\n/AsterSpacing << /WordSpacing {tw:.9f} >> BDC\n'.encode()
 
 
+def _simple_deletion(document, page_index, obj, old, new, trace):
+    """Splice a native run or trim its tail across successive text-show operators."""
+    from .objects import commands, content_bytes, operands
+    if len(new) >= len(old) or obj.details.get('edit_styles'):
+        return None
+    start = next((n for n, pair in enumerate(zip(old, new)) if pair[0] != pair[1]), len(new))
+    stop = start + len(old) - len(new)
+    if old[stop:] != new[start:] or any(ch == '\n' for ch, _ in old[start:stop]):
+        return None
+    if any(record[1] < 0 for record in trace):
+        return None
+    mapping = glyph_mapping(''.join(ch for ch, _ in old), ''.join(chr(g[0]) for g in trace))
+    if mapping is None or any(i not in mapping for i in range(start, stop)):
+        return None
+    first, last = mapping[start], mapping[stop-1] + 1
+    if last - first != stop - start:
+        return None
+    with pp.open(document.path, access_mode=pp.AccessMode.mmap) as pdf:
+        page = pdf.pages[page_index]
+        block = content_bytes(page)[obj.start:obj.end]
+        parsed = commands(block)
+        shows = [cmd for cmd in parsed if cmd.op in ('Tj', 'TJ', "'", '"')]
+        if not shows or any(cmd.op not in ('Tj', 'TJ') for cmd in shows):
+            return None
+        fonts = page.Resources.get('/Font', {})
+        step, position, previous = 0, 0, 0
+        line_end = last
+        baseline = trace[first][2][1]
+        if any(abs(record[2][1] - baseline) > .01 for record in trace[first:last]):
+            return None
+        while line_end < len(trace) and abs(trace[line_end][2][1] - baseline) <= .01:
+            line_end += 1
+        parts = []
+        for cmd in parsed:
+            if cmd.op in ('Tm', 'Td', 'TD', 'T*') and first < position < line_end:
+                # A later run on this baseline is independently positioned. It
+                # needs an explicit translation to close the gap after deletion.
+                return None
+            if cmd.op == 'Tf':
+                font = fonts.get(str(operands(cmd)[0]))
+                if font is None:
+                    return None
+                composite = str(font.get('/Subtype')) == '/Type0'
+                if composite and str(font.get('/Encoding')) != '/Identity-H':
+                    return None
+                step = 2 if composite else 1
+            elif cmd.op in ('gs', 'q', 'Q') or (cmd.op == 'Tr' and int(operands(cmd)[0]) >= 4):
+                return None
+            if cmd.op not in ('Tj', 'TJ'):
+                continue
+            if not step:
+                return None
+            args = operands(cmd)
+            items = list(args[0]) if cmd.op == 'TJ' else args
+            changed = False
+            for i, item in enumerate(items):
+                if not isinstance(item, pp.String):
+                    continue
+                raw = bytes(item)
+                if len(raw) % step:
+                    return None
+                length = len(raw) // step
+                lo, hi = max(0, first-position), min(length, last-position)
+                if lo < hi:
+                    if last < line_end and len(items) > 1 and (lo == 0 or hi == length):
+                        return None  # Kerning at a removed TJ boundary needs remeasurement.
+                    changed = True
+                    items[i] = pp.String(raw[:lo*step] + raw[hi*step:])
+                position += length
+            if changed:
+                shown = pp.Array(items) if cmd.op == 'TJ' else items[0]
+                parts.extend((block[previous:cmd.start], b'\n', shown.unparse(), b' ', cmd.op.encode()))
+                previous = cmd.end
+        if position != len(trace):
+            return None
+        parts.append(block[previous:])
+        return b''.join(parts)
+
+
 def apply(document,page_index,obj,old,new):
     from .objects import commands,operands,content_bytes
     from .fonts import set_unicode_map
@@ -147,6 +225,18 @@ def apply(document,page_index,obj,old,new):
         raise Unsupported(L('此旋转文字可整体移动或删除；逐字编辑暂仅支持水平文字。','Character edits require horizontal text; move or delete the entire block instead.'))
     trace=obj.details.get('glyphs',[])
     oldchars=characters(old);newchars=characters(new)
+    replacement = _simple_deletion(document, page_index, obj, oldchars, newchars, trace)
+    if replacement is not None:
+        def delete_codes(data):
+            return data[:obj.start] + replacement + data[obj.end:]
+        if hasattr(document, 'edit_stream'):
+            document.edit_stream(page_index, 'text ranges', delete_codes)
+        else:
+            def update_draft(pdf):
+                page = pdf.pages[page_index]
+                page.Contents = pdf.make_stream(delete_codes(content_bytes(page)))
+            document.edit('text ranges', update_draft)
+        return len(replacement), True
     original=''.join(c for c,_ in oldchars);painted=''.join(chr(c[0]) for c in trace)
     mapping=glyph_mapping(original,painted)
     if mapping is None:
@@ -279,15 +369,23 @@ def apply(document,page_index,obj,old,new):
                 fonts[key][3]+=text;pos=end
             if not font_only:shift_by_y[ykey]=shift_by_y.get(ykey,0)+(anchor.x-start_x)-removed_width
         for name,xref,font,used in fonts.values():set_unicode_map(temp,xref,font,used)
-        temp.subset_fonts();authored=temp.tobytes()
+        if fonts:temp.subset_fonts()
+        authored=temp.tobytes()
 
+    splice = None
     def mutate(pdf):
+        nonlocal splice
         page=pdf.pages[page_index];data=content_bytes(page);fonts=page.Resources.get('/Font',{});parts=dict(authored_parts);glyph=0
         font=None;name='';size=12.;tc=tw=0.;stack=[];fill=b'0 g';stroke=b'0 G';render=0;horizontal=100.;graphics=b''
         ctm=fitz.Matrix(1,0,0,1,0,0);axes=fitz.Matrix(1,0,0,1,0,0)
         # Appending to a large journal BT block need not regenerate its thousands
         # of untouched glyphs. Retain its exact bytes and append only new runs.
         block=data[obj.start:obj.end]
+        # A matching outer Q restores any inherited text/graphics state before
+        # subsequent objects. Otherwise remeasure the suffix conservatively.
+        suffix = data[obj.end:].lstrip()
+        balanced = sum(c.op == 'q' for c in commands(block)) == sum(c.op == 'Q' for c in commands(block))
+        restored = balanced and suffix.split(None, 1)[:1] == [b'Q']
         append_only=newchars[:len(oldchars)]==oldchars and len(newchars)>len(oldchars) and all(c.op!='cm' for c in commands(block))
         if append_only:
             with pp.open(io.BytesIO(authored)) as authored_pdf:
@@ -297,9 +395,11 @@ def apply(document,page_index,obj,old,new):
             inv=~fitz.Matrix(obj.ctm);prefix=('\nq '+' '.join(f'{v:.9f}' for v in inv)+' cm\n').encode()
             metadata=pp.String(json.dumps(newchars,ensure_ascii=True,separators=(',',':'))).unparse()
             replacement=b'\n/AsterText << /Styles '+metadata+b' >> BDC\n'+block+prefix+b'\n'.join(authored_parts[key] for key in sorted(authored_parts))+b'\nQ\nEMC\n'
-            page.Contents=pdf.make_stream(data[:obj.start]+replacement+data[obj.end:]);return
+            page.Contents=pdf.make_stream(data[:obj.start]+replacement+data[obj.end:])
+            splice = len(replacement), restored
+            return
         with fitz.open(document.path) as original_pdf:to_pdf=~original_pdf[page_index].transformation_matrix
-        for cmd in commands(data):
+        for cmd in commands(data[:obj.end]):
             args=None
             if cmd.op in ('Tf','Tc','Tw','Tr','Tz','Tm','cm'):args=operands(cmd)
             if cmd.op=='q':stack.append((font,name,size,tc,tw,fill,stroke,render,horizontal,fitz.Matrix(ctm),graphics))
@@ -372,4 +472,14 @@ def apply(document,page_index,obj,old,new):
             metadata=pp.String(json.dumps(newchars,ensure_ascii=True,separators=(',',':'))).unparse()
             replacement=b'\n/AsterText << /Styles '+metadata+b' >> BDC\n'+prefix+b'\n'.join(parts[key] for key in sorted(parts))+b'\nQ\n'+clean+b'\nEMC\n'
             page.Contents=pdf.make_stream(data[:obj.start]+replacement+data[obj.end:])
-    document.edit('text ranges',mutate)
+            splice = len(replacement), restored
+    if not fonts and hasattr(document, 'edit_stream'):
+        # Retained glyphs and their paint styles only refer to existing page
+        # resources. The same transactional page writer can commit their bytes.
+        with pp.open(document.path, access_mode=pp.AccessMode.mmap) as pdf:
+            mutate(pdf)
+            contents=pdf.pages[page_index].Contents.read_bytes()
+        document.edit_stream(page_index, 'text ranges', lambda _:contents)
+    else:
+        document.edit('text ranges',mutate)
+    return splice

@@ -46,7 +46,11 @@ def field_name(annotation):
     return '.'.join(parts)
 
 
-def _javascript_strings(pdf):
+ACTION_KEYS = ('/AA', '/A', '/PO', '/PV', '/O', '/D', '/U', '/Next', '/OpenAction',
+               '/Names', '/JavaScript', '/Kids', '/JS')
+
+
+def _javascript_strings(pdf, page_indices):
     # Inspect only /JS values, never decode every embedded image/video stream.
     seen = set()
     def visit(obj, depth=0):
@@ -69,12 +73,12 @@ def _javascript_strings(pdf):
                         yield raw.decode('latin1', errors='replace')
                 else:
                     yield str(js)[:2_000_000]
-            for key in ('/AA', '/A', '/PO', '/PV', '/O', '/D', '/U', '/Next', '/OpenAction',
-                        '/Names', '/JavaScript', '/Kids'):
+            for key in ACTION_KEYS[:-1]:
                 if key in obj:
                     yield from visit(obj[key], depth+1)
     yield from visit(pdf.Root)
-    for page in pdf.pages:
+    for index in page_indices:
+        page = pdf.pages[index]
         yield from visit(page.obj)
         for a in page.obj.get('/Annots', []):
             yield from visit(a)
@@ -92,12 +96,20 @@ def _name_tree(node):
 
 def scan(document):
     animations, media, warnings = [], [], []
-    with pp.open(document.path) as pdf, fitz.open(document.path) as view:
-        script = '\n'.join(_javascript_strings(pdf))
-        for i, page in enumerate(pdf.pages):
+    hints = document.scan_hints() if hasattr(document, 'scan_hints') else None
+    if hints is not None and not hints['interactive'] and not hints['catalog_media']:
+        return animations, media, warnings
+    with pp.open(document.path, access_mode=pp.AccessMode.mmap) as pdf, fitz.open(document.path) as view:
+        indices = range(len(pdf.pages)) if hints is None else hints['interactive']
+        script = '\n'.join(_javascript_strings(pdf, indices))
+        for i in indices:
+            page = pdf.pages[i]
+            annots = page.obj.get('/Annots', [])
+            if not any(str(a.get('/Subtype', '')) in ('/Widget','/RichMedia','/Movie','/Screen','/Sound') for a in annots):
+                continue
             groups, mains, controls = {}, {}, {}
             coord = view[i].transformation_matrix * view[i].rotation_matrix
-            for a in page.obj.get('/Annots', []):
+            for a in annots:
                 subtype = str(a.get('/Subtype', ''))
                 rect = tuple(fitz.Rect(list(map(float, a.get('/Rect', [0, 0, 1, 1])))) * coord)
                 name = field_name(a)
@@ -177,7 +189,7 @@ def prepare_animation(document, animation):
     destination = document.folder / f'animation-{document.revision}-{animation.page}-{animation.key}.pdf'
     if destination.exists():
         return str(destination)
-    with pp.open(document.path) as src, pp.Pdf.new() as dst:
+    with pp.open(document.path, access_mode=pp.AccessMode.mmap) as src, pp.Pdf.new() as dst:
         for xref in animation.frames:
             original = src.get_object((xref, 0))
             frame = dst.copy_foreign(original)
@@ -204,7 +216,7 @@ def extract_media(document, asset):
     suffix = Path(asset.name).suffix.lower()
     destination = document.folder / f'media-{document.revision}-{asset.xref}{suffix}'
     if not destination.exists():
-        with pp.open(document.path) as pdf:
+        with pp.open(document.path, access_mode=pp.AccessMode.mmap) as pdf:
             stream = pdf.get_object((asset.xref, 0))
             if int(stream.get('/Length', 0)) > 512 * 1024 * 1024:
                 raise Unsupported(L('内嵌媒体超过 512 MiB。','Embedded media exceeds 512 MiB'))

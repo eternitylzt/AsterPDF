@@ -1,5 +1,4 @@
 """Isolated PDF text drafts. No document revision or full-page reload per key."""
-import copy
 import io
 import tempfile
 from pathlib import Path
@@ -9,10 +8,10 @@ from . import objects,text_patch
 from .rendering import image_from_pixmap
 
 
-def render(document,page_index,obj,old,new,scale):
+def _base_pdf(document,page_index,obj):
     # Only the selected text's resources and state are copied. Images, media,
     # annotations and other page paint never enter the preview document.
-    with pp.open(document.path) as source,pp.Pdf.new() as pdf:
+    with pp.open(document.path, access_mode=pp.AccessMode.mmap) as source,pp.Pdf.new() as pdf:
         src=source.pages[page_index];page=pdf.add_blank_page(page_size=(612,792))
         for key in ('/MediaBox','/CropBox','/Rotate'):
             if key in src.obj:page.obj[key]=pp.Array(src.obj[key]) if key!='/Rotate' else src.obj[key]
@@ -24,7 +23,20 @@ def render(document,page_index,obj,old,new,scale):
             if not (obj.start<=cmd.start and cmd.end<=obj.end) and cmd.op in objects.PAINT|{'Do','sh','Tj','TJ',"'",'"'}:
                 isolated[cmd.start:cmd.end]=b' '*(cmd.end-cmd.start)
         page.Contents=pdf.make_stream(bytes(isolated))
-        out=io.BytesIO();pdf.save(out);base=out.getvalue()
+        out=io.BytesIO();pdf.save(out);return out.getvalue()
+
+
+def render(document,page_index,obj,old,new,scale):
+    # The editor owns this cache. The snapshot and selected range are immutable
+    # until it is closed. Geometry, styles and the authored result stay per keystroke.
+    key = (str(document.path), page_index, obj.start, obj.end)
+    cached = getattr(document, 'preview_base', None)
+    if cached and cached[0] == key:
+        base = cached[1]
+    else:
+        base = _base_pdf(document,page_index,obj)
+        if getattr(document, 'cache_preview', False):
+            document.preview_base = (key, base)
     # The patcher deliberately uses the same path as a real commit. The tiny
     # private scratch file is removed even if a font/encoding rejects the draft.
     with tempfile.TemporaryDirectory(prefix='aster-text-') as folder:
@@ -33,10 +45,10 @@ def render(document,page_index,obj,old,new,scale):
             path=Path(folder)/'text.pdf'
             result=base
             def edit(self,label,callback):
-                with pp.open(self.path) as pdf:
+                with pp.open(self.path, access_mode=pp.AccessMode.mmap) as pdf:
                     callback(pdf);out=io.BytesIO();pdf.save(out);self.result=out.getvalue()
         draft=Draft();draft.path.write_bytes(base)
-        text_patch.apply(draft,0,copy.deepcopy(obj),old,new)
+        text_patch.apply(draft,0,obj,old,new)
         with fitz.open(stream=draft.result,filetype='pdf') as pdf:
             p=pdf[0];traces=[]
             for trace in p.get_texttrace():

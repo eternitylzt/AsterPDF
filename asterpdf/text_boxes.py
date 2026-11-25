@@ -44,7 +44,9 @@ def apply(document,page_index,obj,lines):
         center=fitz.Point(x,y);angle=box.get('angle',0)
         turn=fitz.Matrix(1,0,0,1,-center.x,-center.y)*fitz.Matrix(angle)*fitz.Matrix(1,0,0,1,center.x,center.y)
         matrix=p.transformation_matrix*turn*src.derotation_matrix*~src.transformation_matrix
+    length = 0
     def mutate(pdf):
+        nonlocal length
         dst=pdf.pages[page_index];data=content_bytes(dst)
         with pp.open(io.BytesIO(authored)) as incoming:
             resource=pp.Dictionary(dst.Resources);fd=pp.Dictionary(resource.get('/Font',pp.Dictionary()))
@@ -54,5 +56,7 @@ def apply(document,page_index,obj,lines):
         fmt=lambda m:' '.join(f'{v:.9f}' for v in m).encode()
         meta=pp.String(json.dumps(characters(lines),ensure_ascii=True,separators=(',',':'))).unparse();frame=pp.String(json.dumps(box,separators=(',',':'))).unparse()
         block=b'\n/AsterText << /Styles '+meta+b' /Box '+frame+b' >> BDC\nq '+fmt(inverse)+b' cm\n'+fmt(matrix)+b' cm\n'+stream+b'\nQ\nEMC\n'
+        length = len(block)
         dst.Contents=pdf.make_stream(data[:obj.start]+block+data[obj.end:])
     document.edit('text box',mutate)
+    return length, True

@@ -144,9 +144,11 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
         self.canvas.sizes = info['sizes'];self.zoom_factor=self.state.get('zoom_factor',1.0);self.canvas.scale=self.zoom_factor*self.actual_size_scale();self.zoom.setCurrentText(f'{self.zoom_factor*100:.3g}%')
         if self.window.windowHandle():self.window.windowHandle().screenChanged.connect(self.screen_zoom_changed)
         self.canvas.layout_pages()
+        initial_page = max(0, min(self.state.get('page', 0), info['count']-1))
+        self.canvas.request_page(initial_page)
         self.populate_navigation()
-        self.goto(min(self.state.get('page', 0), info['count']-1))
-        self.queue.submit(lambda j: media.scan(document), self.media_scanned, self.error)
+        self.goto(initial_page)
+        self.queue.submit(lambda j: media.scan(document), self.media_scanned, self.error, priority=-1)
         self.thumbnail_timer = QTimer(self); self.thumbnail_timer.setSingleShot(True)
         self.thumbnail_timer.timeout.connect(self.load_thumbnails)
         self.thumbnail_timer.start(300)
@@ -457,12 +459,14 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
     def cancel_job(self):
         if self.job: self.job.cancelled = True
 
-    def run(self, label, function, success=None, editing=False, cancellable=False, failure=None, fast_objects=False,local_edit=False,page_update=None):
+    def run(self, label, function, success=None, editing=False, cancellable=False, failure=None, fast_objects=False,local_edit=False,page_update=None,appending=False):
         if hasattr(self,'forms') and self.forms.dirty and not self.forms.writing:
-            self.forms.flush(lambda:self.run(label,function,success,editing,cancellable,failure,fast_objects,local_edit,page_update));return
+            self.forms.flush(lambda:self.run(label,function,success,editing,cancellable,failure,fast_objects,local_edit,page_update,appending));return
         if self.busy: return
         self.busy = True
         edit_page=self.canvas.page
+        previous_models=self.object_cache.get((self.document.revision,edit_page)) if appending else None
+        if appending:fast_objects=True
         self.job_label = label
         self.pause_media()
         self.status.setText(label+' · '+tr('working'))
@@ -492,6 +496,8 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
             if self.editing_objects and self.canvas.mode=='objects' and not self.inline_editor and (editing or (label==tr('scan_objects') and getattr(self,'scan_target',self.canvas.page)!=self.canvas.page)):QTimer.singleShot(0,self.inspect_objects)
         def work(job):
             result = function(job)
+            if appending and previous_models is not None:
+                result=objects.refresh_appended(self.document,edit_page,previous_models)
             return (result,self.info if local_edit or fast_objects else self.document.info()) if editing else result
         self.job = self.queue.submit(work, done, failure or self.error, finished,
                          lambda n,total: (self.progress.setRange(0,total),self.progress.setValue(n)), priority=2)
@@ -545,6 +551,7 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
 
     def refresh_local(self,models=None,page=None):
         page=self.canvas.page if page is None else page;self.canvas.invalidate_page(page)
+        self.minimap.invalidate_page(page)
         self.object_cache.clear();self.image_cache.pop(page,None);self.links.pop(page,None)
         if models is not None:
             if self.canvas.page==page:self.canvas.objects=models;self.canvas.object_page=page
@@ -623,9 +630,9 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
                 if self.closed or revision!=self.document.revision:return
                 pix=QPixmap();pix.loadFromData(data)
                 for listing in (self.thumbnails,self.organizer):
-                    for n in range(listing.count()):
-                        it=listing.item(n)
-                        if it.data(Qt.UserRole)==page:it.setIcon(QIcon(pix));it.setData(Qt.UserRole+1,False);break
+                    it=listing.item(page)
+                    if it and it.data(Qt.UserRole)==page:
+                        it.setIcon(QIcon(pix));it.setData(Qt.UserRole+1,False)
             self.queue.submit(lambda j,p=page:self.document.render(p,300/self.info['sizes'][p][0]),done,priority=-2)
 
     def organize_pages(self):
@@ -1265,7 +1272,7 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
             if vector:insert_pdf(self.document,page,bounds,filename,source_page,keep)
             else:self.document.insert_image(page,bounds,filename,keep)
         def done(_):self.set_mode('objects');self.canvas.setToolTip('')
-        self.run(tr('add_image'),work,done,editing=True,local_edit=True)
+        self.run(tr('add_image'),work,done,editing=True,appending=page==self.canvas.page,local_edit=True)
 
     def copy_image(self,obj):
         import pymupdf as fitz
@@ -1341,11 +1348,21 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
         self.canvas.region=None;self.canvas.pending_annotation=None;self.canvas.invalidate(False);self.canvas.fallback.clear();self.canvas.update()
 
     def load_annotations(self,*_):
+        from .i18n import LANGUAGE
+        key = (self.document.revision, self.annotation_sort.currentData(), LANGUAGE)
+        if getattr(self, '_annotation_list_key', None) == key:
+            return
+        self._annotation_list_key = key
+        if (self.document.stable_references_revision == key[0]
+                and getattr(self, '_installed_annotations', None) == (key[0]-1, *key[1:])):
+            self._installed_annotations = key
+            return
         self.annotation_request=getattr(self,'annotation_request',0)+1;request=self.annotation_request
         revision=self.document.revision
         current=self.annotation_list.currentItem();selected_id=current.data(Qt.UserRole).get('id') if current else None
         def done(items):
             if self.closed or revision!=self.document.revision or request!=self.annotation_request:return
+            self._installed_annotations = key
             items=sorted(items,key=(lambda a:(a.get('created') or a.get('modified') or '',a['page'],a['rect'][1])) if self.annotation_sort.currentData()=='time' else (lambda a:(a['page'],a['rect'][1],a['rect'][0])))
             self.annotations_data=items;self.annotation_list.blockSignals(True);self.annotation_list.clear();self.annotation_text.clear();self.annotation_text.hide()
             for ann in items:
@@ -1361,7 +1378,11 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
             self.annotation_list.blockSignals(False);self.canvas.update()
             selected=self.annotation_list.currentItem()
             if selected and self.active_panel=='annotate' and selected.data(Qt.UserRole)['page']==self.canvas.page:self.annotation_selected(selected,navigate=False)
-        self.queue.submit(lambda j:self.document.annotations(),done,self.error)
+        def failed(message):
+            if self._annotation_list_key == key:
+                self._annotation_list_key = None
+            self.error(message)
+        self.queue.submit(lambda j:self.document.annotations(),done,failed)
 
     def annotation_selected(self,item,previous=None,navigate=True):
         self.annotation_style_timer.stop()
@@ -1482,14 +1503,14 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
             if action==replace:
                 filename,_=QFileDialog.getOpenFileName(self,tr('replace_image'),'',L('图片 (*.png *.jpg *.jpeg *.tif *.webp)','Images (*.png *.jpg *.jpeg *.tif *.webp)'))
                 keep_ratio=self.keep_image_ratio.isChecked()
-                if filename:self.run(tr('replace_image'),lambda j:objects.replace_image(self.document,page,obj,filename,keep_proportion=keep_ratio),editing=True)
+                if filename:self.run(tr('replace_image'),lambda j:objects.replace_image(self.document,page,obj,filename,keep_proportion=keep_ratio),editing=True,local_edit=True)
             elif action==extract:self.save_image_xref(page,obj.xref)
             elif action==move:self.transform_dialog()
         else:self.transform_dialog()
 
     def move_vertex(self,obj,index,point):
         page=self.canvas.object_page
-        self.run(tr("vector_edit"),lambda j:objects.move_vertex(self.document,page,obj,index,point),editing=True)
+        self.run(tr("vector_edit"),lambda j:objects.move_vertex(self.document,page,obj,index,point),editing=True,local_edit=True)
 
     def find_fonts(self):
         from .font_library import FontDialog
@@ -1507,6 +1528,7 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
 
     def media_scanned(self,result,invalidate=True):
         if self.closed:return
+        had_animations=bool(self.animations)
         self.animations,self.assets,self.media_warnings=result
         from .video_insert import refresh_selection
         refresh_selection(self)
@@ -1523,7 +1545,7 @@ class DocumentTab(QWidget,ChromeMixin,TextEditingMixin,PropertiesMixin,PageTools
             self.status.setText(L(f'⚠ {len(self.media_warnings)} 条媒体兼容性提示 · ⓘ',f'⚠ {len(self.media_warnings)} media notices · ⓘ'));self.status.setToolTip('\n'.join(self.media_warnings))
             self.media_label.setText('⚠ '+str(len(self.media_warnings)));self.media_label.setToolTip('\n'.join(self.media_warnings))
         self.rebuild_media_controls()
-        if invalidate:self.canvas.invalidate(False)
+        if invalidate and (had_animations or self.animations):self.canvas.invalidate(False)
         else:self.canvas.update()
 
     def export_embedded_media(self,asset,animation=False):

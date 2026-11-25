@@ -66,12 +66,15 @@ class DocumentMap(QWidget):
             self.page_count=len(t.canvas.sizes)
             if self.auto_scale:self.percent=5. if self.page_count>20 else 10.
         # Physical screen changes arrive as logical viewport changes; stay inside it.
-        if self.auto_size:
+        layout_key = (id(t.canvas.sizes), self.page_count, self.percent, t.canvas.columns)
+        if self.auto_size and getattr(self, '_natural_key', None) != layout_key:
             scale=self.percent/100*96/72;columns=t.canvas.columns
             rows=[t.canvas.sizes[i:i+columns] for i in range(0,len(t.canvas.sizes),columns)]
             natural_width=max((sum(w for w,h in row)*scale+5*(len(row)-1) for row in rows),default=80)+26
-            natural_height=sum(max(h for w,h in row)*scale+7 for row in rows)+self.HEADER+self.FOOTER+5
-            self.resize(round(max(100,min(natural_width,parent.width()-20))),round(max(100,min(natural_height,(parent.height()-inset)*.8,parent.height()-inset-20))))
+            self._natural_width = natural_width
+            self._natural_key = layout_key
+        if self.auto_size:
+            self.resize(round(max(100,min(self._natural_width,parent.width()-20))),self.height())
         width = min(max(100, self.width()), max(100, parent.width()-20))
         height = min(max(100, self.height()), max(100, parent.height()-inset-20))
         if (width,height) != (self.width(),self.height()):self.resize(width,height)
@@ -79,7 +82,7 @@ class DocumentMap(QWidget):
         y = inset+8 if self.corner.startswith('top') else max(inset+8,parent.height()-self.height()-8)
         if not self.drag or self.drag[0] != 'resize':self.move(x,y)
         self.raise_()
-        signature = (t.canvas.columns,t.document.revision, tuple(t.canvas.sizes), self.percent, self.width(), round(self.devicePixelRatioF(),3), t.night)
+        signature = (layout_key,t.document.revision,self.width(),round(self.devicePixelRatioF(),3),t.night)
         if signature != self.signature:
             if getattr(self,'preserve_next',False):self.preserve_next=False
             else:self.release()
@@ -116,6 +119,16 @@ class DocumentMap(QWidget):
         self.rail.setVisible(self.rail.maximum()>0);self.rail.raise_()
         self.update(); self.request_visible()
 
+    def invalidate_page(self,page):
+        if self.signature is None or self.signature[1] != self.tab.document.revision-1:
+            return
+        if self.pending:self.pending.cancelled=True
+        self.pending=None;self.generation+=1;self.failed.discard(page)
+        pix=self.cache.pop(page,None)
+        if pix:self.cache_bytes-=pix.width()*pix.height()*4
+        self.signature=(self.signature[0],self.tab.document.revision,*self.signature[2:])
+        self.update()
+
     def preserve_pages(self,mapping,changed):
         if self.pending:self.pending.cancelled=True
         self.pending=None;self.generation+=1
@@ -130,7 +143,8 @@ class DocumentMap(QWidget):
         canvas=self.tab.canvas; viewport=self.tab.scroll.viewport()
         origin=canvas.mapFrom(viewport,viewport.rect().topLeft())
         view=QRectF(origin.x(),origin.y()+getattr(self.tab,'reading_inset',0),viewport.width(),viewport.height()-getattr(self.tab,'reading_inset',0))
-        for page,rect in enumerate(canvas.rects):
+        for page in canvas.pages_between(view.top(), view.bottom()):
+            rect = canvas.rects[page]
             if page>=len(self.rects) or rect.isEmpty() or not rect.intersects(view):continue
             hit=rect.intersected(view); mini=self.rects[page]
             self.markers.append(QRectF(mini.x()+(hit.x()-rect.x())/rect.width()*mini.width(),

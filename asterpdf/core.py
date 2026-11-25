@@ -50,10 +50,12 @@ def pages_from_text(text: str, count: int) -> list[int]:
     return result
 
 
-def atomic_json(path: Path, data):
+def atomic_json(path: Path, data, *, compact=False):
     tmp = path.with_suffix('.tmp')
     with tmp.open('w',encoding='utf-8') as stream:
-        json.dump(data,stream,ensure_ascii=False,indent=2);stream.flush();os.fsync(stream.fileno())
+        stream.write(json.dumps(data,ensure_ascii=False,indent=None if compact else 2,
+                                separators=(',', ':') if compact else None))
+        stream.flush();os.fsync(stream.fileno())
     os.replace(tmp, path)
 
 
@@ -73,12 +75,11 @@ def annotation_inventory(pdf):
 
 
 def feature_warnings(pdf, structural=False):
-    counts = annotation_inventory(pdf)
     warnings = []
     if pdf.Root.get('/Perms'):
         warnings.append(L('编辑会使数字签名失效。','Digital signatures will be invalidated'))
     if structural and (pdf.Root.get('/AcroForm') or pdf.Root.get('/Names') or pdf.Root.get('/Outlines')
-                       or any(k in counts for k in ['/Link', '/RichMedia', '/Movie', '/Screen'])):
+                       or {'/Link', '/RichMedia', '/Movie', '/Screen'}.intersection(annotation_inventory(pdf))):
         warnings.append(L('页面重排、删除或导入可能影响依赖页码的脚本、目标和表单导航。导入/导出选页不会带入文档级脚本、目录与表单树；保留页的媒体与批注字典会保留。','Page order/deletion/import may change page-number based scripts, destinations and form navigation. Import/export of selected pages does not import document-level scripts, outlines or form trees. Existing page dictionaries, media and annotations are retained on kept pages.'))
     return warnings
 
@@ -92,12 +93,14 @@ class Document:
         from PySide6.QtCore import QLockFile
         self.session_lock=QLockFile(str(self.folder/'session.lock'));self.session_lock.setStaleLockTime(0);self.session_lock.tryLock(0)
         initial = self.folder / '0000.pdf'
-        with pp.open(filename, password=password) as pdf:
+        with pp.open(filename, password=password, access_mode=pp.AccessMode.mmap) as pdf:
             if pdf.is_encrypted:
                 # Editing encrypted documents is intentionally excluded from this release.
                 raise Unsupported(L('请先提供未加密的 PDF 副本。','Encrypted PDF: open an unencrypted local copy'))
         shutil.copyfile(filename, initial)
         self.history = [initial]
+        self.incremental_snapshots = set()
+        self.stable_references_revision = -1
         self.index = 0
         self.saved_revision = str(initial)
         self.serial = 0
@@ -114,18 +117,54 @@ class Document:
 
     def _metadata(self):
         atomic_json(self.folder / 'recovery.json', {'original': self.original,
-                    'revision': str(self.path), 'dirty': self.dirty})
+                    'revision': str(self.path), 'dirty': self.dirty,
+                    'compact_on_save': self.path in self.incremental_snapshots})
+
+    def scan_hints(self):
+        cached = getattr(self, '_page_hints', None)
+        return cached[1] if cached and cached[0] == self.path else None
 
     def info(self):
-        with fitz.open(self.path) as doc, pp.open(self.path) as pdf:
-            return {'count': len(doc), 'sizes': [(p.rect.width, p.rect.height) for p in doc],
-                    'toc': doc.get_toc(), 'toc_destinations': [entry[3] for entry in doc.get_toc(simple=False)], 'metadata': doc.metadata,
+        from .media import ACTION_KEYS
+        with fitz.open(self.path) as doc, pp.open(self.path, access_mode=pp.AccessMode.mmap) as pdf:
+            # Ask MuPDF for the inherited visible box and page transform without
+            # loading each page's links, annotations and appearance streams.
+            native = fitz.mupdf.pdf_specifics(doc.this)
+            box, matrix = fitz.mupdf.FzRect(), fitz.mupdf.FzMatrix()
+            sizes = []
+            for index in range(len(doc)):
+                ref = fitz.mupdf.pdf_lookup_page_obj(native, index)
+                fitz.mupdf.pdf_page_obj_transform(ref, box, matrix)
+                rect = fitz.Rect(box) * fitz.Matrix(matrix)
+                if rect.is_empty or rect.is_infinite:
+                    rect = doc[index].rect
+                sizes.append((rect.width, rect.height))
+            outline = doc.get_toc(simple=False)
+            counts, annotated, interactive = {}, [], []
+            action_keys = frozenset(ACTION_KEYS)
+            for index, page in enumerate(pdf.pages):
+                annots = page.obj.get('/Annots', [])
+                types = [str(a.get('/Subtype', 'Unknown')) for a in annots]
+                for kind in types:
+                    counts[kind] = counts.get(kind, 0) + 1
+                if any(t not in ('/Link', '/Widget', '/Popup') for t in types):
+                    annotated.append(index)
+                if types or not action_keys.isdisjoint(page.obj.keys()):
+                    interactive.append(index)
+            self._page_hints = self.path, dict(annotated=annotated, interactive=interactive,
+                catalog_media=any(k in pdf.Root for k in (*ACTION_KEYS, '/OCProperties')),
+                signed=bool(pdf.Root.get('/Perms')))
+            return {'count': len(doc), 'sizes': sizes,
+                    'toc': [entry[:3] for entry in outline], 'toc_destinations': [entry[3] for entry in outline], 'metadata': doc.metadata,
                     'has_forms': bool(pdf.Root.get('/AcroForm')),
-                    'annotations': annotation_inventory(pdf),
+                    'annotations': counts,
                     'warnings': feature_warnings(pdf)}
 
     def preflight(self, structural=False):
-        with pp.open(self.path) as pdf:
+        hints = self.scan_hints()
+        if not structural and hints is not None and not hints['signed']:
+            return []
+        with pp.open(self.path, access_mode=pp.AccessMode.mmap) as pdf:
             return feature_warnings(pdf, structural)
 
     def edit(self, label, callback):
@@ -133,7 +172,7 @@ class Document:
         self.serial += 1
         dest = self.folder / f'{self.serial:04d}.pdf'
         try:
-            with pp.open(self.path) as pdf:
+            with pp.open(self.path, access_mode=pp.AccessMode.mmap) as pdf:
                 callback(pdf)
                 if not pdf.pages:
                     raise ValueError(L('至少保留一页。','A PDF needs at least one page'))
@@ -144,6 +183,58 @@ class Document:
         except Exception:
             dest.unlink(missing_ok=True)
             raise
+        self._commit_revision(dest)
+        return label
+
+    def edit_stream(self, page_index, label, rewrite):
+        """Change one page's paint stream. Share no mutable state with history or sibling pages."""
+        from .objects import content_bytes
+        self.release_rendering()
+        self.serial += 1
+        dest = self.folder / f'{self.serial:04d}.pdf'
+        try:
+            shutil.copyfile(self.path, dest)
+            updated = None
+            with fitz.open(dest) as pdf:
+                incremental = pdf.can_save_incrementally() and pdf.version_count < 20
+                if incremental:
+                    page = pdf[page_index]
+                    # Match content_bytes(), including separators between stream objects.
+                    data = b'\n'.join(pdf.xref_stream(ref) for ref in page.get_contents())
+                    updated = rewrite(data)
+                    ref = pdf.get_new_xref()
+                    pdf.update_object(ref, '<<>>')
+                    pdf.update_stream(ref, updated)
+                    page.set_contents(ref)
+                    try:
+                        pdf.saveIncr()
+                    except RuntimeError:
+                        incremental = False
+            if not incremental:
+                with pp.open(self.path, access_mode=pp.AccessMode.mmap) as pdf:
+                    page = pdf.pages[page_index]
+                    page.Contents = pdf.make_stream(updated if updated is not None else rewrite(content_bytes(page)))
+                    pdf.save(dest)
+            with fitz.open(dest) as check:
+                if not check[page_index].get_contents():
+                    raise ValueError('Missing edited page stream')
+        except Exception:
+            dest.unlink(missing_ok=True)
+            raise
+        if incremental:
+            self.incremental_snapshots.add(dest)
+        hints = self.scan_hints()
+        self._commit_revision(dest)
+        if hints is not None:
+            self._page_hints = dest, hints
+        if incremental:
+            self.stable_references_revision = self.revision
+            cached = getattr(self, '_annotation_cache', None)
+            if cached and cached[0] == self.revision-1:
+                self._annotation_cache = self.revision, cached[1]
+        return label
+
+    def _commit_revision(self, dest):
         for obsolete in self.history[self.index + 1:]:
             obsolete.unlink(missing_ok=True)
         self.history = self.history[:self.index + 1] + [dest]
@@ -154,8 +245,8 @@ class Document:
             self.history.pop(0).unlink(missing_ok=True)
             self.index -= 1
         self.revision += 1
+        self.incremental_snapshots.intersection_update(self.history)
         self._metadata()
-        return label
 
     def undo(self):
         self.release_rendering()
@@ -176,11 +267,18 @@ class Document:
         if destination.suffix.lower()!='.pdf':raise ValueError(L('请另存为 PDF；源文件不会被覆盖。','Save as PDF; the source document will not be overwritten.'))
         fd, temporary = tempfile.mkstemp(prefix='.asterpdf-', suffix='.pdf', dir=destination.parent)
         try:
-            with os.fdopen(fd, 'wb') as out, self.path.open('rb') as src:
-                shutil.copyfileobj(src, out)
+            with os.fdopen(fd, 'wb') as out:
+                if self.path in self.incremental_snapshots:
+                    # Public saves contain only the live object graph. Old text and
+                    # superseded streams are private to the undo/recovery snapshots.
+                    with pp.open(self.path, access_mode=pp.AccessMode.mmap) as pdf:
+                        pdf.save(out)
+                else:
+                    with self.path.open('rb') as src:
+                        shutil.copyfileobj(src, out)
                 out.flush()
                 os.fsync(out.fileno())
-            with pp.open(temporary) as checked:
+            with pp.open(temporary, access_mode=pp.AccessMode.mmap) as checked:
                 if len(checked.pages) == 0:
                     raise ValueError('Invalid saved PDF')
             os.replace(temporary, destination)
@@ -337,7 +435,7 @@ class Document:
         return outputs
 
     def extract_pages(self, indices, destination, crop=None):
-        with pp.open(self.path) as src, pp.Pdf.new() as dst:
+        with pp.open(self.path, access_mode=pp.AccessMode.mmap) as src, pp.Pdf.new() as dst:
             for i in indices:
                 dst.pages.append(src.pages[i])
                 if crop:
@@ -356,7 +454,7 @@ class Document:
                     for r in pdf[page].get_images(full=True)]
 
     def extract_image(self, page, xref, destination):
-        with pp.open(self.path) as pdf:
+        with pp.open(self.path, access_mode=pp.AccessMode.mmap) as pdf:
             obj = pdf.get_object((xref, 0))
             img = pp.PdfImage(obj)
             # extract_to preserves JPEG/JPX encoded bytes when supported, else decodes losslessly.
@@ -465,6 +563,11 @@ class Document:
         if cache and cache[0]==self.revision:
             return [dict(item) for item in cache[1] if page is None or item['page']==page]
         with fitz.open(self.path) as pdf:
+            hints = self.scan_hints()
+            pages = [page] if page is not None else hints['annotated'] if hints is not None else (
+                i for i in range(len(pdf)) if any(
+                    kind not in (fitz.PDF_ANNOT_LINK, fitz.PDF_ANNOT_POPUP, fitz.PDF_ANNOT_WIDGET)
+                    for _, kind, _ in pdf.page_annot_xrefs(i)))
             result=[{'page':p.number,'xref': a.xref, 'type': a.type[1], 'rect': tuple(a.rect * p.rotation_matrix),
                      'text': a.info.get('content', ''), 'author': a.info.get('title',''),
                      'created':a.info.get('creationDate',''),'modified':a.info.get('modDate',''),
@@ -473,7 +576,7 @@ class Document:
                      'line_end':a.line_ends[1] if a.type[1]=='Line' else None,
                      'head_size':float(pdf.xref_get_key(a.xref,'AsterHeadSize')[1]) if pdf.xref_get_key(a.xref,'AsterHeadSize')[0] in ('int','float') else 10,
                      'own': a.info.get('title') == 'AsterPDF' or a.info.get('id','').startswith('AsterPDF-'),**text_style(a)}
-                    for p in ([pdf[page]] if page is not None else pdf) for a in (p.annots() or [])]
+                    for index in pages for p in (pdf[index],) for a in (p.annots() or [])]
             from .annotation_groups import group_replacements
             result=group_replacements(pdf,result)
             if page is None:self._annotation_cache=(self.revision,result)
